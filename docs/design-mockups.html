@@ -78,18 +78,6 @@
         height: 68px;
         flex: 0 0 auto;
         object-fit: contain;
-        image-rendering: pixelated;
-      }
-
-      .runner-mark {
-        transform-origin: 50% 70%;
-        animation: runner-bob 900ms steps(2, end) infinite;
-      }
-
-      @keyframes runner-bob {
-        50% {
-          transform: translateY(-2px);
-        }
       }
 
       .brand-name {
@@ -160,7 +148,7 @@
         border-bottom: 2px solid var(--ink);
       }
 
-      .mascot-racebar {
+      .signal-bar {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr) auto;
         align-items: center;
@@ -173,14 +161,13 @@
           #fffdf7;
       }
 
-      .mascot-large {
+      .signal-mark-large {
         width: 148px;
         height: 88px;
         object-fit: contain;
-        image-rendering: pixelated;
       }
 
-      .race-track {
+      .signal-line {
         height: 8px;
         border-top: 2px solid var(--ink);
         border-bottom: 2px solid var(--ink);
@@ -194,27 +181,27 @@
           );
       }
 
-      .race-pixels {
+      .signal-pixels {
         display: grid;
         grid-template-columns: repeat(3, 14px);
         grid-template-rows: repeat(2, 14px);
         gap: 4px;
       }
 
-      .race-pixels span {
+      .signal-pixels span {
         border: 2px solid var(--ink);
         background: var(--yellow);
       }
 
-      .race-pixels span:nth-child(2) {
+      .signal-pixels span:nth-child(2) {
         background: var(--green);
       }
 
-      .race-pixels span:nth-child(4) {
+      .signal-pixels span:nth-child(4) {
         background: var(--coral);
       }
 
-      .race-pixels span:nth-child(6) {
+      .signal-pixels span:nth-child(6) {
         background: var(--blue);
       }
 
@@ -379,28 +366,27 @@
         color: var(--muted);
       }
 
-      .mascot-strip {
+      .signal-strip {
         margin-top: 22px;
         border: 2px solid var(--ink);
         background: #fffdf7;
         padding: 14px;
       }
 
-      .mascot-lane {
+      .signal-lane {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
         align-items: center;
         gap: 12px;
       }
 
-      .mascot-mini {
+      .signal-mark-mini {
         width: 132px;
         height: 78px;
         object-fit: contain;
-        image-rendering: pixelated;
       }
 
-      .score-ring .mascot-mini {
+      .score-ring .signal-mark-mini {
         width: 112px;
         height: 66px;
       }
@@ -735,12 +721,12 @@
           display: grid;
         }
 
-        .mascot-racebar {
+        .signal-bar {
           grid-template-columns: 1fr;
           justify-items: start;
         }
 
-        .mascot-large {
+        .signal-mark-large {
           width: 132px;
           height: 78px;
         }
@@ -768,7 +754,7 @@
       <section class="sheet" aria-label="Desktop leaderboard mockup">
         <header class="mock-header">
           <div class="brand">
-            <img class="brand-mark runner-mark" src="assets/pace-push-mark.svg" alt="" />
+            <img class="brand-mark" src="assets/pace-push-mark.svg" alt="" />
             <div>
               <h1 class="brand-name">Pace &amp; Push</h1>
               <div class="brand-sub">Healthy body, shipped code.</div>
@@ -799,10 +785,10 @@
               </button>
             </div>
 
-            <div class="mascot-racebar" aria-hidden="true">
-              <img class="mascot-large runner-mark" src="assets/pace-push-mark.svg" alt="" />
-              <div class="race-track"></div>
-              <div class="race-pixels">
+            <div class="signal-bar" aria-hidden="true">
+              <img class="signal-mark-large" src="assets/pace-push-mark.svg" alt="" />
+              <div class="signal-line"></div>
+              <div class="signal-pixels">
                 <span></span>
                 <span></span>
                 <span></span>
@@ -940,13 +926,13 @@
               </div>
             </div>
             <div class="formula">score = sqrt(norm_commits * norm_km)</div>
-            <div class="mascot-strip">
-              <div class="eyebrow">Dino Mode</div>
-              <div class="mascot-lane">
-                <img class="mascot-mini runner-mark" src="assets/pace-push-mark.svg" alt="" />
+            <div class="signal-strip">
+              <div class="eyebrow">Push Signal</div>
+              <div class="signal-lane">
+                <img class="signal-mark-mini" src="assets/pace-push-mark.svg" alt="" />
                 <div class="route-line"></div>
               </div>
-              <div class="small-text">Mascot energy without making the UI feel like a game.</div>
+              <div class="small-text">A compact prompt mark for code shipped and distance logged.</div>
             </div>
           </aside>
         </div>
@@ -955,7 +941,7 @@
       <section class="sheet" aria-label="Desktop profile mockup">
         <header class="mock-header">
           <div class="brand">
-            <img class="brand-mark runner-mark" src="assets/pace-push-mark.svg" alt="" />
+            <img class="brand-mark" src="assets/pace-push-mark.svg" alt="" />
             <div>
               <h2 class="brand-name">Profile</h2>
               <div class="brand-sub">Commit curve meets distance log.</div>
@@ -1032,7 +1018,7 @@
             <div class="phone-body">
               <div class="score-ring">
                 <div>
-                  <img class="mascot-mini runner-mark" src="assets/pace-push-mark.svg" alt="" />
+                  <img class="signal-mark-mini" src="assets/pace-push-mark.svg" alt="" />
                   <div class="ring-score">94.2</div>
                   <div class="ring-label">Balanced score</div>
                 </div>

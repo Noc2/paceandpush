@@ -16,16 +16,12 @@ leaderboard experience, not a marketing landing page.
 
 - Name: Pace & Push.
 - Tagline: Healthy body, shipped code.
-- Mark: an original pixel running dino mascot, kept clean as a standalone
-  silhouette.
-- Mascot direction: playful, blocky, and visibly animal-like without copying the
-  Chrome offline dinosaur or the referenced GitHub profile GIF.
-- Use track or route details only as surrounding UI decoration, not behind the
-  logo mark.
+- Mark: a simple terminal prompt built around `>`, paired with a route/cursor
+  line and small metric pixels.
+- Identity direction: quiet, technical, and direct, with the symbol doing the
+  work without character art.
+- Use route details only as surrounding UI decoration, not behind the logo mark.
 - Avoid GitHub or Strava-derived marks in the product logo.
-- The referenced `saadeghi/saadeghi` `dino.gif` is a good mood reference, but
-  the source repository does not show an obvious license. Do not bundle or ship
-  that GIF directly unless permission or license terms are confirmed.
 
 ## Palette
 

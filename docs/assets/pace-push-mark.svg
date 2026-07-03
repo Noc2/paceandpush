@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="24 16 124 72" role="img" aria-labelledby="title desc" shape-rendering="crispEdges">
-  <title id="title">Pace and Push pixel running dino mark</title>
-  <desc id="desc">A clean blocky pixel dinosaur mascot running forward.</desc>
-  <path d="M30 52H42V44H54V36H70V28H100V20H124V28H132V36H144V52H128V60H112V68H104V78H116V86H90V78H82V68H72V78H80V86H54V68H46V60H30Z" fill="#f6c85f" stroke="#1f1c17" stroke-width="6" stroke-linejoin="miter"/>
-  <rect x="114" y="34" width="6" height="6" fill="#1f1c17"/>
-  <rect x="124" y="48" width="14" height="4" fill="#1f1c17"/>
-  <rect x="96" y="58" width="18" height="8" fill="#1f1c17"/>
-  <rect x="54" y="80" width="22" height="8" fill="#1f1c17"/>
-  <rect x="90" y="80" width="24" height="8" fill="#1f1c17"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 72" role="img" aria-labelledby="title desc" shape-rendering="geometricPrecision">
+  <title id="title">Pace and Push prompt mark</title>
+  <desc id="desc">A simple terminal prompt mark with a route cursor and metric pixels.</desc>
+  <path d="M16 16 42 36 16 56" fill="none" stroke="#1f1c17" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"/>
+  <rect x="54" y="50" width="46" height="8" fill="#1f1c17"/>
+  <path d="M54 34H68V26H84V34H100" fill="none" stroke="#1f1c17" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"/>
+  <rect x="54" y="34" width="8" height="8" fill="#2f9e44"/>
+  <rect x="80" y="26" width="8" height="8" fill="#f15a3a"/>
+  <rect x="100" y="34" width="8" height="8" fill="#3277b8"/>
 </svg>
