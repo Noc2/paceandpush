@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc" shape-rendering="geometricPrecision">
   <title id="title">Pace and Push prompt mark</title>
   <desc id="desc">A simple terminal prompt mark.</desc>
+  <rect width="64" height="64" fill="#f97316"/>
   <path d="M18 14 42 32 18 50" fill="none" stroke="#1f1c17" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter"/>
 </svg>

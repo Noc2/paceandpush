@@ -24,7 +24,7 @@ export function renderProfileChartSvg(profile: PublicProfileResponse): string {
   <rect x="0.5" y="0.5" width="${chartWidth - 1}" height="${chartHeight - 1}" rx="17.5" fill="none" stroke="${brandColors.ink}" stroke-opacity="0.12"/>
 
   <g transform="translate(30 28)">
-    <rect width="34" height="34" fill="none" stroke="${brandColors.ink}" stroke-width="2"/>
+    <rect width="34" height="34" fill="${brandColors.secondaryOrange}" stroke="${brandColors.ink}" stroke-width="2"/>
     <text x="17" y="25" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="24" font-weight="900" fill="${brandColors.ink}">${escapeXml(promptMark.character)}</text>
     <text x="48" y="16" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="800" fill="${brandColors.ink}">@${escapeXml(profile.login)}</text>
     <text x="48" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="650" fill="${brandColors.mutedInk}">${escapeXml(profile.displayName)}</text>
