@@ -28,7 +28,10 @@ and Health Connect data ingestion.
 - `apps/android`: native Kotlin/Compose app with Health Connect sync and the
   same score, leaderboard, profile, and settings basics as the website.
 - `packages/api-contracts`: shared TypeScript schemas for public API request and
-  response payloads used by web, iOS, and Android.
+  response payloads used by web, iOS, and Android, plus generated OpenAPI/JSON
+  Schema artifacts or checked fixtures for native model parity.
+- `packages/brand`: shared prompt-mark assets and design tokens for the web and
+  native app implementations.
 
 ## Technical Shape
 
@@ -40,6 +43,8 @@ and Health Connect data ingestion.
 - Vercel Cron for GitHub contribution refresh and score materialization.
 - Lazy server-side initialization for database and SDK clients so Vercel builds
   do not require runtime secrets at module load time.
+- Shared prompt-mark brand assets, sparse leaderboard-first UI, and no mascot or
+  character art.
 
 ### iOS
 
@@ -127,8 +132,21 @@ Initial endpoints:
   single fitness social graph.
 - Android Health Connect supports foreground and background reads, and Google
   recommends aggregate reads for cumulative metrics.
+- Android Health Connect background reads and reading history older than the
+  default lookback require extra permissions, so the PoC should start with
+  foreground manual sync and short history windows.
+- Google Play health permission review expects clear user benefit, minimum
+  requested data types, prominent disclosure, privacy policy coverage, and
+  security practices.
 - Apple HealthKit remains a native-app API, so a pure web app cannot be the only
   ingestion path for Apple Health data.
+- Apple App Review treats health and fitness data as especially sensitive. The
+  product must disclose collected health data and must not use it for
+  advertising, marketing, or data mining.
+- Vercel monorepos should deploy `apps/web` as the project root. Cron jobs are
+  configured through `vercel.json` and invoked as HTTP GET requests.
+- Vercel Postgres is no longer a new-project product; use a Marketplace
+  Postgres provider such as Neon.
 
 Useful references:
 
@@ -136,8 +154,11 @@ Useful references:
 - Android Health Connect: https://developer.android.com/health-and-fitness/health-connect
 - Android Health Connect read data: https://developer.android.com/health-and-fitness/health-connect/read-data
 - Android Health Connect aggregate data: https://developer.android.com/health-and-fitness/health-connect/aggregate-data
+- Google Play health permissions: https://support.google.com/googleplay/android-developer/answer/12991134
+- Apple App Review health rules: https://developer.apple.com/app-store/review/guidelines/#health-and-health-research
 - GitHub OAuth scopes: https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps
 - Vercel Git deployments: https://vercel.com/docs/git
+- Vercel monorepos: https://vercel.com/docs/monorepos
 - Vercel Cron Jobs: https://vercel.com/docs/cron-jobs
 - Vercel domains: https://vercel.com/docs/domains/working-with-domains/add-a-domain
 
@@ -146,72 +167,84 @@ Useful references:
 1. `chore: scaffold monorepo for web ios android`
    - Initialize repo structure.
    - Add `apps/web`, `apps/ios`, `apps/android`, and `packages/api-contracts`.
+   - Add minimal SwiftUI and Compose app shells that can evolve from the first
+     scaffold.
    - Add basic docs, formatting, env examples, and CI/build placeholders.
 
-2. `feat: define shared api contracts and score model`
+2. `feat: add shared brand tokens and prompt logo`
+   - Add the `>` prompt mark as a reusable asset.
+   - Add palette, typography, and spacing tokens.
+   - Document that the brand has no mascot or character art.
+
+3. `feat: define shared api contracts and score model`
    - Add schemas for leaderboard rows, profile responses, mobile sync payloads,
      and score summaries.
+   - Add OpenAPI/JSON Schema output or fixtures for Swift/Kotlin model parity.
    - Add score calculation helpers and unit tests.
 
-3. `feat: add backend schema for users scores and devices`
+4. `feat: add backend schema for users scores and devices`
    - Add Drizzle schema and migrations.
    - Model users, GitHub accounts, mobile devices, commit days, distance days,
      score snapshots, and sync runs.
 
-4. `feat: add github auth and account identity`
+5. `feat: add github auth and account identity`
    - Implement GitHub OAuth.
    - Store GitHub identity.
    - Add session handling and account settings.
 
-5. `feat: add leaderboard and profile api endpoints`
+6. `feat: add mobile pairing and device token auth`
+   - Add short-lived pairing-code creation and exchange.
+   - Add mobile device token hashing and verification.
+   - Add device revocation support used by Settings.
+
+7. `feat: add leaderboard profile and me APIs`
    - Implement read APIs used by all clients.
    - Return seeded data until real sync lands.
    - Add API tests for ranking, period filtering, and privacy filtering.
 
-6. `feat: build web leaderboard and profile views`
-   - Build the first web experience inspired by commit-history.com.
-   - Add homepage leaderboard, profile page, settings, and empty states.
+8. `feat: add mobile distance ingestion and sync runs`
+   - Add mobile-authenticated ingestion endpoint.
+   - Validate payloads and source hashes.
+   - Upsert daily summaries idempotently.
+   - Record sync runs.
 
-7. `feat: build ios app shell with score and leaderboard`
+9. `feat: build ios app shell with pairing and read APIs`
    - Add SwiftUI tab structure.
    - Show Today, Leaderboard, Profile, Sync, and Settings views from the shared
      API.
    - Add pairing flow and secure token storage.
 
-8. `feat: build android app shell with score and leaderboard`
+10. `feat: build android app shell with pairing and read APIs`
    - Add Compose navigation and tab structure.
    - Show Today, Leaderboard, Profile, Sync, and Settings views from the shared
      API.
    - Add pairing flow and encrypted token storage.
 
-9. `feat: add ios HealthKit distance sync`
+11. `feat: add ios HealthKit distance sync`
    - Request HealthKit permissions.
    - Read walking/running distance and workout distance.
    - Preview daily summaries before upload.
    - Add manual sync.
 
-10. `feat: add android Health Connect distance sync`
+12. `feat: add android Health Connect distance sync`
     - Check Health Connect availability.
     - Request required permissions.
     - Read aggregate walking/running distance and exercise session distance.
     - Add manual sync.
 
-11. `feat: ingest mobile distance summaries`
-    - Add mobile-authenticated ingestion endpoint.
-    - Validate payloads and source hashes.
-    - Upsert daily summaries idempotently.
-    - Record sync runs.
+13. `feat: build web leaderboard and profile views`
+    - Build the leaderboard-first web experience using the sparse developer-tool
+      direction and shared prompt mark.
+    - Add homepage leaderboard, profile page, settings, and empty states.
 
-12. `feat: add profile charts and sync history to all clients`
+14. `feat: add charts privacy controls and delete flows`
     - Add score, commits, and kilometers history to web, iOS, and Android.
     - Show sync status and recent errors consistently.
-
-13. `feat: add privacy controls and delete data flow`
     - Add public leaderboard opt-in.
     - Add device revocation.
     - Add delete-all data flow and clear user-facing copy.
 
-14. `chore: prepare vercel and mobile beta launch`
+15. `chore: prepare vercel and mobile beta launch`
     - Configure Vercel project and domain checklist for `paceandpush.com`.
     - Add TestFlight and internal Android testing docs.
     - Add privacy policy and health permission rationale.
@@ -226,4 +259,5 @@ Useful references:
 - Android can read native Health Connect distance and upload daily summaries.
 - The web and mobile clients show the same leaderboard and profile data.
 - Public leaderboard participation is opt-in.
+- The prompt-mark identity is consistent across web, iOS, and Android.
 - The project deploys to Vercel and is ready to attach `paceandpush.com`.
