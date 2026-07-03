@@ -1,0 +1,51 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Pace & Push API",
+    "version": "2026-07-03"
+  },
+  "paths": {
+    "/api/me": {
+      "get": {
+        "summary": "Current user score and settings",
+        "responses": {
+          "200": {
+            "description": "Current user"
+          }
+        }
+      }
+    },
+    "/api/leaderboard": {
+      "get": {
+        "summary": "Monthly leaderboard",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "schema": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" }
+          },
+          {
+            "name": "board",
+            "in": "query",
+            "schema": { "enum": ["balanced", "commits", "distance"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Leaderboard rows"
+          }
+        }
+      }
+    },
+    "/api/mobile/distance-days": {
+      "post": {
+        "summary": "Upload daily distance summaries",
+        "responses": {
+          "200": {
+            "description": "Accepted counter"
+          }
+        }
+      }
+    }
+  }
+}
