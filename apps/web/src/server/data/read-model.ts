@@ -6,7 +6,6 @@ import type {
   PublicProfileResponse,
   ScoreSummary,
 } from "@paceandpush/api-contracts";
-import { seedLeaderboard, seedMe, seedProfile } from "@paceandpush/api-contracts";
 import type { SessionUser } from "@/server/auth/session";
 import { getAccountUser } from "@/server/data/accounts";
 import { listMobileDevices } from "@/server/data/mobile";
@@ -20,7 +19,11 @@ export async function getLeaderboard(
   period = currentPeriod(),
 ): Promise<LeaderboardResponse> {
   if (!isDatabaseConfigured()) {
-    return getSeedLeaderboard(board, period);
+    return {
+      period,
+      board,
+      rows: [],
+    };
   }
 
   const rows = await getDb()
@@ -65,9 +68,7 @@ export async function getPublicProfile(
   login: string,
   period = currentPeriod(),
 ): Promise<PublicProfileResponse | null> {
-  if (!isDatabaseConfigured()) {
-    return getSeedProfile(login, period);
-  }
+  if (!isDatabaseConfigured()) return null;
 
   const [user] = await getDb()
     .select()
@@ -93,13 +94,12 @@ export async function getMe(sessionUser: SessionUser | null): Promise<MeResponse
 
   if (!isDatabaseConfigured()) {
     return {
-      ...seedMe,
-      login: sessionUser?.login ?? seedMe.login,
-      displayName: sessionUser?.displayName ?? seedMe.displayName,
-      score: {
-        ...seedMe.score,
-        period,
-      },
+      login: sessionUser?.login ?? "guest",
+      displayName: sessionUser?.displayName ?? "Guest",
+      publicLeaderboard: false,
+      units: "metric",
+      score: emptyScore(period),
+      devices: [],
     };
   }
 
@@ -299,64 +299,5 @@ function getPeriodBounds(period: string): { start: string; end: string } {
   return {
     start: new Date(Date.UTC(year, month - 1, 1)).toISOString().slice(0, 10),
     end: new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10),
-  };
-}
-
-function getSeedLeaderboard(board: Board, period: string): LeaderboardResponse {
-  const rows = [...seedLeaderboard.rows]
-    .sort((left, right) => {
-      if (board === "commits") return right.commits - left.commits;
-      if (board === "distance") return right.kilometers - left.kilometers;
-      return right.score - left.score;
-    })
-    .map((row, index) => ({
-      ...row,
-      rank: index + 1,
-    }));
-
-  return {
-    ...seedLeaderboard,
-    board,
-    period,
-    rows,
-  };
-}
-
-function getSeedProfile(login: string, period: string): PublicProfileResponse | null {
-  if (login.toLowerCase() === seedProfile.login.toLowerCase()) {
-    return {
-      ...seedProfile,
-      score: {
-        ...seedProfile.score,
-        period,
-      },
-    };
-  }
-
-  const row = seedLeaderboard.rows.find(
-    (leader) => leader.login.toLowerCase() === login.toLowerCase(),
-  );
-
-  if (!row) return null;
-
-  return {
-    login: row.login,
-    displayName: row.displayName,
-    bio: "Healthy body, shipped code.",
-    score: {
-      period,
-      score: row.score,
-      rank: row.rank,
-      commits: row.commits,
-      kilometers: row.kilometers,
-      lastSyncAt: null,
-    },
-    history: seedProfile.history.map((point) => ({
-      date: point.date,
-      commits: Math.round((point.commits / seedProfile.score.commits) * row.commits),
-      kilometers:
-        Math.round((point.kilometers / seedProfile.score.kilometers) * row.kilometers * 10) / 10,
-      score: Math.round((point.score / seedProfile.score.score) * row.score * 10) / 10,
-    })),
   };
 }
