@@ -81,6 +81,13 @@ a {
 .brand-lockup small,
 .developer small,
 .profile-hero p,
+.mobile-apps-panel p,
+.mobile-connect-section p,
+.mobile-app-card span,
+.mobile-app-card p,
+.pairing-code-card p,
+.device-list p,
+.device-row span,
 .stat span,
 .settings-row span,
 .history-list span,
@@ -146,6 +153,78 @@ a {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 40px;
   line-height: 1;
+}
+
+.mobile-apps-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr) minmax(150px, 0.5fr);
+  gap: 22px;
+  align-items: center;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.mobile-apps-copy h2,
+.mobile-connect-section h2 {
+  margin: 0 0 10px;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.mobile-apps-copy p:not(.section-label),
+.mobile-connect-section p:not(.section-label) {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.mobile-app-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mobile-app-card {
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.mobile-app-card strong,
+.mobile-app-card span {
+  display: block;
+}
+
+.mobile-app-card strong {
+  margin-bottom: 3px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.mobile-app-card p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.mobile-app-actions {
+  display: grid;
+  gap: 16px;
+  justify-items: stretch;
+}
+
+.status-pill {
+  width: fit-content;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  background: rgba(47, 158, 68, 0.08);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .tabs {
@@ -295,6 +374,107 @@ a {
   margin-bottom: 14px;
 }
 
+.mobile-connect-section {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.46fr) minmax(0, 1fr);
+  gap: 24px;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.mobile-connect-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.pairing-code-card,
+.pairing-code-result,
+.device-row {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.pairing-code-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 16px;
+}
+
+.pairing-code-card h3,
+.device-list h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.pairing-code-card p,
+.device-list p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.pairing-code-result {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.pairing-code-result > span,
+.pairing-code-result div > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pairing-code-result code {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 12px;
+  border-left: 4px solid var(--orange);
+  background: rgba(249, 115, 22, 0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.pairing-code-result div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.form-error {
+  margin: 0;
+  color: #9f1239;
+  font-weight: 800;
+}
+
+.device-list {
+  display: grid;
+  gap: 10px;
+}
+
+.device-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.device-row strong,
+.device-row span {
+  display: block;
+}
+
+.device-row strong {
+  margin-bottom: 4px;
+}
+
 .chart-panel {
   display: grid;
   grid-template-columns: minmax(220px, 0.46fr) minmax(0, 1fr);
@@ -367,8 +547,15 @@ a {
 
   .summary-bar,
   .stats-list,
+  .mobile-apps-panel,
+  .mobile-connect-section,
   .chart-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mobile-apps-panel,
+  .mobile-connect-section {
+    align-items: stretch;
   }
 
   .leaderboard {
@@ -381,6 +568,11 @@ a {
   }
 
   .settings-row,
+  .mobile-apps-panel,
+  .mobile-app-list,
+  .mobile-connect-section,
+  .pairing-code-card,
+  .device-row,
   .chart-panel,
   .history-list div {
     grid-template-columns: 1fr;

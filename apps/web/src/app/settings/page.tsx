@@ -2,9 +2,11 @@ import { getSessionUser } from "@/server/auth/session";
 import { getMe } from "@/server/data/read-model";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
+import { MobileConnectPanel } from "./MobileConnectPanel";
 
 export default async function SettingsPage() {
   const me = await getMe(await getSessionUser());
+  const activeDeviceCount = me.devices.filter((device) => !device.revoked).length;
 
   return (
     <main className="app-shell">
@@ -34,6 +36,28 @@ export default async function SettingsPage() {
           </p>
         </section>
 
+        <section
+          id="mobile-apps"
+          className="mobile-connect-section"
+          aria-labelledby="mobile-apps-title"
+        >
+          <div>
+            <p className="section-label">Companion apps</p>
+            <h2 id="mobile-apps-title">Connect the mobile app</h2>
+            <p>
+              Generate a pairing code here, then paste it into the iOS or
+              Android app to connect daily distance sync.
+            </p>
+          </div>
+          {me.login === "guest" ? (
+            <Link className="button button-primary settings-cta" href="/api/github/oauth/start">
+              Connect GitHub
+            </Link>
+          ) : (
+            <MobileConnectPanel initialDevices={me.devices} />
+          )}
+        </section>
+
         <div className="settings-list">
           {me.login === "guest" ? (
             <Link className="button button-primary settings-cta" href="/api/github/oauth/start">
@@ -42,7 +66,7 @@ export default async function SettingsPage() {
           ) : null}
           <SettingsRow label="Leaderboard" value={me.publicLeaderboard ? "Public" : "Private"} />
           <SettingsRow label="Units" value={me.units} />
-          <SettingsRow label="Devices" value={`${me.devices.length} connected`} />
+          <SettingsRow label="Devices" value={`${activeDeviceCount} connected`} />
           <SettingsRow label="Data export" value="/api/me/privacy-export" />
           <SettingsRow label="Delete request" value="DELETE /api/me/delete" />
         </div>
