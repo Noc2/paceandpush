@@ -20,8 +20,10 @@ const boards: Array<{ id: Board; label: string }> = [
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = searchParams ? await searchParams : {};
   const board = parseBoard(params.board ?? null);
-  const leaderboard = getLeaderboard(board, params.period);
-  const me = getMe(await getSessionUser());
+  const [leaderboard, me] = await Promise.all([
+    getLeaderboard(board, params.period),
+    getMe(await getSessionUser()),
+  ]);
 
   return (
     <main className="app-shell">

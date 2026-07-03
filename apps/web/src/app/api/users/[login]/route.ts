@@ -6,7 +6,7 @@ export async function GET(
   context: { params: Promise<{ login: string }> },
 ) {
   const { login } = await context.params;
-  const profile = getPublicProfile(decodeURIComponent(login));
+  const profile = await getPublicProfile(decodeURIComponent(login));
   if (!profile) {
     return NextResponse.json({ error: "Profile not found." }, { status: 404 });
   }

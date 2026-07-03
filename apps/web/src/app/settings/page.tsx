@@ -4,7 +4,7 @@ import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
 
 export default async function SettingsPage() {
-  const me = getMe(await getSessionUser());
+  const me = await getMe(await getSessionUser());
 
   return (
     <main className="app-shell">

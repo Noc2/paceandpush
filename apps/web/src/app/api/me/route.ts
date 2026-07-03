@@ -3,5 +3,5 @@ import { getMe } from "@/server/data/read-model";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  return NextResponse.json(getMe(await getSessionUser()));
+  return NextResponse.json(await getMe(await getSessionUser()));
 }

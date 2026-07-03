@@ -1,3 +1,8 @@
+import {
+  currentPeriod,
+  recomputeScoreSnapshots,
+  refreshPublicGitHubCommits,
+} from "@/server/data/scores";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -8,9 +13,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const period = request.nextUrl.searchParams.get("period") || currentPeriod();
+  const github = await refreshPublicGitHubCommits(period);
+  const scores = await recomputeScoreSnapshots(period);
+
   return NextResponse.json({
-    ok: true,
+    ok: github.errors.length === 0,
     job: "recompute-scores",
+    period,
+    github,
+    scores,
     processedAt: new Date().toISOString(),
   });
 }

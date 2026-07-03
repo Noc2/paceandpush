@@ -11,10 +11,10 @@ type UserPageProps = {
 
 export default async function UserPage({ params }: UserPageProps) {
   const { login } = await params;
-  const profile = getPublicProfile(decodeURIComponent(login));
+  const profile = await getPublicProfile(decodeURIComponent(login));
   if (!profile) notFound();
 
-  const leaderboard = getLeaderboard();
+  const leaderboard = await getLeaderboard();
   const row = leaderboard.rows.find(
     (leader) => leader.login.toLowerCase() === profile.login.toLowerCase(),
   );
