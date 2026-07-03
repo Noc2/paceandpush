@@ -10,8 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@paceandpush/api-contracts": "file:../../packages/api-contracts",
     "@paceandpush/brand": "file:../../packages/brand",
+    "drizzle-orm": "^0.45.2",
     "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4"
