@@ -35,6 +35,24 @@ export const seedLeaderboard: LeaderboardResponse = {
       kilometers: 73.2,
       streakDays: 5,
     },
+    {
+      rank: 4,
+      login: "ship-patch",
+      displayName: "Sam Patel",
+      score: 71.8,
+      commits: 421,
+      kilometers: 31.9,
+      streakDays: 2,
+    },
+    {
+      rank: 5,
+      login: "irunlint",
+      displayName: "Iris Kim",
+      score: 69.6,
+      commits: 133,
+      kilometers: 102,
+      streakDays: 9,
+    },
   ],
 };
 
@@ -63,5 +81,9 @@ export const seedProfile: PublicProfileResponse = {
     { date: "2026-07-01", commits: 41, kilometers: 8.1, score: 42.8 },
     { date: "2026-07-02", commits: 93, kilometers: 23.5, score: 68.4 },
     { date: "2026-07-03", commits: 128, kilometers: 31.2, score: 75.6 },
+    { date: "2026-07-04", commits: 176, kilometers: 43.8, score: 80.9 },
+    { date: "2026-07-05", commits: 219, kilometers: 58.7, score: 86.3 },
+    { date: "2026-07-06", commits: 260, kilometers: 71.5, score: 90.4 },
+    { date: "2026-07-07", commits: 312, kilometers: 86.4, score: 94.2 },
   ],
 };
