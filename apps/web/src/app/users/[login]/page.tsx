@@ -18,6 +18,8 @@ export default async function UserPage({ params }: UserPageProps) {
   const row = leaderboard.rows.find(
     (leader) => leader.login.toLowerCase() === profile.login.toLowerCase(),
   );
+  const chartPath = `/api/embed/${encodeURIComponent(profile.login)}/chart.svg`;
+  const embedMarkdown = `![${brandName} chart](https://paceandpush.com${chartPath})`;
 
   return (
     <main className="app-shell">
@@ -49,6 +51,23 @@ export default async function UserPage({ params }: UserPageProps) {
           <Stat label="Kilometers" value={profile.score.kilometers.toFixed(1)} />
           <Stat label="Streak" value={`${row?.streakDays ?? 0}d`} />
         </div>
+
+        <section className="chart-panel" aria-label="Embeddable profile chart">
+          <div className="chart-panel-copy">
+            <p className="section-label">Profile chart</p>
+            <h2>Embed it on GitHub</h2>
+            <p>
+              A lightweight SVG card for profile READMEs with your score trend,
+              commits, and kilometers.
+            </p>
+            <code>{embedMarkdown}</code>
+          </div>
+          <img
+            className="profile-chart"
+            src={chartPath}
+            alt={`${brandName} chart for ${profile.login}`}
+          />
+        </section>
 
         <section className="history-list" aria-label="July history">
           <h2>July history</h2>

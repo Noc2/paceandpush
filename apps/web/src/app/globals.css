@@ -5,6 +5,7 @@
   --line: #ded6c8;
   --green: #2f9e44;
   --coral: #f15a3a;
+  --orange: #f97316;
   --blue: #3277b8;
   --yellow: #f6c85f;
 }
@@ -112,8 +113,8 @@ a {
 }
 
 .button-primary {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--orange);
+  color: var(--ink);
 }
 
 .summary-bar {
@@ -163,7 +164,8 @@ a {
 }
 
 .tabs a.active {
-  border-color: var(--ink);
+  background: rgba(249, 115, 22, 0.08);
+  border-color: var(--orange);
   color: var(--ink);
 }
 
@@ -292,6 +294,48 @@ a {
   margin-bottom: 14px;
 }
 
+.chart-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.46fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  padding: 30px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.chart-panel h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.chart-panel p:not(.section-label) {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.chart-panel code {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--orange);
+  background: rgba(249, 115, 22, 0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.profile-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
 .history-list h2 {
   margin: 0 0 6px;
   font-size: 22px;
@@ -321,7 +365,8 @@ a {
   }
 
   .summary-bar,
-  .stats-list {
+  .stats-list,
+  .chart-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -335,6 +380,7 @@ a {
   }
 
   .settings-row,
+  .chart-panel,
   .history-list div {
     grid-template-columns: 1fr;
     gap: 6px;

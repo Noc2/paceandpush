@@ -11,6 +11,7 @@ export const brandColors = {
   lineStrong: "#b9ad9d",
   commitGreen: "#2f9e44",
   distanceCoral: "#f15a3a",
+  secondaryOrange: "#f97316",
   rankBlue: "#3277b8",
   warmHighlight: "#f6c85f",
 } as const;
@@ -34,6 +35,7 @@ export const cssVariables = `:root {
   --line-strong: ${brandColors.lineStrong};
   --green: ${brandColors.commitGreen};
   --coral: ${brandColors.distanceCoral};
+  --orange: ${brandColors.secondaryOrange};
   --blue: ${brandColors.rankBlue};
   --yellow: ${brandColors.warmHighlight};
 }`;
