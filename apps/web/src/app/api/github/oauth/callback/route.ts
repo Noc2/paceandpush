@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
   response.cookies.delete(githubOAuthStateCookieName);
   response.cookies.set(getSessionCookieName(), signSession(user), {
     httpOnly: true,
+    maxAge: 30 * 24 * 60 * 60,
     sameSite: "lax",
     secure: appUrl.startsWith("https://"),
     path: "/",

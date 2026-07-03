@@ -8,14 +8,25 @@ export interface SessionUser {
   avatarUrl: string | null;
 }
 
+interface SignedSessionPayload extends SessionUser {
+  exp: number;
+}
+
 const sessionCookieName = "pace_push_session";
+const sessionTtlMs = 30 * 24 * 60 * 60 * 1000;
 
 export function getSessionCookieName(): string {
   return sessionCookieName;
 }
 
 export function signSession(user: SessionUser): string {
-  const payload = Buffer.from(JSON.stringify(user), "utf8").toString("base64url");
+  const payload = Buffer.from(
+    JSON.stringify({
+      ...user,
+      exp: Date.now() + sessionTtlMs,
+    } satisfies SignedSessionPayload),
+    "utf8",
+  ).toString("base64url");
   const signature = sign(payload);
   return `${payload}.${signature}`;
 }
@@ -32,7 +43,18 @@ export function verifySession(token: string | undefined): SessionUser | null {
   if (!timingSafeEqual(expectedBuffer, actualBuffer)) return null;
 
   try {
-    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as SessionUser;
+    const parsed = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    ) as Partial<SignedSessionPayload>;
+    if (!parsed.exp || parsed.exp < Date.now()) return null;
+    if (!parsed.githubId || !parsed.login || !parsed.displayName) return null;
+
+    return {
+      githubId: parsed.githubId,
+      login: parsed.login,
+      displayName: parsed.displayName,
+      avatarUrl: parsed.avatarUrl ?? null,
+    };
   } catch {
     return null;
   }
@@ -48,6 +70,9 @@ function sign(payload: string): string {
 }
 
 function getSessionSecret(): string {
-  return process.env.SESSION_SECRET || "paceandpush-local-dev-session-secret";
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET is required in production.");
+  }
+  return "paceandpush-local-dev-session-secret";
 }
-
