@@ -40,6 +40,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <select aria-label="Leaderboard period" defaultValue={leaderboard.period}>
               <option value="2026-07">July 2026</option>
             </select>
+            <Link className="button" href="/settings">
+              Settings
+            </Link>
             <a className="button button-primary" href="/api/github/oauth/start">
               <span aria-hidden="true">^</span>
               Connect GitHub
