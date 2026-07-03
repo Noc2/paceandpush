@@ -22,8 +22,7 @@ export const brandTypography = {
 
 export const promptMark = {
   label: "Pace and Push prompt mark",
-  motif: "terminal prompt plus route cursor and metric pixels",
-  assetPath: "/assets/pace-push-mark.svg",
+  character: ">",
 } as const;
 
 export const cssVariables = `:root {

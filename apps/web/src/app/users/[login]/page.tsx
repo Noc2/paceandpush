@@ -1,5 +1,4 @@
 import { getLeaderboard, getPublicProfile } from "@/server/data/read-model";
-import type { ProfileHistoryPoint } from "@paceandpush/api-contracts";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -25,84 +24,53 @@ export default async function UserPage({ params }: UserPageProps) {
       <section className="app-frame profile-page" aria-label={`${profile.login} profile`}>
         <header className="topbar">
           <Link href="/" className="brand-lockup" aria-label={brandName}>
-            <img src={promptMark.assetPath} alt="" className="brand-mark" />
+            <span className="logo-mark" aria-hidden="true">
+              {promptMark.character}
+            </span>
             <span>
               <strong>{brandName}</strong>
               <small>{brandTagline}</small>
             </span>
           </Link>
           <Link className="button" href="/">
-            <span aria-hidden="true">&lt;</span>
-            Board
+            Leaderboard
           </Link>
         </header>
 
         <section className="profile-hero">
-          <span className="avatar avatar-large">{initials(profile.displayName)}</span>
-          <div>
-            <p className="section-label">Developer profile</p>
-            <h1>@{profile.login}</h1>
-            <p>{profile.bio}</p>
-          </div>
+          <p className="section-label">Developer profile</p>
+          <h1>@{profile.login}</h1>
+          <p>{profile.bio}</p>
         </section>
 
-        <div className="metric-grid">
-          <Metric title="Score" value={profile.score.score.toFixed(1)} tone="blue" />
-          <Metric title="Commits" value={String(profile.score.commits)} tone="green" />
-          <Metric title="Distance" value={profile.score.kilometers.toFixed(1)} tone="coral" />
-          <Metric title="Streak" value={`${row?.streakDays ?? 0}d`} tone="ink" />
+        <div className="stats-list">
+          <Stat label="Score" value={profile.score.score.toFixed(1)} />
+          <Stat label="Commits" value={String(profile.score.commits)} />
+          <Stat label="Kilometers" value={profile.score.kilometers.toFixed(1)} />
+          <Stat label="Streak" value={`${row?.streakDays ?? 0}d`} />
         </div>
 
-        <section className="profile-strip">
-          <div>
-            <p className="section-label">July history</p>
-            <h2>Balanced progress</h2>
-            <p>Commits and kilometers are rolled up by day.</p>
-          </div>
-          <HistoryBars points={profile.history} />
+        <section className="history-list" aria-label="July history">
+          <h2>July history</h2>
+          {profile.history.map((point) => (
+            <div key={point.date}>
+              <span>{point.date}</span>
+              <strong>{point.score.toFixed(1)}</strong>
+              <span>{point.commits} commits</span>
+              <span>{point.kilometers.toFixed(1)} km</span>
+            </div>
+          ))}
         </section>
       </section>
     </main>
   );
 }
 
-function Metric({
-  title,
-  value,
-  tone,
-}: {
-  title: string;
-  value: string;
-  tone: "blue" | "coral" | "green" | "ink";
-}) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="metric-card">
-      <span>{title}</span>
-      <strong className={`tone-${tone}`}>{value}</strong>
+    <div className="stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
-}
-
-function HistoryBars({ points }: { points: ProfileHistoryPoint[] }) {
-  const maxScore = Math.max(...points.map((point) => point.score), 1);
-
-  return (
-    <div className="history-bars" aria-label="Score history">
-      {points.map((point) => (
-        <span key={point.date} title={`${point.date}: ${point.score.toFixed(1)}`}>
-          <i style={{ height: `${Math.max(12, (point.score / maxScore) * 100)}%` }} />
-          <small>{point.date.slice(5)}</small>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 }

@@ -1,10 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 72" role="img" aria-labelledby="title desc" shape-rendering="geometricPrecision">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc" shape-rendering="geometricPrecision">
   <title id="title">Pace and Push prompt mark</title>
-  <desc id="desc">A simple terminal prompt mark with a route cursor and metric pixels.</desc>
-  <path d="M16 16 42 36 16 56" fill="none" stroke="#1f1c17" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"/>
-  <rect x="54" y="50" width="46" height="8" fill="#1f1c17"/>
-  <path d="M54 34H68V26H84V34H100" fill="none" stroke="#1f1c17" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"/>
-  <rect x="54" y="34" width="8" height="8" fill="#2f9e44"/>
-  <rect x="80" y="26" width="8" height="8" fill="#f15a3a"/>
-  <rect x="100" y="34" width="8" height="8" fill="#3277b8"/>
+  <desc id="desc">A simple terminal prompt mark.</desc>
+  <path d="M18 14 42 32 18 50" fill="none" stroke="#1f1c17" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter"/>
 </svg>
