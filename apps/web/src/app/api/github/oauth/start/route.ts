@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { buildGitHubAuthorizeUrl } from "@/server/github/oauth";
-import { NextResponse } from "next/server";
+import {
+  buildGitHubAuthorizeUrl,
+  githubOAuthStateCookieName,
+} from "@/server/github/oauth";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!process.env.GITHUB_CLIENT_ID) {
     return NextResponse.json(
       {
@@ -13,7 +16,15 @@ export async function GET() {
     );
   }
 
-  const response = NextResponse.redirect(buildGitHubAuthorizeUrl(randomUUID()));
+  const state = randomUUID();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+  const response = NextResponse.redirect(buildGitHubAuthorizeUrl(state));
+  response.cookies.set(githubOAuthStateCookieName, state, {
+    httpOnly: true,
+    maxAge: 10 * 60,
+    sameSite: "lax",
+    secure: appUrl.startsWith("https://"),
+    path: "/",
+  });
   return response;
 }
-
