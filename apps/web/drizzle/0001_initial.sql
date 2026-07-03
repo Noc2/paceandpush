@@ -61,6 +61,7 @@ CREATE UNIQUE INDEX commit_days_user_day_idx ON commit_days (user_id, day);
 CREATE TABLE distance_days (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users (id),
+  device_id uuid REFERENCES mobile_devices (id),
   day date NOT NULL,
   meters integer NOT NULL,
   source_platform platform NOT NULL,
@@ -71,7 +72,7 @@ CREATE TABLE distance_days (
 );
 
 CREATE UNIQUE INDEX distance_days_user_day_idx ON distance_days (user_id, day);
-CREATE UNIQUE INDEX distance_days_source_hash_idx ON distance_days (source_hash);
+CREATE UNIQUE INDEX distance_days_user_source_hash_idx ON distance_days (user_id, source_hash);
 
 CREATE TABLE score_snapshots (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

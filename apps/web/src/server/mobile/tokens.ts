@@ -31,12 +31,9 @@ export interface DeviceTokenPayload {
   exp: number;
 }
 
-export interface VerifiedMobileDevice {
-  user: {
-    githubId: string;
-    login: string;
-  };
-  device: MobileDeviceSummary;
+export interface DecodedDeviceToken {
+  payload: DeviceTokenPayload;
+  token: string;
 }
 
 export function createPairingCode(
@@ -86,9 +83,9 @@ export function exchangePairingCode(
   };
 }
 
-export function verifyDeviceToken(
+export function decodeDeviceToken(
   authorizationHeader: string | null,
-): VerifiedMobileDevice | null {
+): DecodedDeviceToken | null {
   const token = authorizationHeader?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return null;
   const payload = verifySignedToken<DeviceTokenPayload>(deviceTokenPrefix, token);
@@ -96,19 +93,7 @@ export function verifyDeviceToken(
     return null;
   }
 
-  return {
-    user: {
-      githubId: payload.sub,
-      login: payload.login,
-    },
-    device: {
-      id: payload.deviceId,
-      platform: payload.platform,
-      label: payload.label,
-      lastSeenAt: new Date().toISOString(),
-      revoked: false,
-    },
-  };
+  return { payload, token };
 }
 
 export function hashMobileToken(token: string): string {

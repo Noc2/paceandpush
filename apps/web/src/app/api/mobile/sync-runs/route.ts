@@ -1,10 +1,9 @@
-import { randomUUID } from "node:crypto";
-import { verifyDeviceToken } from "@/server/mobile/tokens";
+import { recordSyncRun, verifyDeviceToken } from "@/server/data/mobile";
 import type { SyncRunRequest, SyncStatus } from "@paceandpush/api-contracts";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-  const auth = verifyDeviceToken(request.headers.get("authorization"));
+  const auth = await verifyDeviceToken(request.headers.get("authorization"));
   if (!auth) {
     return NextResponse.json({ error: "Missing or invalid device token." }, { status: 401 });
   }
@@ -20,10 +19,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid sync run payload." }, { status: 400 });
   }
 
-  return NextResponse.json({
-    id: randomUUID(),
-    status: body.status,
-  });
+  return NextResponse.json(await recordSyncRun({ auth, run: body }));
 }
 
 function isValidSyncRun(
@@ -36,7 +32,8 @@ function isValidSyncRun(
     Number.isFinite(Date.parse(run.startedAt)) &&
     (run.finishedAt === null || Number.isFinite(Date.parse(run.finishedAt))) &&
     typeof run.counters === "object" &&
-    run.counters !== null
+    run.counters !== null &&
+    Object.values(run.counters).every((value) => Number.isFinite(value))
   );
 }
 

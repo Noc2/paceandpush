@@ -1,18 +1,16 @@
 import { getSessionUser } from "@/server/auth/session";
-import { getMe, getPublicProfile } from "@/server/data/read-model";
+import { exportAccountData, getAccountUser } from "@/server/data/accounts";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const me = getMe(await getSessionUser());
-  const profile = getPublicProfile(me.login);
+  const user = await getAccountUser(await getSessionUser());
+  if (!user) {
+    return NextResponse.json({ error: "Sign in with GitHub first." }, { status: 401 });
+  }
 
   return NextResponse.json({
     exportedAt: new Date().toISOString(),
-    account: me,
-    profile,
-    notes: [
-      "PoC export uses fixture-backed data.",
-      "Daily distance totals are exported without raw workouts.",
-    ],
+    data: await exportAccountData(user.id),
+    notes: ["Daily distance totals are exported without raw workouts."],
   });
 }

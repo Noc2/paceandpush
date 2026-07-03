@@ -1,7 +1,15 @@
 import { createHash } from "node:crypto";
 import type { SessionUser } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
-import { githubAccounts, users } from "@/server/db/schema";
+import {
+  commitDays,
+  distanceDays,
+  githubAccounts,
+  mobileDevices,
+  scoreSnapshots,
+  syncRuns,
+  users,
+} from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
 export interface AccountUser extends SessionUser {
@@ -90,6 +98,82 @@ export async function getAccountUser(
     publicLeaderboard: row.publicLeaderboard,
     units: row.units === "imperial" ? "imperial" : "metric",
   };
+}
+
+export async function updateAccountSettings({
+  userId,
+  publicLeaderboard,
+  units,
+}: {
+  userId: string;
+  publicLeaderboard?: boolean;
+  units?: "metric" | "imperial";
+}): Promise<AccountUser> {
+  const [updatedUser] = await getDb()
+    .update(users)
+    .set({
+      ...(typeof publicLeaderboard === "boolean" ? { publicLeaderboard } : {}),
+      ...(units ? { units } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId))
+    .returning();
+
+  return {
+    id: updatedUser.id,
+    githubId: updatedUser.githubId,
+    login: updatedUser.login,
+    displayName: updatedUser.displayName,
+    avatarUrl: updatedUser.avatarUrl,
+    bio: updatedUser.bio,
+    publicLeaderboard: updatedUser.publicLeaderboard,
+    units: updatedUser.units === "imperial" ? "imperial" : "metric",
+  };
+}
+
+export async function exportAccountData(userId: string) {
+  const db = getDb();
+  const [account] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [githubAccount] = await db
+    .select({
+      githubId: githubAccounts.githubId,
+      login: githubAccounts.login,
+      scopes: githubAccounts.scopes,
+      createdAt: githubAccounts.createdAt,
+      updatedAt: githubAccounts.updatedAt,
+    })
+    .from(githubAccounts)
+    .where(eq(githubAccounts.userId, userId))
+    .limit(1);
+
+  const [devices, commits, distances, scores, runs] = await Promise.all([
+    db.select().from(mobileDevices).where(eq(mobileDevices.userId, userId)),
+    db.select().from(commitDays).where(eq(commitDays.userId, userId)),
+    db.select().from(distanceDays).where(eq(distanceDays.userId, userId)),
+    db.select().from(scoreSnapshots).where(eq(scoreSnapshots.userId, userId)),
+    db.select().from(syncRuns).where(eq(syncRuns.userId, userId)),
+  ]);
+
+  return {
+    account,
+    githubAccount,
+    devices,
+    commitDays: commits,
+    distanceDays: distances,
+    scoreSnapshots: scores,
+    syncRuns: runs,
+  };
+}
+
+export async function deleteAccountData(userId: string): Promise<void> {
+  const db = getDb();
+  await db.delete(syncRuns).where(eq(syncRuns.userId, userId));
+  await db.delete(distanceDays).where(eq(distanceDays.userId, userId));
+  await db.delete(commitDays).where(eq(commitDays.userId, userId));
+  await db.delete(scoreSnapshots).where(eq(scoreSnapshots.userId, userId));
+  await db.delete(mobileDevices).where(eq(mobileDevices.userId, userId));
+  await db.delete(githubAccounts).where(eq(githubAccounts.userId, userId));
+  await db.delete(users).where(eq(users.id, userId));
 }
 
 export function hashSecret(value: string): string {

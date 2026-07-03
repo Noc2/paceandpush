@@ -94,6 +94,7 @@ export const distanceDays = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     userId: uuid("user_id").notNull().references(() => users.id),
+    deviceId: uuid("device_id").references(() => mobileDevices.id),
     day: date("day").notNull(),
     meters: integer("meters").notNull(),
     sourcePlatform: platformEnum("source_platform").notNull(),
@@ -104,7 +105,10 @@ export const distanceDays = pgTable(
   },
   (table) => ({
     userDayIdx: uniqueIndex("distance_days_user_day_idx").on(table.userId, table.day),
-    sourceHashIdx: uniqueIndex("distance_days_source_hash_idx").on(table.sourceHash),
+    sourceHashIdx: uniqueIndex("distance_days_user_source_hash_idx").on(
+      table.userId,
+      table.sourceHash,
+    ),
   }),
 );
 

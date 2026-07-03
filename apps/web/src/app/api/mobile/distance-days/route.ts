@@ -1,4 +1,4 @@
-import { verifyDeviceToken } from "@/server/mobile/tokens";
+import { upsertDistanceDays, verifyDeviceToken } from "@/server/data/mobile";
 import type {
   DistanceDayInput,
   DistanceDaysRequest,
@@ -6,7 +6,7 @@ import type {
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-  const auth = verifyDeviceToken(request.headers.get("authorization"));
+  const auth = await verifyDeviceToken(request.headers.get("authorization"));
   if (!auth) {
     return NextResponse.json({ error: "Missing or invalid device token." }, { status: 401 });
   }
@@ -22,10 +22,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "days must be an array." }, { status: 400 });
   }
 
-  const accepted = body.days.filter((day) => isValidDistanceDay(day, auth.device.platform));
+  const accepted = body.days
+    .filter((day) => isValidDistanceDay(day, auth.device.platform))
+    .map((day) => ({
+      ...day,
+      meters: Math.round(day.meters),
+      flagged: isImplausibleDistanceDay(day),
+    }));
+
+  await upsertDistanceDays({ auth, days: accepted });
+
   return NextResponse.json({
     accepted: accepted.length,
-    flagged: body.days.length - accepted.length,
+    flagged:
+      body.days.length - accepted.length + accepted.filter((day) => day.flagged).length,
   });
 }
 
@@ -42,6 +52,10 @@ function isValidDistanceDay(
     day.meters <= 250_000 &&
     day.sourcePlatform === expectedPlatform &&
     typeof day.sourceHash === "string" &&
-    day.sourceHash.length > 0
+    day.sourceHash.length >= 8
   );
+}
+
+function isImplausibleDistanceDay(day: DistanceDayInput): boolean {
+  return day.meters > 100_000;
 }

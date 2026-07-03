@@ -1,13 +1,20 @@
-import { getSessionUser } from "@/server/auth/session";
-import { getMe } from "@/server/data/read-model";
+import { getSessionCookieName, getSessionUser } from "@/server/auth/session";
+import { deleteAccountData, getAccountUser } from "@/server/data/accounts";
 import { NextResponse } from "next/server";
 
 export async function DELETE() {
-  const me = getMe(await getSessionUser());
+  const user = await getAccountUser(await getSessionUser());
+  if (!user) {
+    return NextResponse.json({ error: "Sign in with GitHub first." }, { status: 401 });
+  }
 
-  return NextResponse.json({
-    login: me.login,
-    status: "queued",
-    requestedAt: new Date().toISOString(),
+  await deleteAccountData(user.id);
+
+  const response = NextResponse.json({
+    login: user.login,
+    status: "deleted",
+    deletedAt: new Date().toISOString(),
   });
+  response.cookies.delete(getSessionCookieName());
+  return response;
 }
