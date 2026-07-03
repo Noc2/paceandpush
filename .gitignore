@@ -13,3 +13,4 @@ DerivedData/
 build/
 .gradle/
 local.properties
+.vercel
