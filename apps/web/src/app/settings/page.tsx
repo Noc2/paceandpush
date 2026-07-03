@@ -27,12 +27,22 @@ export default async function SettingsPage() {
         <section className="profile-hero">
           <p className="section-label">Settings</p>
           <h1>@{me.login}</h1>
-          <p>Public leaderboard is {me.publicLeaderboard ? "on" : "off"}.</p>
+          <p>
+            {me.login === "guest"
+              ? "Sign in with GitHub to manage leaderboard visibility and devices."
+              : `Public leaderboard is ${me.publicLeaderboard ? "on" : "off"}.`}
+          </p>
         </section>
 
         <div className="settings-list">
+          {me.login === "guest" ? (
+            <Link className="button button-primary settings-cta" href="/api/github/oauth/start">
+              Connect GitHub
+            </Link>
+          ) : null}
           <SettingsRow label="Leaderboard" value={me.publicLeaderboard ? "Public" : "Private"} />
           <SettingsRow label="Units" value={me.units} />
+          <SettingsRow label="Devices" value={`${me.devices.length} connected`} />
           <SettingsRow label="Data export" value="/api/me/privacy-export" />
           <SettingsRow label="Delete request" value="DELETE /api/me/delete" />
         </div>

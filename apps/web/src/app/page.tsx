@@ -32,7 +32,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
         <section className="summary-bar" aria-label="Current score">
           <div>
-            <span>Your July score</span>
+            <span>{me.login === "guest" ? "Connect GitHub to start" : "Your score"}</span>
             <strong>{me.score.score.toFixed(1)}</strong>
           </div>
           <Stat label="Rank" value={me.score.rank ? `#${me.score.rank}` : "-"} />
@@ -99,6 +99,12 @@ function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
         <span>Km</span>
         <span>Streak</span>
       </div>
+      {rows.length === 0 ? (
+        <div className="empty-state">
+          <strong>No public scores yet</strong>
+          <span>The leaderboard will fill in after users opt in and the score job runs.</span>
+        </div>
+      ) : null}
       {rows.map((row) => (
         <Link
           href={`/users/${row.login}`}

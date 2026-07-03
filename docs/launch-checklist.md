@@ -20,14 +20,27 @@ with native iOS and Android companion app betas.
 - Register the GitHub OAuth callback:
   `https://paceandpush.com/api/github/oauth/callback`.
 - Confirm the daily Vercel Cron call to `/api/jobs/recompute-scores` returns
-  200 with `Authorization: Bearer $CRON_SECRET`.
+  200 with `Authorization: Bearer $CRON_SECRET` and reports score snapshots.
 
 ## Data
 
-- Apply `apps/web/drizzle/0001_initial.sql` to the production database.
-- Replace fixture-backed leaderboard reads with database-backed score snapshots.
+- Apply all SQL files in `apps/web/drizzle/` to the production database in
+  filename order.
+- Confirm leaderboard, profile, settings, privacy export, device revoke, sync
+  run, and distance upload routes read/write production database rows.
 - Backfill the first public month before inviting external testers.
 - Keep mobile distance storage to daily totals for the PoC.
+- Treat GitHub commit counts as public-event based until a deeper contribution
+  ingestion strategy is added.
+
+## CI
+
+- GitHub Actions `CI` is green on `main`.
+- `npm ci`
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
 
 ## Native Apps
 
@@ -41,6 +54,8 @@ with native iOS and Android companion app betas.
 ## Release Gate
 
 - `npm run typecheck`
+- `npm run lint`
+- `npm test`
 - `npm run build`
 - iOS build in Xcode with HealthKit capability enabled.
 - Android build in Android Studio with Health Connect SDK resolved.

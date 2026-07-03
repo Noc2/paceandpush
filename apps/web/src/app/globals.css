@@ -198,6 +198,22 @@ a {
   background: rgba(31, 28, 23, 0.04);
 }
 
+.empty-state {
+  display: grid;
+  gap: 6px;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.empty-state strong {
+  font-size: 22px;
+}
+
+.empty-state span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .leaderboard-row > span:first-child,
 .leaderboard-row > strong,
 .stat strong,
@@ -269,6 +285,11 @@ a {
 
 .settings-row strong {
   overflow-wrap: anywhere;
+}
+
+.settings-cta {
+  width: fit-content;
+  margin-bottom: 14px;
 }
 
 .history-list h2 {

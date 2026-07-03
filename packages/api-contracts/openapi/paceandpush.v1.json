@@ -15,6 +15,45 @@
         }
       }
     },
+    "/api/me/settings": {
+      "patch": {
+        "summary": "Update current user settings",
+        "responses": {
+          "200": {
+            "description": "Updated settings"
+          },
+          "401": {
+            "description": "GitHub sign-in required"
+          }
+        }
+      }
+    },
+    "/api/me/privacy-export": {
+      "get": {
+        "summary": "Export current user's stored account data",
+        "responses": {
+          "200": {
+            "description": "Stored account data"
+          },
+          "401": {
+            "description": "GitHub sign-in required"
+          }
+        }
+      }
+    },
+    "/api/me/delete": {
+      "delete": {
+        "summary": "Delete current user's stored account data",
+        "responses": {
+          "200": {
+            "description": "Deleted account"
+          },
+          "401": {
+            "description": "GitHub sign-in required"
+          }
+        }
+      }
+    },
     "/api/leaderboard": {
       "get": {
         "summary": "Monthly leaderboard",
@@ -37,12 +76,116 @@
         }
       }
     },
+    "/api/users/{login}": {
+      "get": {
+        "summary": "Public user profile",
+        "parameters": [
+          {
+            "name": "login",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public profile"
+          },
+          "404": {
+            "description": "Profile not found"
+          }
+        }
+      }
+    },
+    "/api/mobile/pairing-codes": {
+      "post": {
+        "summary": "Create a short-lived mobile pairing code",
+        "responses": {
+          "200": {
+            "description": "Pairing code"
+          },
+          "401": {
+            "description": "GitHub sign-in required"
+          }
+        }
+      }
+    },
+    "/api/mobile/devices": {
+      "post": {
+        "summary": "Exchange a pairing code for a mobile device token",
+        "responses": {
+          "200": {
+            "description": "Device token"
+          },
+          "400": {
+            "description": "Invalid pairing request"
+          }
+        }
+      }
+    },
+    "/api/mobile/devices/{id}/revoke": {
+      "post": {
+        "summary": "Revoke a mobile device token",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revoked device"
+          },
+          "401": {
+            "description": "GitHub sign-in required"
+          },
+          "404": {
+            "description": "Device not found"
+          }
+        }
+      }
+    },
     "/api/mobile/distance-days": {
       "post": {
         "summary": "Upload daily distance summaries",
         "responses": {
           "200": {
             "description": "Accepted counter"
+          }
+        }
+      }
+    },
+    "/api/mobile/sync-runs": {
+      "post": {
+        "summary": "Record a mobile sync run",
+        "responses": {
+          "200": {
+            "description": "Recorded sync run"
+          },
+          "401": {
+            "description": "Invalid device token"
+          }
+        }
+      }
+    },
+    "/api/jobs/recompute-scores": {
+      "get": {
+        "summary": "Refresh public GitHub events and recompute score snapshots",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "schema": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job report"
+          },
+          "401": {
+            "description": "Cron secret required"
           }
         }
       }
