@@ -15,3 +15,7 @@ android {
         versionName = "0.1.0"
     }
 }
+
+dependencies {
+    implementation("androidx.health.connect:connect-client:1.2.0-alpha04")
+}
