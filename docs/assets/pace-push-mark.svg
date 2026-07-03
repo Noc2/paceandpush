@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 72" role="img" aria-labelledby="title desc">
+  <title id="title">Pace and Push running dino mark</title>
+  <desc id="desc">A small running dino crossing a route line shaped like a terminal prompt.</desc>
+  <path d="M8 20 24 36 8 52" fill="none" stroke="#1f1c17" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M34 58 C46 44 61 43 73 52 C86 62 101 61 120 38" fill="none" stroke="#f15a3a" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="38" cy="57" r="4" fill="#2f9e44"/>
+  <circle cx="120" cy="38" r="4" fill="#3277b8"/>
+  <path d="M58 24h25l8 8h12v10H92l-8 10H61L51 42H39V30h12z" fill="#f6c85f" stroke="#1f1c17" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M83 24v-9h14v9" fill="#f6c85f" stroke="#1f1c17" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="93" cy="20" r="2.4" fill="#1f1c17"/>
+  <path d="M52 42 43 57M73 51 68 64M80 51 91 64" fill="none" stroke="#1f1c17" stroke-width="4" stroke-linecap="round"/>
+  <path d="M100 38h16" stroke="#1f1c17" stroke-width="4" stroke-linecap="round"/>
+  <path d="M39 30 31 22" stroke="#1f1c17" stroke-width="4" stroke-linecap="round"/>
+</svg>

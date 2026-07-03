@@ -6,3 +6,5 @@ walking/running distance.
 The current project artifact is the proof-of-concept implementation plan:
 
 - [Implementation plan](docs/implementation-plan.md)
+- [Design notes](docs/design-notes.md)
+- [Initial design mockups](docs/design-mockups.html)
