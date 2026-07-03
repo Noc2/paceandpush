@@ -28,6 +28,8 @@ with native iOS and Android companion app betas.
   filename order.
 - Confirm leaderboard, profile, settings, privacy export, device revoke, sync
   run, and distance upload routes read/write production database rows.
+- Confirm the web homepage lists the iOS and Android companion apps.
+- Confirm a signed-in web user can generate a mobile pairing code from Settings.
 - Backfill the first public month before inviting external testers.
 - Keep mobile distance storage to daily totals for the PoC.
 - Treat GitHub commit counts as public-event based until a deeper contribution

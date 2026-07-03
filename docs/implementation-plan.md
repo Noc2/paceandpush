@@ -18,11 +18,13 @@ and Health Connect data ingestion.
 - Show user profiles with commit, distance, and score history.
 - Let users opt into public leaderboard visibility.
 - Let users delete their Pace & Push data and revoke mobile devices.
+- Let signed-in users generate short-lived pairing codes from the website so the
+  iOS and Android apps can connect to the same account.
 
 ### Clients
 
 - `apps/web`: public website, GitHub sign-in, leaderboard, profiles, settings,
-  and onboarding.
+  companion-app listing, device pairing, and onboarding.
 - `apps/ios`: native SwiftUI app with HealthKit sync and the same score,
   leaderboard, profile, and settings basics as the website.
 - `apps/android`: native Kotlin/Compose app with Health Connect sync and the
@@ -123,6 +125,15 @@ Initial endpoints:
 - `POST /api/github/oauth/callback`: GitHub OAuth callback.
 - `GET /api/cron/github-sync`: Vercel Cron GitHub refresh.
 - `GET /api/cron/score-snapshots`: Vercel Cron score materialization.
+
+### Web Mobile Onboarding
+
+- The leaderboard/home surface lists the iOS and Android companion apps and
+  explains that they are the HealthKit/Health Connect distance sources.
+- Settings includes a device connection section for signed-in users.
+- The connection section creates a short-lived pairing code through
+  `/api/mobile/pairing-codes`, shows the expiry, and lists connected devices.
+- Users can revoke paired devices from the same settings section.
 
 ## Research Notes
 
@@ -244,7 +255,12 @@ Useful references:
     - Add device revocation.
     - Add delete-all data flow and clear user-facing copy.
 
-15. `chore: prepare vercel and mobile beta launch`
+15. `feat: add web mobile app onboarding`
+    - List the iOS and Android companion apps on the website.
+    - Add the web pairing-code generation flow.
+    - Show connected mobile devices and revoke controls in Settings.
+
+16. `chore: prepare vercel and mobile beta launch`
     - Configure Vercel project and domain checklist for `paceandpush.com`.
     - Add TestFlight and internal Android testing docs.
     - Add privacy policy and health permission rationale.
@@ -253,6 +269,9 @@ Useful references:
 ## PoC Acceptance Criteria
 
 - A user can sign in with GitHub on the web.
+- The website lists the iOS and Android companion apps and explains how distance
+  reaches Pace & Push.
+- A signed-in web user can generate a pairing code and review connected devices.
 - A user can pair iOS and Android apps to the same account.
 - The mobile apps show score, leaderboard, profile, settings, and sync state.
 - iOS can read native HealthKit distance and upload daily summaries.
