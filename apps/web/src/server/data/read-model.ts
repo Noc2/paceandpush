@@ -11,7 +11,7 @@ import type { SessionUser } from "@/server/auth/session";
 import { getAccountUser } from "@/server/data/accounts";
 import { listMobileDevices } from "@/server/data/mobile";
 import { currentPeriod } from "@/server/data/scores";
-import { getDb } from "@/server/db/client";
+import { getDb, isDatabaseConfigured } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/server/db/schema";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 
@@ -19,7 +19,7 @@ export async function getLeaderboard(
   board: Board = "balanced",
   period = currentPeriod(),
 ): Promise<LeaderboardResponse> {
-  if (!hasDatabase()) {
+  if (!isDatabaseConfigured()) {
     return getSeedLeaderboard(board, period);
   }
 
@@ -65,7 +65,7 @@ export async function getPublicProfile(
   login: string,
   period = currentPeriod(),
 ): Promise<PublicProfileResponse | null> {
-  if (!hasDatabase()) {
+  if (!isDatabaseConfigured()) {
     return getSeedProfile(login, period);
   }
 
@@ -91,7 +91,7 @@ export async function getPublicProfile(
 export async function getMe(sessionUser: SessionUser | null): Promise<MeResponse> {
   const period = currentPeriod();
 
-  if (!hasDatabase()) {
+  if (!isDatabaseConfigured()) {
     return {
       ...seedMe,
       login: sessionUser?.login ?? seedMe.login,
@@ -300,10 +300,6 @@ function getPeriodBounds(period: string): { start: string; end: string } {
     start: new Date(Date.UTC(year, month - 1, 1)).toISOString().slice(0, 10),
     end: new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10),
   };
-}
-
-function hasDatabase(): boolean {
-  return Boolean(process.env.DATABASE_URL);
 }
 
 function getSeedLeaderboard(board: Board, period: string): LeaderboardResponse {
