@@ -74,9 +74,11 @@
       }
 
       .brand-mark {
-        width: 76px;
-        height: 44px;
+        width: 114px;
+        height: 68px;
         flex: 0 0 auto;
+        object-fit: contain;
+        image-rendering: pixelated;
       }
 
       .runner-mark {
@@ -156,6 +158,64 @@
         gap: 12px;
         padding: 22px 24px;
         border-bottom: 2px solid var(--ink);
+      }
+
+      .mascot-racebar {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 16px;
+        min-height: 84px;
+        padding: 8px 24px;
+        border-bottom: 2px solid var(--ink);
+        background:
+          linear-gradient(90deg, rgba(246, 200, 95, 0.16), transparent 36%),
+          #fffdf7;
+      }
+
+      .mascot-large {
+        width: 148px;
+        height: 88px;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+
+      .race-track {
+        height: 8px;
+        border-top: 2px solid var(--ink);
+        border-bottom: 2px solid var(--ink);
+        background:
+          repeating-linear-gradient(
+            90deg,
+            var(--green) 0,
+            var(--green) 24px,
+            transparent 24px,
+            transparent 36px
+          );
+      }
+
+      .race-pixels {
+        display: grid;
+        grid-template-columns: repeat(3, 14px);
+        grid-template-rows: repeat(2, 14px);
+        gap: 4px;
+      }
+
+      .race-pixels span {
+        border: 2px solid var(--ink);
+        background: var(--yellow);
+      }
+
+      .race-pixels span:nth-child(2) {
+        background: var(--green);
+      }
+
+      .race-pixels span:nth-child(4) {
+        background: var(--coral);
+      }
+
+      .race-pixels span:nth-child(6) {
+        background: var(--blue);
       }
 
       .search-input {
@@ -334,8 +394,15 @@
       }
 
       .mascot-mini {
-        width: 92px;
-        height: 52px;
+        width: 132px;
+        height: 78px;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+
+      .score-ring .mascot-mini {
+        width: 112px;
+        height: 66px;
       }
 
       .route-line {
@@ -668,6 +735,16 @@
           display: grid;
         }
 
+        .mascot-racebar {
+          grid-template-columns: 1fr;
+          justify-items: start;
+        }
+
+        .mascot-large {
+          width: 132px;
+          height: 78px;
+        }
+
         .leaderboard {
           min-width: 680px;
         }
@@ -720,6 +797,19 @@
                 </svg>
                 Plot
               </button>
+            </div>
+
+            <div class="mascot-racebar" aria-hidden="true">
+              <img class="mascot-large runner-mark" src="assets/pace-push-mark.svg" alt="" />
+              <div class="race-track"></div>
+              <div class="race-pixels">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
             </div>
 
             <div class="tabs" role="tablist" aria-label="Leaderboard boards">
