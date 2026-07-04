@@ -7,17 +7,22 @@ type DbClient = ReturnType<typeof drizzle<typeof schema>>;
 let db: DbClient | null = null;
 
 export function isDatabaseConfigured(): boolean {
-  return Boolean(process.env.DATABASE_URL);
+  return Boolean(getDatabaseUrl());
 }
 
 export function getDb(): DbClient {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is required to initialize the database client");
+  const databaseUrl = getDatabaseUrl();
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL or POSTGRES_URL is required to initialize the database client");
   }
 
   if (!db) {
-    db = drizzle(neon(process.env.DATABASE_URL), { schema });
+    db = drizzle(neon(databaseUrl), { schema });
   }
 
   return db;
+}
+
+function getDatabaseUrl(): string | undefined {
+  return process.env.DATABASE_URL || process.env.POSTGRES_URL;
 }
