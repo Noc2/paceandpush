@@ -24,7 +24,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     getLeaderboard(board, params.period),
     getMe(await getSessionUser()),
   ]);
-  const activeDeviceCount = me.devices.filter((device) => !device.revoked).length;
 
   return (
     <main className="app-shell">
@@ -40,8 +39,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <Stat label="Commits" value={String(me.score.commits)} />
           <Stat label="Kilometers" value={me.score.kilometers.toFixed(1)} />
         </section>
-
-        <MobileAppsPanel signedIn={me.login !== "guest"} deviceCount={activeDeviceCount} />
 
         <BoardTabs active={leaderboard.board} />
         <LeaderboardTable rows={leaderboard.rows} />
@@ -72,76 +69,6 @@ function AppHeader() {
         </a>
       </nav>
     </header>
-  );
-}
-
-function MobileAppsPanel({
-  signedIn,
-  deviceCount,
-}: {
-  signedIn: boolean;
-  deviceCount: number;
-}) {
-  return (
-    <section className="mobile-apps-panel" aria-labelledby="mobile-apps-title">
-      <div className="mobile-apps-copy">
-        <p className="section-label">Companion apps</p>
-        <h2 id="mobile-apps-title">Connect distance from your phone</h2>
-        <p>
-          Pace & Push uses the iOS and Android apps to sync daily walking and
-          running totals. The website creates the pairing code; the phone keeps
-          the HealthKit or Health Connect access local.
-        </p>
-      </div>
-
-      <div className="mobile-app-list" aria-label="Mobile apps">
-        <MobileAppCard
-          platform="iOS"
-          source="HealthKit"
-          status="Beta app"
-          detail="Reads daily walking and running distance totals."
-        />
-        <MobileAppCard
-          platform="Android"
-          source="Health Connect"
-          status="Beta app"
-          detail="Reads aggregate distance buckets from Health Connect."
-        />
-      </div>
-
-      <div className="mobile-app-actions">
-        <Stat label="Devices" value={String(deviceCount)} />
-        <Link
-          className="button button-primary"
-          href={signedIn ? "/settings#mobile-apps" : "/api/github/oauth/start"}
-        >
-          {signedIn ? "Connect app" : "Connect GitHub"}
-        </Link>
-      </div>
-    </section>
-  );
-}
-
-function MobileAppCard({
-  platform,
-  source,
-  status,
-  detail,
-}: {
-  platform: string;
-  source: string;
-  status: string;
-  detail: string;
-}) {
-  return (
-    <article className="mobile-app-card">
-      <div>
-        <strong>{platform}</strong>
-        <span>{source}</span>
-      </div>
-      <p>{detail}</p>
-      <span className="status-pill">{status}</span>
-    </article>
   );
 }
 

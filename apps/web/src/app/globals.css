@@ -81,10 +81,7 @@ a {
 .brand-lockup small,
 .developer small,
 .profile-hero p,
-.mobile-apps-panel p,
 .mobile-connect-section p,
-.mobile-app-card span,
-.mobile-app-card p,
 .pairing-code-card p,
 .device-list p,
 .device-row span,
@@ -155,65 +152,15 @@ a {
   line-height: 1;
 }
 
-.mobile-apps-panel {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr) minmax(150px, 0.5fr);
-  gap: 22px;
-  align-items: center;
-  padding: 28px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.mobile-apps-copy h2,
 .mobile-connect-section h2 {
   margin: 0 0 10px;
   font-size: 30px;
   line-height: 1.1;
 }
 
-.mobile-apps-copy p:not(.section-label),
 .mobile-connect-section p:not(.section-label) {
   margin: 0;
   line-height: 1.5;
-}
-
-.mobile-app-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.mobile-app-card {
-  min-height: 168px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.28);
-}
-
-.mobile-app-card strong,
-.mobile-app-card span {
-  display: block;
-}
-
-.mobile-app-card strong {
-  margin-bottom: 3px;
-  font-size: 22px;
-  line-height: 1;
-}
-
-.mobile-app-card p {
-  margin: 0;
-  line-height: 1.45;
-}
-
-.mobile-app-actions {
-  display: grid;
-  gap: 16px;
-  justify-items: stretch;
 }
 
 .status-pill {
@@ -547,13 +494,11 @@ a {
 
   .summary-bar,
   .stats-list,
-  .mobile-apps-panel,
   .mobile-connect-section,
   .chart-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .mobile-apps-panel,
   .mobile-connect-section {
     align-items: stretch;
   }
@@ -568,8 +513,6 @@ a {
   }
 
   .settings-row,
-  .mobile-apps-panel,
-  .mobile-app-list,
   .mobile-connect-section,
   .pairing-code-card,
   .device-row,
