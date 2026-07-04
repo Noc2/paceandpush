@@ -28,7 +28,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   return (
     <main className="app-shell">
       <section className="app-frame" aria-label="Pace and Push leaderboard">
-        <AppHeader />
+        <AppHeader login={me.login} />
 
         <section className="summary-bar" aria-label="Current score">
           <div>
@@ -47,7 +47,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   );
 }
 
-function AppHeader() {
+function AppHeader({ login }: { login: string }) {
+  const signedIn = login !== "guest";
+
   return (
     <header className="topbar">
       <Link href="/" className="brand-lockup" aria-label={brandName}>
@@ -64,9 +66,15 @@ function AppHeader() {
         <Link className="button" href="/settings">
           Settings
         </Link>
-        <a className="button button-primary" href="/api/github/oauth/start">
-          Connect GitHub
-        </a>
+        {signedIn ? (
+          <Link className="button button-primary" href="/settings">
+            @{login}
+          </Link>
+        ) : (
+          <a className="button button-primary" href="/api/github/oauth/start">
+            Connect GitHub
+          </a>
+        )}
       </nav>
     </header>
   );
