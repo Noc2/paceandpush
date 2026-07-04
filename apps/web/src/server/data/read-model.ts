@@ -9,7 +9,11 @@ import type {
 import type { SessionUser } from "@/server/auth/session";
 import { getAccountUser } from "@/server/data/accounts";
 import { listMobileDevices } from "@/server/data/mobile";
-import { currentPeriod } from "@/server/data/scores";
+import {
+  currentPeriod,
+  recomputeScoreSnapshots,
+  refreshPublicGitHubCommitsForUser,
+} from "@/server/data/scores";
 import { getDb, isDatabaseConfigured } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/server/db/schema";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
@@ -116,12 +120,14 @@ export async function getMe(sessionUser: SessionUser | null): Promise<MeResponse
     };
   }
 
+  const score = await getInitialScoreSummary(account, period);
+
   return {
     login: account.login,
     displayName: account.displayName,
     publicLeaderboard: account.publicLeaderboard,
     units: account.units,
-    score: await getScoreSummary(account.id, period),
+    score,
     devices: await listMobileDevices(account.id),
   };
 }
@@ -178,6 +184,44 @@ async function getScoreSummary(userId: string, period: string): Promise<ScoreSum
     lastSyncAt:
       lastSync?.finishedAt?.toISOString() ?? lastSync?.startedAt?.toISOString() ?? null,
   };
+}
+
+async function getInitialScoreSummary(
+  account: NonNullable<Awaited<ReturnType<typeof getAccountUser>>>,
+  period: string,
+): Promise<ScoreSummary> {
+  if (await hasScoreSnapshot(account.id, period)) {
+    return getScoreSummary(account.id, period);
+  }
+
+  try {
+    await refreshPublicGitHubCommitsForUser({
+      userId: account.id,
+      login: account.login,
+      period,
+    });
+    await recomputeScoreSnapshots(period);
+  } catch (error) {
+    console.error("[scores] initial signed-in score refresh failed", error);
+  }
+
+  return getScoreSummary(account.id, period);
+}
+
+async function hasScoreSnapshot(userId: string, period: string): Promise<boolean> {
+  const [snapshot] = await getDb()
+    .select({ id: scoreSnapshots.id })
+    .from(scoreSnapshots)
+    .where(
+      and(
+        eq(scoreSnapshots.userId, userId),
+        eq(scoreSnapshots.period, period),
+        eq(scoreSnapshots.board, "balanced"),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(snapshot);
 }
 
 async function getProfileHistory(

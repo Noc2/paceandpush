@@ -1,6 +1,10 @@
 import { getSessionCookieName, signSession } from "@/server/auth/session";
 import { upsertGitHubAccount } from "@/server/data/accounts";
 import {
+  recomputeScoreSnapshots,
+  refreshPublicGitHubCommitsForUser,
+} from "@/server/data/scores";
+import {
   exchangeGitHubCode,
   fetchGitHubUser,
   githubOAuthStateCookieName,
@@ -23,6 +27,16 @@ export async function GET(request: NextRequest) {
     accessToken: token.accessToken,
     scopes: token.scopes,
   });
+
+  try {
+    await refreshPublicGitHubCommitsForUser({
+      userId: user.id,
+      login: user.login,
+    });
+    await recomputeScoreSnapshots();
+  } catch (error) {
+    console.error("[github-oauth] initial score refresh failed", error);
+  }
 
   const response = NextResponse.redirect(new URL("/", appUrl));
   response.cookies.delete(githubOAuthStateCookieName);

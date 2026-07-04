@@ -17,6 +17,7 @@ interface GitHubEvent {
   created_at?: string;
   payload?: {
     commits?: unknown[];
+    head?: string;
   };
 }
 
@@ -45,7 +46,6 @@ export async function refreshPublicGitHubCommits(period = currentPeriod()): Prom
   errors: Array<{ login: string; message: string }>;
 }> {
   const db = getDb();
-  const { start, end } = periodBounds(period);
   const rows = await db
     .select({
       id: users.id,
@@ -58,33 +58,12 @@ export async function refreshPublicGitHubCommits(period = currentPeriod()): Prom
 
   for (const user of rows) {
     try {
-      const dayCounts = await fetchPublicCommitDays(user.login, start, end);
-      if (dayCounts.size === 0) continue;
-
-      await db
-        .insert(commitDays)
-        .values(
-          [...dayCounts.entries()].map(([day, count]) => ({
-            userId: user.id,
-            day,
-            commitCount: Math.min(count, dailyCommitCap),
-            sourceMetadata: {
-              source: "github_public_events",
-              cappedAt: dailyCommitCap,
-            },
-            updatedAt: new Date(),
-          })),
-        )
-        .onConflictDoUpdate({
-          target: [commitDays.userId, commitDays.day],
-          set: {
-            commitCount: sql`excluded.commit_count`,
-            sourceMetadata: sql`excluded.source_metadata`,
-            updatedAt: new Date(),
-          },
-        });
-
-      updatedDays += dayCounts.size;
+      const result = await refreshPublicGitHubCommitsForUser({
+        userId: user.id,
+        login: user.login,
+        period,
+      });
+      updatedDays += result.updatedDays;
     } catch (error) {
       errors.push({
         login: user.login,
@@ -98,6 +77,46 @@ export async function refreshPublicGitHubCommits(period = currentPeriod()): Prom
     updatedDays,
     errors,
   };
+}
+
+export async function refreshPublicGitHubCommitsForUser({
+  userId,
+  login,
+  period = currentPeriod(),
+}: {
+  userId: string;
+  login: string;
+  period?: string;
+}): Promise<{ updatedDays: number }> {
+  const { start, end } = periodBounds(period);
+  const dayCounts = await fetchPublicCommitDays(login, start, end);
+  if (dayCounts.size === 0) return { updatedDays: 0 };
+
+  await getDb()
+    .insert(commitDays)
+    .values(
+      [...dayCounts.entries()].map(([day, count]) => ({
+        userId,
+        day,
+        commitCount: Math.min(count, dailyCommitCap),
+        sourceMetadata: {
+          source: "github_public_events",
+          cappedAt: dailyCommitCap,
+          fallback: "push_events_without_commit_payload_count_as_one",
+        },
+        updatedAt: new Date(),
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [commitDays.userId, commitDays.day],
+      set: {
+        commitCount: sql`excluded.commit_count`,
+        sourceMetadata: sql`excluded.source_metadata`,
+        updatedAt: new Date(),
+      },
+    });
+
+  return { updatedDays: dayCounts.size };
 }
 
 export async function recomputeScoreSnapshots(period = currentPeriod()): Promise<{
@@ -249,8 +268,23 @@ async function fetchPublicCommitDays(
     const day = event.created_at.slice(0, 10);
     if (day < start || day > end) continue;
 
-    dayCounts.set(day, (dayCounts.get(day) ?? 0) + (event.payload?.commits?.length ?? 0));
+    const commitCount = getPushEventCommitCount(event);
+    if (commitCount === 0) continue;
+
+    dayCounts.set(day, (dayCounts.get(day) ?? 0) + commitCount);
   }
 
   return dayCounts;
+}
+
+function getPushEventCommitCount(event: GitHubEvent): number {
+  if (Array.isArray(event.payload?.commits)) {
+    return event.payload.commits.length;
+  }
+
+  if (event.payload?.head && /^0+$/.test(event.payload.head)) {
+    return 0;
+  }
+
+  return 1;
 }

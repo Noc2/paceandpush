@@ -27,7 +27,7 @@ export async function upsertGitHubAccount({
   user: SessionUser;
   accessToken: string;
   scopes: string[];
-}): Promise<SessionUser> {
+}): Promise<AccountUser> {
   const db = getDb();
   const now = new Date();
 
@@ -72,7 +72,7 @@ export async function upsertGitHubAccount({
       },
     });
 
-  return toSessionUser(savedUser);
+  return toAccountUser(savedUser);
 }
 
 export async function getAccountUser(
@@ -186,5 +186,15 @@ function toSessionUser(user: typeof users.$inferSelect): SessionUser {
     login: user.login,
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
+  };
+}
+
+function toAccountUser(user: typeof users.$inferSelect): AccountUser {
+  return {
+    id: user.id,
+    ...toSessionUser(user),
+    bio: user.bio,
+    publicLeaderboard: user.publicLeaderboard,
+    units: user.units === "imperial" ? "imperial" : "metric",
   };
 }
