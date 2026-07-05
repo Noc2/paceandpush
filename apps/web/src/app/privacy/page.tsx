@@ -75,6 +75,10 @@ export default function PrivacyPage() {
                 {brandName} does not collect raw workouts, GPS routes, or
                 step-by-step HealthKit or Health Connect samples.
               </li>
+              <li>
+                Daily distance totals are health- and fitness-derived data and
+                are treated as sensitive data for product and review purposes.
+              </li>
             </ul>
 
             <h3>Profile and settings</h3>
@@ -100,10 +104,36 @@ export default function PrivacyPage() {
                 setting and service operation.
               </li>
               <li>
+                Health- and fitness-derived distance totals: your explicit
+                permission in HealthKit or Health Connect and your consent to
+                sync aggregate distance totals to {brandName}.
+              </li>
+              <li>
                 Security, abuse prevention, reliability, and debugging:
                 legitimate interests in operating a safe service.
               </li>
             </ul>
+          </section>
+
+          <section className="legal-section">
+            <h2>Public Leaderboard Data</h2>
+            <p>
+              Public leaderboard visibility is off by default for new database
+              accounts. When you turn it on, the public leaderboard and profile
+              pages may show your GitHub username, display name, score, rank,
+              commit total, distance total, streak, and score history.
+            </p>
+          </section>
+
+          <section className="legal-section">
+            <h2>Scoring and Ranking</h2>
+            <p>
+              {brandName} calculates a monthly score from daily public commit
+              counts and daily aggregate distance totals. The score is used to
+              rank opted-in users on the leaderboard. This ranking is for the
+              product experience only and does not produce legal or similarly
+              significant effects.
+            </p>
           </section>
 
           <section className="legal-section">
@@ -140,6 +170,11 @@ export default function PrivacyPage() {
                 <code>DELETE /api/me/delete</code>; this removes account,
                 GitHub, device, commit, distance, score, and sync records.
               </li>
+              <li>
+                You can withdraw mobile distance sync by revoking HealthKit or
+                Health Connect permissions, disconnecting the device, or deleting
+                your {brandName} account.
+              </li>
             </ul>
           </section>
 
@@ -159,6 +194,17 @@ export default function PrivacyPage() {
               correction, deletion, restriction, portability, objection, and
               withdrawal of consent. You may also lodge a complaint with a data
               protection supervisory authority.
+            </p>
+          </section>
+
+          <section className="legal-section">
+            <h2>Security</h2>
+            <p>
+              {brandName} stores access tokens as hashes where the product does
+              not need to recover the original value, minimizes health-derived
+              uploads to daily totals, and keeps device authentication separate
+              from GitHub sign-in. Final production security controls and
+              incident-response contacts must be confirmed before public launch.
             </p>
           </section>
 
