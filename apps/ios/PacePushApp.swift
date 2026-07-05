@@ -3,6 +3,8 @@ import Foundation
 import Security
 import SwiftUI
 import UIKit
+import Vision
+import VisionKit
 
 @main
 struct PacePushApp: App {
@@ -13,7 +15,7 @@ struct PacePushApp: App {
             RootView()
                 .environmentObject(store)
                 .onOpenURL { url in
-                    Task { await store.handleAuthCallback(url) }
+                    Task { await store.handleOpenURL(url) }
                 }
         }
     }
@@ -60,6 +62,7 @@ struct MainTabsView: View {
 
 struct OnboardingView: View {
     @EnvironmentObject private var store: PacePushStore
+    @State private var showingPairingScanner = false
 
     var body: some View {
         NavigationStack {
@@ -83,14 +86,25 @@ struct OnboardingView: View {
                         detail: store.isGitHubConnected ? "@\(store.me.login) connected" : "Used for commit counts and account identity.",
                         complete: store.isGitHubConnected,
                     ) {
-                        Button {
-                            Task { await store.connectGitHub() }
-                        } label: {
-                            Label("Connect GitHub", systemImage: "chevron.right.square")
-                                .frame(maxWidth: .infinity)
+                        VStack(spacing: 10) {
+                            Button {
+                                showingPairingScanner = true
+                            } label: {
+                                Label("Scan QR", systemImage: "qrcode.viewfinder")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(PrimaryButtonStyle())
+                            .disabled(store.busy)
+
+                            Button {
+                                Task { await store.connectGitHub() }
+                            } label: {
+                                Label("Connect GitHub", systemImage: "chevron.right.square")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(PrimaryButtonStyle())
+                            .disabled(store.busy)
                         }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .disabled(store.busy)
                     }
 
                     OnboardingStep(
@@ -136,6 +150,11 @@ struct OnboardingView: View {
             }
             .background(Brand.paper)
         }
+        .sheet(isPresented: $showingPairingScanner) {
+            PairingScannerSheet { payload in
+                Task { await store.exchangePairingPayload(payload) }
+            }
+        }
     }
 }
 
@@ -169,6 +188,146 @@ struct OnboardingStep<Actions: View>: View {
             }
         }
         .panelStyle()
+    }
+}
+
+struct PairingScannerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var scannerError: String?
+
+    let onPayload: (String) -> Void
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if #available(iOS 16.0, *), DataScannerViewController.isSupported, DataScannerViewController.isAvailable {
+                    QRCodeScannerView(
+                        onPayload: { payload in
+                            onPayload(payload)
+                            dismiss()
+                        },
+                        onError: { message in
+                            scannerError = message
+                        },
+                    )
+                    .ignoresSafeArea(edges: .bottom)
+                    .overlay(alignment: .bottom) {
+                        if let scannerError {
+                            Text(scannerError)
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(Brand.red)
+                                .padding(12)
+                                .frame(maxWidth: .infinity)
+                                .background(Brand.paper)
+                                .overlay(Rectangle().stroke(Brand.ink, lineWidth: 2))
+                                .padding()
+                        }
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Label("QR scanning is unavailable on this device.", systemImage: "camera.fill")
+                            .font(.title3.bold())
+                        Text("Use Connect GitHub to pair this iPhone instead.")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(Brand.ink.opacity(0.68))
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .padding(20)
+                    .background(Brand.paper)
+                }
+            }
+            .navigationTitle("Scan Pairing QR")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, *)
+struct QRCodeScannerView: UIViewControllerRepresentable {
+    let onPayload: (String) -> Void
+    let onError: (String) -> Void
+
+    func makeUIViewController(context: Context) -> DataScannerViewController {
+        let controller = DataScannerViewController(
+            recognizedDataTypes: [.barcode(symbologies: [.qr])],
+            qualityLevel: .balanced,
+            recognizesMultipleItems: false,
+            isHighFrameRateTrackingEnabled: false,
+            isHighlightingEnabled: true,
+        )
+        controller.delegate = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: DataScannerViewController, context: Context) {
+        guard !context.coordinator.startedScanning else { return }
+        context.coordinator.startedScanning = true
+
+        do {
+            try uiViewController.startScanning()
+        } catch {
+            onError(error.localizedDescription)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPayload: onPayload, onError: onError)
+    }
+
+    final class Coordinator: NSObject, DataScannerViewControllerDelegate {
+        var startedScanning = false
+        private var handledPayload = false
+        private let onPayload: (String) -> Void
+        private let onError: (String) -> Void
+
+        init(onPayload: @escaping (String) -> Void, onError: @escaping (String) -> Void) {
+            self.onPayload = onPayload
+            self.onError = onError
+        }
+
+        func dataScanner(
+            _ dataScanner: DataScannerViewController,
+            didAdd addedItems: [RecognizedItem],
+            allItems: [RecognizedItem],
+        ) {
+            handle(items: addedItems)
+        }
+
+        func dataScanner(
+            _ dataScanner: DataScannerViewController,
+            didTapOn item: RecognizedItem,
+        ) {
+            handle(items: [item])
+        }
+
+        func dataScanner(
+            _ dataScanner: DataScannerViewController,
+            becameUnavailableWithError error: DataScannerViewController.ScanningUnavailable,
+        ) {
+            onError(error.localizedDescription)
+        }
+
+        private func handle(items: [RecognizedItem]) {
+            guard !handledPayload else { return }
+
+            for item in items {
+                guard case .barcode(let barcode) = item,
+                      let payload = barcode.payloadStringValue,
+                      !payload.isEmpty
+                else { continue }
+
+                handledPayload = true
+                onPayload(payload)
+                return
+            }
+        }
     }
 }
 
@@ -562,9 +721,46 @@ final class PacePushStore: ObservableObject {
         }
     }
 
+    func handleOpenURL(_ url: URL) async {
+        if PairingPayloadParser.isPairingURL(url, apiBaseURL: URL(string: apiBaseURL), callbackScheme: callbackScheme) {
+            await exchangePairingPayload(url.absoluteString)
+            return
+        }
+
+        await handleAuthCallback(url)
+    }
+
     func handleAuthCallback(_ url: URL) async {
         do {
             try await finishGitHubCallback(url)
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func exchangePairingPayload(_ payload: String) async {
+        let currentBaseURL = URL(string: apiBaseURL)
+
+        guard let pairing = PairingPayloadParser.parse(
+            payload,
+            apiBaseURL: currentBaseURL,
+            callbackScheme: callbackScheme,
+        ) else {
+            lastError = PacePushAPIError.invalidPairingCode.localizedDescription
+            return
+        }
+
+        guard let baseURL = pairing.baseURL ?? currentBaseURL else {
+            lastError = "API base URL is invalid."
+            return
+        }
+
+        busy = true
+        lastError = nil
+        defer { busy = false }
+
+        do {
+            try await finishPairing(pairing, baseURL: baseURL)
         } catch {
             lastError = error.localizedDescription
         }
@@ -698,6 +894,23 @@ final class PacePushStore: ObservableObject {
         deviceToken = exchange.token
         await refresh()
     }
+
+    private func finishPairing(_ pairing: PairingPayload, baseURL: URL) async throws {
+        let client = PacePushAPIClient(baseURL: baseURL, token: nil)
+        let exchange = try await client.exchangeDevicePairing(
+            code: pairing.code,
+            platform: "ios",
+            label: UIDevice.current.name,
+        )
+        try keychain.saveString(exchange.token, account: tokenKey)
+        deviceToken = exchange.token
+
+        if pairing.baseURL != nil {
+            apiBaseURL = baseURL.absoluteString.trimmedTrailingSlash
+        }
+
+        await refresh()
+    }
 }
 
 final class PacePushAPIClient {
@@ -718,6 +931,14 @@ final class PacePushAPIClient {
         ]
         guard let url = components?.url else { throw PacePushAPIError.invalidURL }
         return url
+    }
+
+    func exchangeDevicePairing(code: String, platform: String, label: String) async throws -> DeviceExchangeResponse {
+        try await post(
+            "/api/mobile/devices",
+            body: DevicePairingExchangeRequest(code: code, platform: platform, label: label),
+            authenticated: false,
+        )
     }
 
     func fetch<T: Decodable>(_ path: String, authenticated: Bool) async throws -> T {
@@ -878,6 +1099,7 @@ struct KeychainStore {
 enum PacePushAPIError: LocalizedError {
     case invalidURL
     case invalidCallback
+    case invalidPairingCode
     case unauthorized
     case server(String)
     case keychain(OSStatus)
@@ -888,6 +1110,8 @@ enum PacePushAPIError: LocalizedError {
             return "Could not build the request URL."
         case .invalidCallback:
             return "GitHub sign-in did not return a valid callback."
+        case .invalidPairingCode:
+            return "This QR code is not a valid Pace & Push pairing code."
         case .unauthorized:
             return "This device is not authorized."
         case .server(let message):
@@ -895,6 +1119,108 @@ enum PacePushAPIError: LocalizedError {
         case .keychain(let status):
             return "Keychain failed with status \(status)."
         }
+    }
+}
+
+struct PairingPayload {
+    let code: String
+    let baseURL: URL?
+}
+
+enum PairingPayloadParser {
+    static func parse(_ payload: String, apiBaseURL: URL?, callbackScheme: String) -> PairingPayload? {
+        let trimmed = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if trimmed.hasPrefix("pp_pair.") {
+            return PairingPayload(code: trimmed, baseURL: nil)
+        }
+
+        guard let url = URL(string: trimmed),
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let code = components.queryItems?.first(where: { $0.name == "code" })?.value,
+              !code.isEmpty
+        else {
+            return nil
+        }
+
+        if isCustomSchemePairingURL(url, callbackScheme: callbackScheme) {
+            return PairingPayload(code: code, baseURL: baseURLQueryItem(in: components, apiBaseURL: apiBaseURL))
+        }
+
+        if isWebPairingURL(url, apiBaseURL: apiBaseURL),
+           let origin = originURL(for: url)
+        {
+            return PairingPayload(code: code, baseURL: origin)
+        }
+
+        return nil
+    }
+
+    static func isPairingURL(_ url: URL, apiBaseURL: URL?, callbackScheme: String) -> Bool {
+        isCustomSchemePairingURL(url, callbackScheme: callbackScheme) || isWebPairingURL(url, apiBaseURL: apiBaseURL)
+    }
+
+    private static func isCustomSchemePairingURL(_ url: URL, callbackScheme: String) -> Bool {
+        guard url.scheme?.lowercased() == callbackScheme.lowercased() else { return false }
+
+        if url.host?.lowercased() == "pair" {
+            return true
+        }
+
+        return url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased() == "pair"
+    }
+
+    private static func isWebPairingURL(_ url: URL, apiBaseURL: URL?) -> Bool {
+        guard let scheme = url.scheme?.lowercased(),
+              let host = url.host?.lowercased(),
+              url.normalizedPath == "/mobile/pair"
+        else {
+            return false
+        }
+
+        let expectedHost = apiBaseURL?.host?.lowercased()
+        let expectedScheme = apiBaseURL?.scheme?.lowercased()
+        let isKnownHost = host == "paceandpush.com" || host == expectedHost
+        let isAllowedScheme = scheme == "https" || (host == expectedHost && scheme == expectedScheme)
+
+        return isKnownHost && isAllowedScheme
+    }
+
+    private static func originURL(for url: URL) -> URL? {
+        guard let scheme = url.scheme, let host = url.host else { return nil }
+
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = host
+        components.port = url.port
+        return components.url
+    }
+
+    private static func baseURLQueryItem(in components: URLComponents, apiBaseURL: URL?) -> URL? {
+        guard let value = components.queryItems?.first(where: { $0.name == "baseUrl" })?.value,
+              let url = URL(string: value),
+              let origin = originURL(for: url),
+              isAllowedBaseURL(origin, apiBaseURL: apiBaseURL)
+        else {
+            return nil
+        }
+
+        return origin
+    }
+
+    private static func isAllowedBaseURL(_ url: URL, apiBaseURL: URL?) -> Bool {
+        guard let scheme = url.scheme?.lowercased(),
+              let host = url.host?.lowercased()
+        else {
+            return false
+        }
+
+        let expectedHost = apiBaseURL?.host?.lowercased()
+        let isKnownHost = host == "paceandpush.com" || host == expectedHost
+        let isLocalhost = host == "localhost" || host == "127.0.0.1"
+
+        return (scheme == "https" && isKnownHost) || ((scheme == "http" || scheme == "https") && isLocalhost)
     }
 }
 
@@ -954,6 +1280,12 @@ struct APIErrorResponse: Decodable {
 
 struct MobileAuthExchangeRequest: Encodable {
     let code: String
+}
+
+struct DevicePairingExchangeRequest: Encodable {
+    let code: String
+    let platform: String
+    let label: String
 }
 
 struct DeviceExchangeResponse: Decodable {
@@ -1091,6 +1423,23 @@ struct PrimaryButtonStyle: ButtonStyle {
 extension Date {
     var isoString: String {
         ISO8601DateFormatter.pacePush.string(from: self)
+    }
+}
+
+extension String {
+    var trimmedTrailingSlash: String {
+        var value = self
+        while value.count > 1 && value.hasSuffix("/") {
+            value.removeLast()
+        }
+        return value
+    }
+}
+
+extension URL {
+    var normalizedPath: String {
+        let value = path.trimmedTrailingSlash
+        return value.isEmpty ? "/" : value
     }
 }
 
