@@ -567,11 +567,35 @@ a {
   line-height: 1.15;
 }
 
+.legal-section h3 {
+  margin: 18px 0 8px;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
 .legal-section p {
   max-width: 760px;
   margin: 0 0 10px;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.legal-section ul {
+  max-width: 820px;
+  margin: 0 0 12px;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.legal-section li + li {
+  margin-top: 8px;
+}
+
+.legal-section code {
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 800;
 }
 
 .legal-section p:last-child {
