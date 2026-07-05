@@ -440,19 +440,51 @@ a {
 
 .pairing-code-result {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
+  align-items: center;
   padding: 16px;
 }
 
-.pairing-code-result > span,
-.pairing-code-result div > span {
+.pairing-code-qr {
+  display: grid;
+  width: 160px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: #fffaf0;
+}
+
+.pairing-code-qr img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pairing-code-qr span {
+  padding: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.pairing-code-copy {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pairing-code-copy > span:not(.pairing-code-hint),
+.pairing-code-copy div > span {
   color: var(--muted);
   font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
-.pairing-code-result code {
+.pairing-code-copy code {
   display: block;
   max-width: 100%;
   overflow-x: auto;
@@ -464,11 +496,17 @@ a {
   white-space: nowrap;
 }
 
-.pairing-code-result div {
+.pairing-code-copy div {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.pairing-code-hint {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .form-error {
@@ -692,12 +730,17 @@ a {
   .settings-row,
   .mobile-connect-section,
   .pairing-code-card,
+  .pairing-code-result,
   .device-row,
   .chart-panel,
   .history-list div,
   .legal-list div {
     grid-template-columns: 1fr;
     gap: 6px;
+  }
+
+  .pairing-code-qr {
+    width: min(224px, 100%);
   }
 
   .segmented-control {

@@ -4,7 +4,8 @@ import type {
   MobileDeviceSummary,
   PairingCodeResponse,
 } from "@paceandpush/api-contracts";
-import { useState } from "react";
+import QRCode from "qrcode";
+import { useEffect, useState } from "react";
 
 type ApiError = {
   error?: string;
@@ -17,10 +18,47 @@ export function MobileConnectPanel({
 }) {
   const [devices, setDevices] = useState(initialDevices);
   const [pairingCode, setPairingCode] = useState<PairingCodeResponse | null>(null);
+  const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
+  const [qrPayload, setQrPayload] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pairingCode) {
+      setQrImageUrl(null);
+      setQrPayload(null);
+      return;
+    }
+
+    let cancelled = false;
+    const payload = buildPairingDeepLink(pairingCode.code, window.location.origin);
+    setQrPayload(payload);
+    setQrImageUrl(null);
+
+    QRCode.toDataURL(payload, {
+      color: {
+        dark: "#211e1a",
+        light: "#fffaf0",
+      },
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 224,
+    })
+      .then((dataUrl) => {
+        if (!cancelled) setQrImageUrl(dataUrl);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError("Could not render the QR code. Copy the code instead.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pairingCode]);
 
   async function createPairingCode() {
     setBusy(true);
@@ -79,7 +117,7 @@ export function MobileConnectPanel({
       <div className="pairing-code-card">
         <div>
           <h3>Pair a device</h3>
-          <p>Codes expire after 10 minutes. Paste the code into the phone app.</p>
+          <p>Codes expire after 10 minutes. Scan the QR code or paste the code into the phone app.</p>
         </div>
         <button
           className="button button-primary"
@@ -93,13 +131,23 @@ export function MobileConnectPanel({
 
       {pairingCode ? (
         <div className="pairing-code-result" aria-live="polite">
-          <span>Pairing code</span>
-          <code>{pairingCode.code}</code>
-          <div>
-            <span>Expires {formatDateTime(pairingCode.expiresAt)}</span>
-            <button className="button" type="button" onClick={copyPairingCode}>
-              {copied ? "Copied" : "Copy"}
-            </button>
+          <div className="pairing-code-qr">
+            {qrImageUrl ? (
+              <img src={qrImageUrl} alt="Mobile pairing QR code" />
+            ) : (
+              <span>Rendering QR...</span>
+            )}
+          </div>
+          <div className="pairing-code-copy">
+            <span>Pairing code</span>
+            <code>{pairingCode.code}</code>
+            <div>
+              <span>Expires {formatDateTime(pairingCode.expiresAt)}</span>
+              <button className="button" type="button" onClick={copyPairingCode}>
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            {qrPayload ? <span className="pairing-code-hint">Scan with Pace & Push mobile.</span> : null}
           </div>
         </div>
       ) : null}
@@ -147,4 +195,11 @@ function formatDateTime(value: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function buildPairingDeepLink(code: string, baseUrl: string): string {
+  const payload = new URL("pacepush://pair");
+  payload.searchParams.set("code", code);
+  payload.searchParams.set("baseUrl", baseUrl);
+  return payload.toString();
 }
