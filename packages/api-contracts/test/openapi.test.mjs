@@ -16,7 +16,7 @@ test("OpenAPI lists the production route surface", () => {
     "/api/users/{login}",
     "/api/mobile/pairing-codes",
     "/api/mobile/auth/github/start",
-    "/api/mobile/auth/github/callback",
+    "/api/github/oauth/callback/mobile",
     "/api/mobile/auth/exchange",
     "/api/mobile/me",
     "/api/mobile/me/settings",

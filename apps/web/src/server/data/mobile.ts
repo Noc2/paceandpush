@@ -1,20 +1,34 @@
+import { createHash, randomBytes } from "node:crypto";
 import type {
   DeviceExchangeResponse,
   DistanceDayInput,
+  Platform,
   MobileDeviceSummary,
   SyncRunRequest,
   SyncRunResponse,
 } from "@paceandpush/api-contracts";
 import { getDb } from "@/server/db/client";
-import { distanceDays, mobileDevices, syncRuns, users } from "@/server/db/schema";
-import { decodeDeviceToken, hashMobileToken } from "@/server/mobile/tokens";
-import { and, eq, sql } from "drizzle-orm";
+import {
+  distanceDays,
+  mobileAuthExchanges,
+  mobileDevices,
+  syncRuns,
+  users,
+} from "@/server/db/schema";
+import {
+  createDeviceExchange,
+  decodeDeviceToken,
+  hashMobileToken,
+} from "@/server/mobile/tokens";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 
 export interface VerifiedMobileDevice {
   user: {
     id: string;
     githubId: string;
     login: string;
+    displayName: string;
+    avatarUrl: string | null;
   };
   device: MobileDeviceSummary;
 }
@@ -48,6 +62,77 @@ export async function persistMobileDevice({
   });
 }
 
+export async function createMobileAuthExchange({
+  userId,
+  platform,
+  label,
+}: {
+  userId: string;
+  platform: Platform;
+  label: string;
+}): Promise<string> {
+  const code = `pp_mob_exchange_${randomBytes(32).toString("base64url")}`;
+  await getDb().insert(mobileAuthExchanges).values({
+    userId,
+    platform,
+    label,
+    codeHash: hashMobileAuthCode(code),
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+  });
+  return code;
+}
+
+export async function exchangeMobileAuthCode({
+  code,
+}: {
+  code: string;
+}): Promise<DeviceExchangeResponse> {
+  const now = new Date();
+  const [exchange] = await getDb()
+    .update(mobileAuthExchanges)
+    .set({ consumedAt: now })
+    .where(
+      and(
+        eq(mobileAuthExchanges.codeHash, hashMobileAuthCode(code)),
+        isNull(mobileAuthExchanges.consumedAt),
+        gt(mobileAuthExchanges.expiresAt, now),
+      ),
+    )
+    .returning({
+      userId: mobileAuthExchanges.userId,
+      platform: mobileAuthExchanges.platform,
+      label: mobileAuthExchanges.label,
+    });
+
+  if (!exchange) {
+    throw new Error("Mobile auth code is invalid or expired.");
+  }
+
+  const [user] = await getDb()
+    .select({
+      githubId: users.githubId,
+      login: users.login,
+    })
+    .from(users)
+    .where(eq(users.id, exchange.userId))
+    .limit(1);
+
+  if (!user) {
+    throw new Error("Mobile auth user does not exist.");
+  }
+
+  const deviceExchange = createDeviceExchange({
+    user,
+    platform: exchange.platform,
+    label: exchange.label,
+  });
+  await persistMobileDevice({
+    deviceExchange,
+    githubId: user.githubId,
+  });
+  return deviceExchange;
+}
+
 export async function getStoredDeviceByToken({
   deviceId,
   token,
@@ -65,6 +150,8 @@ export async function getStoredDeviceByToken({
       userId: users.id,
       githubId: users.githubId,
       login: users.login,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
     })
     .from(mobileDevices)
     .innerJoin(users, eq(mobileDevices.userId, users.id))
@@ -84,6 +171,8 @@ export async function getStoredDeviceByToken({
       id: row.userId,
       githubId: row.githubId,
       login: row.login,
+      displayName: row.displayName,
+      avatarUrl: row.avatarUrl,
     },
     device: {
       id: row.deviceId,
@@ -225,4 +314,8 @@ async function touchDevice(deviceId: string): Promise<void> {
     .update(mobileDevices)
     .set({ lastSeenAt: new Date() })
     .where(eq(mobileDevices.id, deviceId));
+}
+
+function hashMobileAuthCode(code: string): string {
+  return createHash("sha256").update(code).digest("hex");
 }

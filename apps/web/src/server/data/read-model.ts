@@ -93,6 +93,30 @@ export async function getPublicProfile(
   };
 }
 
+export async function getAccountProfile({
+  userId,
+  login,
+  displayName,
+  bio,
+  period = currentPeriod(),
+}: {
+  userId: string;
+  login: string;
+  displayName: string;
+  bio: string | null;
+  period?: string;
+}): Promise<PublicProfileResponse> {
+  const score = await getScoreSummary(userId, period);
+
+  return {
+    login,
+    displayName,
+    bio,
+    score,
+    history: await getProfileHistory(userId, period, score.score),
+  };
+}
+
 export async function getMe(sessionUser: SessionUser | null): Promise<MeResponse> {
   const period = currentPeriod();
 

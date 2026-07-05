@@ -11,7 +11,10 @@ export interface GitHubToken {
 
 export const githubOAuthStateCookieName = "pace_push_oauth_state";
 
-export function buildGitHubAuthorizeUrl(state: string): URL {
+export function buildGitHubAuthorizeUrl(
+  state: string,
+  options: { redirectUri?: string } = {},
+): URL {
   const clientId = process.env.GITHUB_CLIENT_ID;
   if (!clientId) {
     throw new Error("GITHUB_CLIENT_ID is required for GitHub OAuth");
@@ -21,10 +24,16 @@ export function buildGitHubAuthorizeUrl(state: string): URL {
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("state", state);
   url.searchParams.set("scope", "read:user");
+  if (options.redirectUri) {
+    url.searchParams.set("redirect_uri", options.redirectUri);
+  }
   return url;
 }
 
-export async function exchangeGitHubCode(code: string): Promise<GitHubToken> {
+export async function exchangeGitHubCode(
+  code: string,
+  options: { redirectUri?: string } = {},
+): Promise<GitHubToken> {
   const clientId = process.env.GITHUB_CLIENT_ID;
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
@@ -41,6 +50,7 @@ export async function exchangeGitHubCode(code: string): Promise<GitHubToken> {
       client_id: clientId,
       client_secret: clientSecret,
       code,
+      ...(options.redirectUri ? { redirect_uri: options.redirectUri } : {}),
     }),
   });
 

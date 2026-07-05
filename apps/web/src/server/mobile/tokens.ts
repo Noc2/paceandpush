@@ -10,7 +10,9 @@ import type { SessionUser } from "@/server/auth/session";
 
 const pairingTokenPrefix = "pp_pair";
 const deviceTokenPrefix = "pp_dev";
+const mobileAuthStatePrefix = "pp_mob_state";
 const pairingTtlMs = 10 * 60 * 1000;
+const mobileAuthStateTtlMs = 10 * 60 * 1000;
 const deviceTtlMs = 365 * 24 * 60 * 60 * 1000;
 
 interface PairingTokenPayload {
@@ -18,6 +20,14 @@ interface PairingTokenPayload {
   sub: string;
   login: string;
   displayName: string;
+  exp: number;
+}
+
+interface MobileAuthStatePayload {
+  kind: "mobile-auth-state";
+  platform: Platform;
+  label: string;
+  callbackScheme: string;
   exp: number;
 }
 
@@ -53,12 +63,65 @@ export function createPairingCode(
   };
 }
 
+export function createMobileAuthState({
+  platform,
+  label,
+  callbackScheme,
+  ttlMs = mobileAuthStateTtlMs,
+}: {
+  platform: unknown;
+  label: string;
+  callbackScheme: string;
+  ttlMs?: number;
+}): string {
+  const normalizedPlatform = assertPlatform(platform);
+  return signToken(mobileAuthStatePrefix, {
+    kind: "mobile-auth-state",
+    platform: normalizedPlatform,
+    label: normalizeDeviceLabel(label, normalizedPlatform),
+    callbackScheme: normalizeCallbackScheme(callbackScheme),
+    exp: Date.now() + ttlMs,
+  } satisfies MobileAuthStatePayload);
+}
+
+export function verifyMobileAuthState(state: string): MobileAuthStatePayload {
+  const payload = verifySignedToken<MobileAuthStatePayload>(mobileAuthStatePrefix, state);
+  if (!payload || payload.kind !== "mobile-auth-state" || payload.exp < Date.now()) {
+    throw new Error("Mobile auth state is invalid or expired.");
+  }
+  return {
+    ...payload,
+    platform: assertPlatform(payload.platform),
+    label: normalizeDeviceLabel(payload.label, payload.platform),
+    callbackScheme: normalizeCallbackScheme(payload.callbackScheme),
+  };
+}
+
 export function exchangePairingCode(
   request: DeviceExchangeRequest,
 ): DeviceExchangeResponse {
   const pairing = verifyPairingToken(request.code);
   const platform = assertPlatform(request.platform);
   const label = normalizeDeviceLabel(request.label, platform);
+  return createDeviceExchange({
+    user: {
+      githubId: pairing.sub,
+      login: pairing.login,
+    },
+    platform,
+    label,
+  });
+}
+
+export function createDeviceExchange({
+  user,
+  platform,
+  label,
+}: {
+  user: Pick<SessionUser, "githubId" | "login">;
+  platform: Platform;
+  label: string;
+}): DeviceExchangeResponse {
   const deviceId = randomUUID();
   const expiresAt = Date.now() + deviceTtlMs;
   const device: MobileDeviceSummary = {
@@ -73,8 +136,8 @@ export function exchangePairingCode(
     device,
     token: signToken(deviceTokenPrefix, {
       kind: "device",
-      sub: pairing.sub,
-      login: pairing.login,
+      sub: user.githubId,
+      login: user.login,
       deviceId,
       platform,
       label,
@@ -156,4 +219,12 @@ function normalizeDeviceLabel(label: string, platform: Platform): string {
   const trimmed = label.trim();
   if (trimmed.length > 0) return trimmed.slice(0, 64);
   return platform === "ios" ? "iPhone" : "Android";
+}
+
+function normalizeCallbackScheme(callbackScheme: string): string {
+  const trimmed = callbackScheme.trim().toLowerCase();
+  if (!/^[a-z][a-z0-9+.-]{1,63}$/.test(trimmed)) {
+    throw new Error("Callback scheme is invalid.");
+  }
+  return trimmed;
 }

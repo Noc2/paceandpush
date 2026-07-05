@@ -126,7 +126,7 @@ Initial endpoints:
 - `GET /api/users/:login`: public profile and history.
 - `GET /api/mobile/auth/github/start`: start backend-mediated native GitHub
   OAuth and redirect to GitHub.
-- `GET /api/mobile/auth/github/callback`: complete GitHub OAuth, create the
+- `GET /api/github/oauth/callback/mobile`: complete GitHub OAuth, create the
   Pace & Push device, and redirect back to the native URL scheme.
 - `POST /api/mobile/auth/exchange`: exchange the native auth code for a mobile
   device bearer token.

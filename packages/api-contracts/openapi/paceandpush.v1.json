@@ -142,7 +142,7 @@
         }
       }
     },
-    "/api/mobile/auth/github/callback": {
+    "/api/github/oauth/callback/mobile": {
       "get": {
         "summary": "Handle native mobile GitHub OAuth callback",
         "responses": {

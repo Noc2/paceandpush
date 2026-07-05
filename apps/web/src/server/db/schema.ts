@@ -73,6 +73,24 @@ export const mobileDevices = pgTable(
   }),
 );
 
+export const mobileAuthExchanges = pgTable(
+  "mobile_auth_exchanges",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    platform: platformEnum("platform").notNull(),
+    label: text("label").notNull(),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    codeHashIdx: uniqueIndex("mobile_auth_exchanges_code_hash_idx").on(table.codeHash),
+    userIdx: index("mobile_auth_exchanges_user_id_idx").on(table.userId),
+  }),
+);
+
 export const commitDays = pgTable(
   "commit_days",
   {
