@@ -1,15 +1,19 @@
-# Privacy Policy Draft
+# Privacy Policy Notes
 
-Pace & Push is a proof-of-concept leaderboard for developers who want to compare
-monthly coding activity and running distance.
+The public privacy policy now lives in the web app at
+`apps/web/src/app/privacy/page.tsx` and is linked from the global footer at
+`/privacy`.
 
-## Data We Collect
+## Current Coverage
 
 - GitHub identity: GitHub id, username, display name, and avatar URL.
 - GitHub activity summaries: daily commit counts used for scoring.
 - Distance summaries: daily running distance totals from HealthKit or Health
   Connect.
 - Device sync metadata: platform, device label, sync status, and timestamps.
+- Session cookies and OAuth state cookies.
+- Public leaderboard/profile visibility settings.
+- Data export and deletion controls.
 
 ## Data We Do Not Collect In The PoC
 
@@ -19,19 +23,11 @@ monthly coding activity and running distance.
 - Private repository source code.
 - Payment information.
 
-## How Data Is Used
+## Open Legal Details
 
-Data is used to calculate monthly leaderboard scores, show profile history, and
-debug sync reliability. The PoC uses daily running totals instead of raw
-activity data.
-
-## Controls
-
-Users can export account/profile data through `/api/me/privacy-export`. Account
-deletion is represented by `DELETE /api/me/delete` in the PoC and should become
-a durable deletion workflow before public launch.
-
-## Contact
-
-For launch, replace this section with the production support email for
-`paceandpush.com`.
+- Working privacy/legal email address.
+- Processor agreements and international transfer safeguards for Vercel, Neon,
+  GitHub, and any future analytics or email providers.
+- Final retention periods for score snapshots, sync logs, and deleted accounts.
+- Legal review of the HealthKit and Health Connect consent wording before beta
+  distribution.

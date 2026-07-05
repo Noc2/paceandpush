@@ -11,4 +11,4 @@ The current project artifact is the proof-of-concept implementation plan:
 - [GitHub profile embed](docs/github-profile-embed.md)
 - [Launch checklist](docs/launch-checklist.md)
 - [Mobile beta notes](docs/mobile-beta.md)
-- [Privacy policy draft](docs/privacy-policy.md)
+- Legal pages: `/impressum` and `/privacy`

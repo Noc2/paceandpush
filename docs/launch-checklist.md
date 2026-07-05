@@ -53,6 +53,18 @@ with native iOS and Android companion app betas.
   privacy policy, and distribute the first build through internal testing.
 - Point both apps at `https://paceandpush.com` before beta distribution.
 
+## Legal
+
+- Confirm `/impressum` and `/privacy` are linked from every public page footer.
+- Add the Geschäftsführer, register court, HRB number, and working legal email
+  to `apps/web/src/lib/legal.ts`.
+- Confirm whether a VAT ID or Wirtschafts-ID must be listed.
+- Confirm employee count and consumer dispute resolution wording for § 36 VSBG.
+- Confirm processor agreements, international transfer safeguards, and final
+  retention periods for Vercel, Neon, GitHub, and any future analytics/email
+  provider.
+- Have the Impressum and privacy policy reviewed before public launch.
+
 ## Release Gate
 
 - `npm run typecheck`
