@@ -110,6 +110,103 @@
         }
       }
     },
+    "/api/mobile/auth/github/start": {
+      "get": {
+        "summary": "Start native mobile GitHub OAuth",
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "query",
+            "required": true,
+            "schema": { "enum": ["ios", "android"] }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "callbackScheme",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to GitHub authorization"
+          },
+          "501": {
+            "description": "GitHub OAuth not configured"
+          }
+        }
+      }
+    },
+    "/api/mobile/auth/github/callback": {
+      "get": {
+        "summary": "Handle native mobile GitHub OAuth callback",
+        "responses": {
+          "302": {
+            "description": "Redirect to the native app callback URL"
+          },
+          "400": {
+            "description": "Invalid mobile OAuth callback"
+          }
+        }
+      }
+    },
+    "/api/mobile/auth/exchange": {
+      "post": {
+        "summary": "Exchange a native mobile auth code for a device token",
+        "responses": {
+          "200": {
+            "description": "Device token"
+          },
+          "400": {
+            "description": "Invalid mobile auth exchange"
+          }
+        }
+      }
+    },
+    "/api/mobile/me": {
+      "get": {
+        "summary": "Current mobile-authenticated user score and settings",
+        "responses": {
+          "200": {
+            "description": "Current mobile user"
+          },
+          "401": {
+            "description": "Invalid device token"
+          }
+        }
+      }
+    },
+    "/api/mobile/me/settings": {
+      "patch": {
+        "summary": "Update mobile-authenticated user settings",
+        "responses": {
+          "200": {
+            "description": "Updated settings"
+          },
+          "401": {
+            "description": "Invalid device token"
+          }
+        }
+      }
+    },
+    "/api/mobile/me/profile": {
+      "get": {
+        "summary": "Current mobile-authenticated user profile",
+        "responses": {
+          "200": {
+            "description": "Private current-user profile"
+          },
+          "401": {
+            "description": "Invalid device token"
+          }
+        }
+      }
+    },
     "/api/mobile/devices": {
       "post": {
         "summary": "Exchange a pairing code for a mobile device token",

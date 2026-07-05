@@ -18,13 +18,15 @@ and Health Connect data ingestion.
 - Show user profiles with commit, distance, and score history.
 - Let users opt into public leaderboard visibility.
 - Let users delete their Pace & Push data and revoke mobile devices.
-- Let signed-in users generate short-lived pairing codes from the website so the
-  iOS and Android apps can connect to the same account.
+- Let native apps connect to GitHub directly through backend-mediated OAuth and
+  store Pace & Push mobile device tokens securely. Keep web-generated pairing
+  codes as a fallback/manual testing path.
 
 ### Clients
 
-- `apps/web`: public website, GitHub sign-in, leaderboard, profiles, settings,
-  companion-app listing, device pairing, and onboarding.
+- `apps/web`: public website, GitHub sign-in, mobile OAuth broker,
+  leaderboard, profiles, settings, companion-app listing, device pairing
+  fallback, and onboarding.
 - `apps/ios`: native SwiftUI app with HealthKit sync and the same score,
   leaderboard, profile, and settings basics as the website.
 - `apps/android`: native Kotlin/Compose app with Health Connect sync and the
@@ -51,6 +53,9 @@ and Health Connect data ingestion.
 ### iOS
 
 - Native SwiftUI.
+- Blocking onboarding for GitHub connection, HealthKit permission, and first
+  sync before the score tabs are shown.
+- GitHub sign-in through `ASWebAuthenticationSession` and a native URL scheme.
 - HealthKit authorization for running workouts.
 - Keychain storage for mobile API credentials.
 - Score, leaderboard, profile, sync, and settings tabs.
@@ -119,7 +124,19 @@ Initial endpoints:
 - `GET /api/me`: current account, settings, score summary.
 - `GET /api/leaderboard?period=YYYY-MM&board=balanced|commits|distance`
 - `GET /api/users/:login`: public profile and history.
-- `POST /api/mobile/pairing-codes`: create a short-lived pairing code.
+- `GET /api/mobile/auth/github/start`: start backend-mediated native GitHub
+  OAuth and redirect to GitHub.
+- `GET /api/mobile/auth/github/callback`: complete GitHub OAuth, create the
+  Pace & Push device, and redirect back to the native URL scheme.
+- `POST /api/mobile/auth/exchange`: exchange the native auth code for a mobile
+  device bearer token.
+- `GET /api/mobile/me`: current account, settings, score summary, and devices
+  using bearer mobile auth.
+- `PATCH /api/mobile/me/settings`: update current account settings using bearer
+  mobile auth.
+- `GET /api/mobile/me/profile`: private current-user profile using bearer
+  mobile auth.
+- `POST /api/mobile/pairing-codes`: create a short-lived pairing code fallback.
 - `POST /api/mobile/devices`: exchange pairing code for a mobile API token.
 - `POST /api/mobile/distance-days`: upsert signed daily running distance
   summaries.

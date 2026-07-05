@@ -77,6 +77,10 @@ export interface DeviceExchangeResponse {
   token: string;
 }
 
+export interface MobileAuthExchangeRequest {
+  code: string;
+}
+
 export interface DistanceDayInput {
   date: string;
   /** Running-only distance for this day, in meters. */
