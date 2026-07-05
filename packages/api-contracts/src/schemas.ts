@@ -1,4 +1,4 @@
-export const contractVersion = "2026-07-03";
+export const contractVersion = "2026-07-05";
 
 export const jsonSchemas = {
   scoreSummary: {
@@ -31,7 +31,7 @@ export const jsonSchemas = {
     required: ["date", "meters", "sourcePlatform", "sourceHash"],
     properties: {
       date: { type: "string", format: "date" },
-      meters: { type: "number", minimum: 0 },
+      meters: { type: "number", minimum: 0, description: "Running-only distance for this day, in meters." },
       sourcePlatform: { enum: ["ios", "android"] },
       sourceHash: { type: "string", minLength: 8 },
     },

@@ -79,6 +79,7 @@ export interface DeviceExchangeResponse {
 
 export interface DistanceDayInput {
   date: string;
+  /** Running-only distance for this day, in meters. */
   meters: number;
   sourcePlatform: Platform;
   sourceHash: string;

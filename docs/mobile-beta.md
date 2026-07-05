@@ -10,27 +10,28 @@ website: current score, leaderboard, public profile, sync state, and settings.
    section.
 3. Exchange the code from the native app at `/api/mobile/devices`.
 4. Store the returned bearer token in the platform keychain/keystore.
-5. Send daily distance totals to `/api/mobile/distance-days`.
+5. Send daily running distance totals to `/api/mobile/distance-days`.
 
 ## Web Companion App Surface
 
-- The web homepage should list the iOS and Android companion apps as the distance
-  sync path.
+- The web homepage should list the iOS and Android companion apps as the running
+  distance sync path.
 - Settings should show connected devices, generate pairing codes, and revoke
   devices.
 - The pairing code flow should be visible only after GitHub sign-in.
 
 ## iOS
 
-- Read HealthKit `distanceWalkingRunning`.
-- Request read-only HealthKit access.
-- Aggregate distance by UTC day.
+- Read HealthKit running workouts.
+- Request read-only HealthKit workout access.
+- Aggregate running distance by UTC day.
 - Upload daily totals, not raw workouts.
 
 ## Android
 
-- Use Health Connect `DistanceRecord` aggregate reads.
-- Request read-only distance access.
+- Read Health Connect running exercise sessions and aggregate `DistanceRecord`
+  distance inside those sessions.
+- Request read-only exercise-session and distance access.
 - Provide the Health Connect permission rationale activity.
 - Upload daily totals, not raw records.
 

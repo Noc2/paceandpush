@@ -11,6 +11,6 @@ export async function GET() {
   return NextResponse.json({
     exportedAt: new Date().toISOString(),
     data: await exportAccountData(user.id),
-    notes: ["Daily distance totals are exported without raw workouts."],
+    notes: ["Daily running distance totals are exported without raw workouts."],
   });
 }

@@ -149,7 +149,7 @@
     },
     "/api/mobile/distance-days": {
       "post": {
-        "summary": "Upload daily distance summaries",
+        "summary": "Upload daily running distance summaries",
         "responses": {
           "200": {
             "description": "Accepted counter"

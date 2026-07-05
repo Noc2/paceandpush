@@ -1,14 +1,14 @@
 # Privacy Policy Draft
 
 Pace & Push is a proof-of-concept leaderboard for developers who want to compare
-monthly coding activity and walking/running distance.
+monthly coding activity and running distance.
 
 ## Data We Collect
 
 - GitHub identity: GitHub id, username, display name, and avatar URL.
 - GitHub activity summaries: daily commit counts used for scoring.
-- Distance summaries: daily walking/running distance totals from HealthKit or
-  Health Connect.
+- Distance summaries: daily running distance totals from HealthKit or Health
+  Connect.
 - Device sync metadata: platform, device label, sync status, and timestamps.
 
 ## Data We Do Not Collect In The PoC
@@ -22,7 +22,8 @@ monthly coding activity and walking/running distance.
 ## How Data Is Used
 
 Data is used to calculate monthly leaderboard scores, show profile history, and
-debug sync reliability. The PoC uses daily totals instead of raw activity data.
+debug sync reliability. The PoC uses daily running totals instead of raw
+activity data.
 
 ## Controls
 

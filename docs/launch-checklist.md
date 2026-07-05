@@ -27,11 +27,11 @@ with native iOS and Android companion app betas.
 - Apply all SQL files in `apps/web/drizzle/` to the production database in
   filename order.
 - Confirm leaderboard, profile, settings, privacy export, device revoke, sync
-  run, and distance upload routes read/write production database rows.
+  run, and running distance upload routes read/write production database rows.
 - Confirm the web homepage lists the iOS and Android companion apps.
 - Confirm a signed-in web user can generate a mobile pairing code from Settings.
 - Backfill the first public month before inviting external testers.
-- Keep mobile distance storage to daily totals for the PoC.
+- Keep mobile running distance storage to daily totals for the PoC.
 - Treat GitHub commit counts as public-event based until a deeper contribution
   ingestion strategy is added.
 
@@ -49,8 +49,8 @@ with native iOS and Android companion app betas.
 - Apple Developer: create the iOS app record, enable HealthKit, add privacy
   nutrition labels, and distribute the first build through TestFlight.
 - Google Play Console: create the Android app record, declare Health Connect
-  distance access, provide the permission rationale and privacy policy, and
-  distribute the first build through internal testing.
+  running exercise and distance access, provide the permission rationale and
+  privacy policy, and distribute the first build through internal testing.
 - Point both apps at `https://paceandpush.com` before beta distribution.
 
 ## Release Gate
@@ -63,4 +63,4 @@ with native iOS and Android companion app betas.
 - Android build in Android Studio with Health Connect SDK resolved.
 - Manual GitHub OAuth login.
 - Manual mobile pairing exchange.
-- Manual distance sync with one iOS and one Android test device.
+- Manual running distance sync with one iOS and one Android test device.

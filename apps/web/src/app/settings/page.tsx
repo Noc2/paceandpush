@@ -1,8 +1,10 @@
 import { getSessionUser } from "@/server/auth/session";
 import { getMe } from "@/server/data/read-model";
+import { distanceUnitLabel } from "@/lib/distance-units";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
 import { MobileConnectPanel } from "./MobileConnectPanel";
+import { UnitPreferenceControl } from "./UnitPreferenceControl";
 
 export default async function SettingsPage() {
   const me = await getMe(await getSessionUser());
@@ -65,7 +67,11 @@ export default async function SettingsPage() {
             </Link>
           ) : null}
           <SettingsRow label="Leaderboard" value={me.publicLeaderboard ? "Public" : "Private"} />
-          <SettingsRow label="Units" value={me.units} />
+          {me.login === "guest" ? (
+            <SettingsRow label="Units" value={distanceUnitLabel(me.units)} />
+          ) : (
+            <UnitPreferenceControl initialUnits={me.units} />
+          )}
           <SettingsRow label="Devices" value={`${activeDeviceCount} connected`} />
           <SettingsRow label="Data export" value="/api/me/privacy-export" />
           <SettingsRow label="Delete request" value="DELETE /api/me/delete" />

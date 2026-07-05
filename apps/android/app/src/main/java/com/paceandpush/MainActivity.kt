@@ -25,6 +25,7 @@ class MainActivity : Activity() {
     private var board = Board.Balanced
     private var apiBaseUrl = "https://paceandpush.com"
     private var paired = false
+    private var units = DistanceUnits.Metric
 
     private val me = MeSummary(
         login = "Noc2",
@@ -60,6 +61,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        units = DistanceUnits.from(getPreferences(MODE_PRIVATE).getString("distance_units", null))
         render()
     }
 
@@ -155,7 +157,7 @@ class MainActivity : Activity() {
                 },
             )
 
-            addView(metricRow("Commits", me.score.commits.toString(), green, "Kilometers", me.score.kilometers.toFixed(1), red))
+            addView(metricRow("Commits", me.score.commits.toString(), green, units.title, formatDistance(me.score.kilometers), red))
             addView(metricRow("Board", "#${me.score.rank}", blue, "Sync", "Ready", ink))
         }
     }
@@ -204,7 +206,7 @@ class MainActivity : Activity() {
             history.forEach { point ->
                 addView(
                     bodyText(
-                        "${point.date}    ${point.score.toFixed(1)} score    ${point.kilometers.toFixed(1)} km",
+                        "${point.date}    ${point.score.toFixed(1)} score    ${formatDistance(point.kilometers, includeUnit = true)}",
                         15f,
                     ).apply {
                         typeface = Typeface.MONOSPACE
@@ -259,6 +261,8 @@ class MainActivity : Activity() {
                 setTextColor(ink)
             }
             addView(urlInput)
+            addView(labelText("Distance units").apply { setPadding(0, dp(12), 0, 0) })
+            addView(unitSelector())
             addView(bodyText("Public leaderboard: ${if (me.publicLeaderboard) "On" else "Off"}", 16f))
             addView(
                 Button(this@MainActivity).apply {
@@ -318,7 +322,44 @@ class MainActivity : Activity() {
                 },
             )
 
-            addView(scoreText(row.score.toFixed(1), 18f, blue))
+            addView(
+                LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.END
+                    addView(scoreText(row.score.toFixed(1), 18f, blue))
+                    addView(bodyText(formatDistance(row.kilometers, includeUnit = true), 13f).apply {
+                        gravity = Gravity.END
+                        typeface = Typeface.DEFAULT_BOLD
+                    })
+                },
+            )
+        }
+    }
+
+    private fun unitSelector(): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            DistanceUnits.values().forEach { option ->
+                addView(
+                    Button(this@MainActivity).apply {
+                        text = option.title
+                        isAllCaps = false
+                        setTextColor(ink)
+                        setBackgroundColor(if (option == units) gold else paper)
+                        setOnClickListener {
+                            units = option
+                            getPreferences(MODE_PRIVATE)
+                                .edit()
+                                .putString("distance_units", option.rawValue)
+                                .apply()
+                            render()
+                        }
+                    },
+                    LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                        rightMargin = dp(6)
+                    },
+                )
+            }
         }
     }
 
@@ -380,6 +421,10 @@ class MainActivity : Activity() {
 
     private fun Double.toFixed(digits: Int): String = "%.${digits}f".format(this)
 
+    private fun formatDistance(kilometers: Double, includeUnit: Boolean = false): String {
+        return units.format(kilometers, includeUnit)
+    }
+
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
     }
@@ -397,6 +442,27 @@ private enum class Board(val title: String) {
     Balanced("Balanced"),
     Commits("Commits"),
     Distance("Distance"),
+}
+
+private enum class DistanceUnits(
+    val rawValue: String,
+    val title: String,
+    private val abbreviation: String,
+    private val factor: Double,
+) {
+    Metric("metric", "Kilometers", "km", 1.0),
+    Imperial("imperial", "Miles", "mi", 0.621371);
+
+    fun format(kilometers: Double, includeUnit: Boolean = false): String {
+        val formatted = "%.1f".format(kilometers * factor)
+        return if (includeUnit) "$formatted $abbreviation" else formatted
+    }
+
+    companion object {
+        fun from(value: String?): DistanceUnits {
+            return values().firstOrNull { it.rawValue == value } ?: Metric
+        }
+    }
 }
 
 private data class MeSummary(

@@ -9,7 +9,7 @@ class PermissionsRationaleActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(
             TextView(this).apply {
-                text = "Pace & Push reads daily distance totals from Health Connect to calculate your leaderboard score. Raw workouts are not uploaded in the PoC."
+                text = "Pace & Push reads running exercise sessions and daily running distance totals from Health Connect to calculate your leaderboard score. Raw workouts are not uploaded in the PoC."
                 textSize = 18f
                 setPadding(48, 48, 48, 48)
             },

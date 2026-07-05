@@ -3,6 +3,13 @@ import { getLeaderboard, getMe, parseBoard } from "@/server/data/read-model";
 import type { Board, LeaderboardRow } from "@paceandpush/api-contracts";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
+import {
+  distanceUnitAbbreviation,
+  formatDistance,
+  runningDistanceLabel,
+  runningDistanceShortLabel,
+  type UnitPreference,
+} from "@/lib/distance-units";
 
 type HomePageProps = {
   searchParams?: Promise<{
@@ -10,12 +17,6 @@ type HomePageProps = {
     period?: string;
   }>;
 };
-
-const boards: Array<{ id: Board; label: string }> = [
-  { id: "balanced", label: "Balanced" },
-  { id: "commits", label: "Commits" },
-  { id: "distance", label: "Kilometers" },
-];
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = searchParams ? await searchParams : {};
@@ -37,11 +38,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </div>
           <Stat label="Rank" value={me.score.rank ? `#${me.score.rank}` : "-"} />
           <Stat label="Commits" value={String(me.score.commits)} />
-          <Stat label="Kilometers" value={me.score.kilometers.toFixed(1)} />
+          <Stat label={runningDistanceLabel(me.units)} value={formatDistance(me.score.kilometers, me.units)} />
         </section>
 
-        <BoardTabs active={leaderboard.board} />
-        <LeaderboardTable rows={leaderboard.rows} />
+        <BoardTabs active={leaderboard.board} units={me.units} />
+        <LeaderboardTable rows={leaderboard.rows} units={me.units} />
       </section>
     </main>
   );
@@ -80,7 +81,13 @@ function AppHeader({ login }: { login: string }) {
   );
 }
 
-function BoardTabs({ active }: { active: Board }) {
+function BoardTabs({ active, units }: { active: Board; units: UnitPreference }) {
+  const boards: Array<{ id: Board; label: string }> = [
+    { id: "balanced", label: "Balanced" },
+    { id: "commits", label: "Commits" },
+    { id: "distance", label: runningDistanceShortLabel(units) },
+  ];
+
   return (
     <nav className="tabs" aria-label="Leaderboard boards">
       {boards.map((board) => (
@@ -96,7 +103,7 @@ function BoardTabs({ active }: { active: Board }) {
   );
 }
 
-function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
+function LeaderboardTable({ rows, units }: { rows: LeaderboardRow[]; units: UnitPreference }) {
   return (
     <div className="leaderboard" role="table" aria-label="Leaderboard">
       <div className="leaderboard-head" role="row">
@@ -104,7 +111,7 @@ function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
         <span>Developer</span>
         <span>Score</span>
         <span>Commits</span>
-        <span>Km</span>
+        <span>{runningDistanceShortLabel(units)}</span>
         <span>Streak</span>
       </div>
       {rows.length === 0 ? (
@@ -127,7 +134,7 @@ function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
           </span>
           <strong>{row.score.toFixed(1)}</strong>
           <span>{row.commits}</span>
-          <span>{row.kilometers.toFixed(1)}</span>
+          <span>{formatDistance(row.kilometers, units)}</span>
           <span>{row.streakDays}d</span>
         </Link>
       ))}

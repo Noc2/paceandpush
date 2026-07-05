@@ -1,3 +1,12 @@
+import {
+  distanceUnitAbbreviation,
+  formatDistance,
+  parseUnitPreference,
+  runningDistanceLabel,
+  runningDistanceShortLabel,
+} from "@/lib/distance-units";
+import { getSessionUser } from "@/server/auth/session";
+import { getAccountUser } from "@/server/data/accounts";
 import { getLeaderboard, getPublicProfile } from "@/server/data/read-model";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
@@ -11,14 +20,19 @@ type UserPageProps = {
 
 export default async function UserPage({ params }: UserPageProps) {
   const { login } = await params;
-  const profile = await getPublicProfile(decodeURIComponent(login));
+  const sessionUser = await getSessionUser();
+  const [profile, viewer] = await Promise.all([
+    getPublicProfile(decodeURIComponent(login)),
+    getAccountUser(sessionUser),
+  ]);
   if (!profile) notFound();
 
+  const units = parseUnitPreference(viewer?.units);
   const leaderboard = await getLeaderboard();
   const row = leaderboard.rows.find(
     (leader) => leader.login.toLowerCase() === profile.login.toLowerCase(),
   );
-  const chartPath = `/api/embed/${encodeURIComponent(profile.login)}/chart.svg`;
+  const chartPath = `/api/embed/${encodeURIComponent(profile.login)}/chart.svg?units=${units}`;
   const embedMarkdown = `![${brandName} chart](https://paceandpush.com${chartPath})`;
 
   return (
@@ -48,7 +62,7 @@ export default async function UserPage({ params }: UserPageProps) {
         <div className="stats-list">
           <Stat label="Score" value={profile.score.score.toFixed(1)} />
           <Stat label="Commits" value={String(profile.score.commits)} />
-          <Stat label="Kilometers" value={profile.score.kilometers.toFixed(1)} />
+          <Stat label={runningDistanceLabel(units)} value={formatDistance(profile.score.kilometers, units)} />
           <Stat label="Streak" value={`${row?.streakDays ?? 0}d`} />
         </div>
 
@@ -58,7 +72,7 @@ export default async function UserPage({ params }: UserPageProps) {
             <h2>Embed it on GitHub</h2>
             <p>
               A lightweight SVG card for profile READMEs with your score trend,
-              commits, and kilometers.
+              commits, and {runningDistanceShortLabel(units).toLowerCase()}.
             </p>
             <code>{embedMarkdown}</code>
           </div>
@@ -76,7 +90,9 @@ export default async function UserPage({ params }: UserPageProps) {
               <span>{point.date}</span>
               <strong>{point.score.toFixed(1)}</strong>
               <span>{point.commits} commits</span>
-              <span>{point.kilometers.toFixed(1)} km</span>
+              <span>
+                {formatDistance(point.kilometers, units)} {distanceUnitAbbreviation(units)}
+              </span>
             </div>
           ))}
         </section>

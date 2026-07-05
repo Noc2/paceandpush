@@ -1,5 +1,10 @@
 import type { ProfileHistoryPoint, PublicProfileResponse } from "@paceandpush/api-contracts";
 import { brandColors, brandName, promptMark } from "@paceandpush/brand";
+import {
+  distanceUnitAbbreviation,
+  formatDistance,
+  type UnitPreference,
+} from "@/lib/distance-units";
 
 const chartWidth = 720;
 const chartHeight = 360;
@@ -10,7 +15,10 @@ const plot = {
   height: 164,
 };
 
-export function renderProfileChartSvg(profile: PublicProfileResponse): string {
+export function renderProfileChartSvg(
+  profile: PublicProfileResponse,
+  units: UnitPreference = "metric",
+): string {
   const history = profile.history.length > 0 ? profile.history : [emptyPoint()];
   const maxScore = Math.max(...history.map((point) => point.score), 1);
   const dailyCommits = toDailyValues(history.map((point) => point.commits));
@@ -19,7 +27,7 @@ export function renderProfileChartSvg(profile: PublicProfileResponse): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-labelledby="title desc">
   <title id="title">${escapeXml(brandName)} chart for ${escapeXml(profile.login)}</title>
-  <desc id="desc">Monthly Pace and Push score, commit, and distance summary for ${escapeXml(profile.displayName)}.</desc>
+  <desc id="desc">Monthly Pace and Push score, commit, and running distance summary for ${escapeXml(profile.displayName)}.</desc>
   <rect width="${chartWidth}" height="${chartHeight}" rx="18" fill="${brandColors.paper}"/>
   <rect x="0.5" y="0.5" width="${chartWidth - 1}" height="${chartHeight - 1}" rx="17.5" fill="none" stroke="${brandColors.ink}" stroke-opacity="0.12"/>
 
@@ -33,7 +41,7 @@ export function renderProfileChartSvg(profile: PublicProfileResponse): string {
   <g transform="translate(442 28)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
     ${metricText(0, "Score", profile.score.score.toFixed(1), brandColors.rankBlue)}
     ${metricText(92, "Commits", String(profile.score.commits), brandColors.commitGreen)}
-    ${metricText(206, "Km", profile.score.kilometers.toFixed(1), brandColors.secondaryOrange)}
+    ${metricText(206, `Run ${distanceUnitAbbreviation(units)}`, formatDistance(profile.score.kilometers, units), brandColors.secondaryOrange)}
   </g>
 
   <g>

@@ -9,12 +9,12 @@ and Health Connect data ingestion.
 
 ### Core Experience
 
-- Show a balanced Pace & Push score based on GitHub commits and walking/running
+- Show a balanced Pace & Push score based on GitHub commits and running
   kilometers.
 - Show monthly leaderboards for:
   - Balanced score
   - Commits
-  - Kilometers
+  - Run kilometers
 - Show user profiles with commit, distance, and score history.
 - Let users opt into public leaderboard visibility.
 - Let users delete their Pace & Push data and revoke mobile devices.
@@ -51,7 +51,7 @@ and Health Connect data ingestion.
 ### iOS
 
 - Native SwiftUI.
-- HealthKit authorization for walking/running distance and workout distance.
+- HealthKit authorization for running workouts.
 - Keychain storage for mobile API credentials.
 - Score, leaderboard, profile, sync, and settings tabs.
 - Manual sync first, then background delivery where feasible.
@@ -59,9 +59,9 @@ and Health Connect data ingestion.
 ### Android
 
 - Native Kotlin with Jetpack Compose.
-- Health Connect permissions for distance, steps where useful, and exercise
-  sessions.
-- Use aggregate reads for cumulative metrics to reduce double-counting risk.
+- Health Connect permissions for exercise sessions and distance.
+- Read running exercise sessions first, then aggregate distance inside those
+  session windows to reduce non-running distance leakage.
 - Encrypted storage for mobile API credentials.
 - Score, leaderboard, profile, sync, and settings tabs.
 - Manual sync first, then WorkManager background sync.
@@ -74,7 +74,7 @@ Initial tables:
 - `github_accounts`: GitHub IDs, login, access token metadata.
 - `mobile_devices`: user ID, platform, device label, token hash, revoked state.
 - `commit_days`: user ID, date, commit count, source metadata.
-- `distance_days`: user ID, date, meters, source platform, source hash.
+- `distance_days`: user ID, date, running meters, source platform, source hash.
 - `score_snapshots`: user ID, period, commit total, distance total, normalized
   metrics, balanced score, rank metadata.
 - `sync_runs`: source, status, timestamps, counters, error summary.
@@ -95,8 +95,9 @@ separate commits-only and kilometers-only boards.
 Guardrails:
 
 - Cap counted commit contributions per day.
-- Count walking/running distance only for the balanced score.
-- Flag implausible daily distance for review rather than silently removing it.
+- Count running distance only for the balanced score.
+- Flag implausible daily running distance for review rather than silently
+  removing it.
 - Keep public leaderboard participation opt-in.
 
 ## Mobile App MVP Screens
@@ -104,7 +105,7 @@ Guardrails:
 Both native apps should ship these screens in the PoC:
 
 - Today: current monthly score, commits, kilometers, rank, and last sync time.
-- Leaderboard: tabs for Balanced, Commits, and Kilometers.
+- Leaderboard: tabs for Balanced, Commits, and Run kilometers.
 - Profile: own profile chart plus public profile view for other users.
 - Sync: health permission state, synced date range, sync now button, recent sync
   results.
@@ -120,7 +121,8 @@ Initial endpoints:
 - `GET /api/users/:login`: public profile and history.
 - `POST /api/mobile/pairing-codes`: create a short-lived pairing code.
 - `POST /api/mobile/devices`: exchange pairing code for a mobile API token.
-- `POST /api/mobile/distance-days`: upsert signed daily distance summaries.
+- `POST /api/mobile/distance-days`: upsert signed daily running distance
+  summaries.
 - `POST /api/mobile/sync-runs`: record sync status.
 - `POST /api/github/oauth/callback`: GitHub OAuth callback.
 - `GET /api/cron/github-sync`: Vercel Cron GitHub refresh.
@@ -129,7 +131,7 @@ Initial endpoints:
 ### Web Mobile Onboarding
 
 - The leaderboard/home surface lists the iOS and Android companion apps and
-  explains that they are the HealthKit/Health Connect distance sources.
+  explains that they are the HealthKit/Health Connect running distance sources.
 - Settings includes a device connection section for signed-in users.
 - The connection section creates a short-lived pairing code through
   `/api/mobile/pairing-codes`, shows the expiry, and lists connected devices.
@@ -139,10 +141,11 @@ Initial endpoints:
 
 - Strava is not a launch dependency. Its 2026 API agreement adds display and
   disclosure restrictions that make public Strava-powered leaderboards risky.
-- Native HealthKit and Health Connect make Pace & Push less dependent on a
-  single fitness social graph.
-- Android Health Connect supports foreground and background reads, and Google
-  recommends aggregate reads for cumulative metrics.
+- Native HealthKit and Health Connect running workout sync makes Pace & Push
+  less dependent on a single fitness social graph.
+- Android Health Connect supports foreground and background reads; Pace & Push
+  uses running exercise sessions as the activity filter before aggregating
+  cumulative distance.
 - Android Health Connect background reads and reading history older than the
   default lookback require extra permissions, so the PoC should start with
   foreground manual sync and short history windows.
@@ -231,16 +234,16 @@ Useful references:
      API.
    - Add pairing flow and encrypted token storage.
 
-11. `feat: add ios HealthKit distance sync`
+11. `feat: add ios HealthKit running distance sync`
    - Request HealthKit permissions.
-   - Read walking/running distance and workout distance.
+   - Read running workout distance.
    - Preview daily summaries before upload.
    - Add manual sync.
 
-12. `feat: add android Health Connect distance sync`
+12. `feat: add android Health Connect running distance sync`
     - Check Health Connect availability.
     - Request required permissions.
-    - Read aggregate walking/running distance and exercise session distance.
+    - Read running exercise sessions and aggregate distance inside them.
     - Add manual sync.
 
 13. `feat: build web leaderboard and profile views`
@@ -269,13 +272,15 @@ Useful references:
 ## PoC Acceptance Criteria
 
 - A user can sign in with GitHub on the web.
-- The website lists the iOS and Android companion apps and explains how distance
-  reaches Pace & Push.
+- The website lists the iOS and Android companion apps and explains how running
+  distance reaches Pace & Push.
 - A signed-in web user can generate a pairing code and review connected devices.
 - A user can pair iOS and Android apps to the same account.
 - The mobile apps show score, leaderboard, profile, settings, and sync state.
-- iOS can read native HealthKit distance and upload daily summaries.
-- Android can read native Health Connect distance and upload daily summaries.
+- iOS can read native HealthKit running workout distance and upload daily
+  summaries.
+- Android can read native Health Connect running exercise distance and upload
+  daily summaries.
 - The web and mobile clients show the same leaderboard and profile data.
 - Public leaderboard participation is opt-in.
 - The prompt-mark identity is consistent across web, iOS, and Android.

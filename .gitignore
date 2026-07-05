@@ -9,6 +9,7 @@ dist/
 coverage/
 *.log
 DerivedData/
+xcuserdata/
 .build/
 build/
 .gradle/

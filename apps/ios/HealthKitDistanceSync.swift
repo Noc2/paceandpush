@@ -19,7 +19,6 @@ struct HealthKitDistanceSyncResult {
 
 enum HealthKitDistanceSyncError: Error {
     case unavailable
-    case missingDistanceType
 }
 
 final class HealthKitDistanceSync {
@@ -32,11 +31,8 @@ final class HealthKitDistanceSync {
 
     func requestAuthorization() async throws {
         guard isAvailable else { throw HealthKitDistanceSyncError.unavailable }
-        guard let distanceType = Self.distanceType else {
-            throw HealthKitDistanceSyncError.missingDistanceType
-        }
 
-        try await healthStore.requestAuthorization(toShare: [], read: [distanceType])
+        try await healthStore.requestAuthorization(toShare: [], read: [Self.workoutType])
     }
 
     func collectDistanceDays(
@@ -44,13 +40,9 @@ final class HealthKitDistanceSync {
         through endDate: Date = Date(),
     ) async throws -> HealthKitDistanceSyncResult {
         guard isAvailable else { throw HealthKitDistanceSyncError.unavailable }
-        guard let distanceType = Self.distanceType else {
-            throw HealthKitDistanceSyncError.missingDistanceType
-        }
 
         let startedAt = Date()
-        let days = try await dailyDistance(
-            distanceType: distanceType,
+        let days = try await dailyRunningDistance(
             startDate: calendar.startOfDay(for: startDate),
             endDate: calendar.startOfDay(for: endDate).addingTimeInterval(24 * 60 * 60),
         )
@@ -62,57 +54,68 @@ final class HealthKitDistanceSync {
         )
     }
 
-    private func dailyDistance(
-        distanceType: HKQuantityType,
+    private func dailyRunningDistance(
         startDate: Date,
         endDate: Date,
     ) async throws -> [HealthKitDistanceDay] {
+        let workouts = try await runningWorkouts(startDate: startDate, endDate: endDate)
+        var metersByDate: [String: Double] = [:]
+
+        for workout in workouts {
+            let meters = workout.totalDistance?.doubleValue(for: .meter()) ?? 0
+            guard meters > 0 else { continue }
+            let date = Self.dayFormatter.string(from: workout.startDate)
+            metersByDate[date, default: 0] += meters
+        }
+
+        return metersByDate.keys.sorted().compactMap { date in
+            guard let meters = metersByDate[date], meters > 0 else { return nil }
+
+            return HealthKitDistanceDay(
+                id: date,
+                date: date,
+                meters: meters,
+                sourcePlatform: "ios",
+                sourceHash: "healthkit-ios-running-\(date)-\(Int(meters.rounded()))",
+            )
+        }
+    }
+
+    private func runningWorkouts(
+        startDate: Date,
+        endDate: Date,
+    ) async throws -> [HKWorkout] {
         try await withCheckedThrowingContinuation { continuation in
-            let predicate = HKQuery.predicateForSamples(
+            let datePredicate = HKQuery.predicateForSamples(
                 withStart: startDate,
                 end: endDate,
                 options: .strictStartDate,
             )
-            let query = HKStatisticsCollectionQuery(
-                quantityType: distanceType,
-                quantitySamplePredicate: predicate,
-                options: .cumulativeSum,
-                anchorDate: startDate,
-                intervalComponents: DateComponents(day: 1),
-            )
-
-            query.initialResultsHandler = { _, collection, error in
+            let runningPredicate = HKQuery.predicateForWorkouts(with: .running)
+            let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                datePredicate,
+                runningPredicate,
+            ])
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+            let query = HKSampleQuery(
+                sampleType: Self.workoutType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort],
+            ) { _, samples, error in
                 if let error {
                     continuation.resume(throwing: error)
                     return
                 }
 
-                var days: [HealthKitDistanceDay] = []
-                collection?.enumerateStatistics(from: startDate, to: endDate) { stats, _ in
-                    let meters = stats.sumQuantity()?.doubleValue(for: .meter()) ?? 0
-                    guard meters > 0 else { return }
-                    let date = Self.dayFormatter.string(from: stats.startDate)
-                    days.append(
-                        HealthKitDistanceDay(
-                            id: date,
-                            date: date,
-                            meters: meters,
-                            sourcePlatform: "ios",
-                            sourceHash: "healthkit-ios-\(date)-\(Int(meters.rounded()))",
-                        ),
-                    )
-                }
-
-                continuation.resume(returning: days)
+                continuation.resume(returning: samples as? [HKWorkout] ?? [])
             }
 
             healthStore.execute(query)
         }
     }
 
-    private static var distanceType: HKQuantityType? {
-        HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)
-    }
+    private static let workoutType = HKObjectType.workoutType()
 
     private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()

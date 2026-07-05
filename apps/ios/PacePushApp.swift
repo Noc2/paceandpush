@@ -68,8 +68,8 @@ struct TodayView: View {
                     HStack(spacing: 12) {
                         MetricTile(title: "Commits", value: "\(store.me.score.commits)", color: Brand.green)
                         MetricTile(
-                            title: "Kilometers",
-                            value: store.me.score.kilometers.formatted(.number.precision(.fractionLength(1))),
+                            title: store.units.title,
+                            value: store.formatDistance(store.me.score.kilometers),
                             color: Brand.red
                         )
                     }
@@ -113,7 +113,7 @@ struct LeaderboardView: View {
                 .listRowBackground(Brand.paper)
 
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                    LeaderboardRowView(rank: index + 1, row: row)
+                    LeaderboardRowView(rank: index + 1, row: row, units: store.units)
                         .listRowBackground(Brand.paper)
                 }
             }
@@ -151,9 +151,14 @@ struct ProfileView: View {
                                 Text(point.date)
                                     .font(.system(.body, design: .monospaced))
                                 Spacer()
-                                Text(point.score.formatted(.number.precision(.fractionLength(1))))
-                                    .foregroundStyle(Brand.blue)
-                                    .fontWeight(.bold)
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(point.score.formatted(.number.precision(.fractionLength(1))))
+                                        .foregroundStyle(Brand.blue)
+                                        .fontWeight(.bold)
+                                    Text(store.formatDistance(point.kilometers, includeUnit: true))
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Brand.ink.opacity(0.62))
+                                }
                             }
                             .padding(.vertical, 6)
                             .borderedRow()
@@ -222,9 +227,18 @@ struct SettingsView: View {
                         .font(Font.system(.body, design: .monospaced))
                 }
 
+                Section("Units") {
+                    Picker("Distance", selection: $store.units) {
+                        ForEach(DistanceUnits.allCases) { units in
+                            Text(units.title).tag(units)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
                 Section("Privacy") {
                     Toggle("Public leaderboard", isOn: .constant(store.me.publicLeaderboard))
-                    Text("Distance summaries are synced by day for the PoC.")
+                    Text("Running distance summaries are synced by day for the PoC.")
                 }
             }
             .navigationTitle("Settings")
@@ -276,6 +290,7 @@ struct MetricTile: View {
 struct LeaderboardRowView: View {
     let rank: Int
     let row: LeaderboardRow
+    let units: DistanceUnits
 
     var body: some View {
         HStack(spacing: 12) {
@@ -293,9 +308,14 @@ struct LeaderboardRowView: View {
 
             Spacer()
 
-            Text(row.score.formatted(.number.precision(.fractionLength(1))))
-                .font(.headline.monospaced())
-                .foregroundStyle(Brand.blue)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(row.score.formatted(.number.precision(.fractionLength(1))))
+                    .font(.headline.monospaced())
+                    .foregroundStyle(Brand.blue)
+                Text(units.format(row.kilometers, includeUnit: true))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Brand.ink.opacity(0.62))
+            }
         }
         .padding(.vertical, 8)
     }
@@ -303,12 +323,24 @@ struct LeaderboardRowView: View {
 
 @MainActor
 final class PacePushStore: ObservableObject {
+    private let unitsKey = "distanceUnits"
+
     @Published var leaderboard = LeaderboardResponse.seed
     @Published var me = MeResponse.seed
     @Published var profile = PublicProfileResponse.seed
     @Published var apiBaseURL = "https://paceandpush.com"
     @Published var deviceToken: String?
     @Published var lastError: String?
+    @Published var units: DistanceUnits {
+        didSet {
+            UserDefaults.standard.set(units.rawValue, forKey: unitsKey)
+        }
+    }
+
+    init() {
+        let savedUnits = UserDefaults.standard.string(forKey: unitsKey)
+        units = DistanceUnits(rawValue: savedUnits ?? "") ?? .metric
+    }
 
     func refresh() async {
         guard let baseURL = URL(string: apiBaseURL) else { return }
@@ -326,10 +358,45 @@ final class PacePushStore: ObservableObject {
         }
     }
 
+    func formatDistance(_ kilometers: Double, includeUnit: Bool = false) -> String {
+        units.format(kilometers, includeUnit: includeUnit)
+    }
+
     private func fetch<T: Decodable>(_ path: String, baseURL: URL) async throws -> T {
         let url = baseURL.appending(path: path)
         let (data, _) = try await URLSession.shared.data(from: url)
         return try JSONDecoder().decode(T.self, from: data)
+    }
+}
+
+enum DistanceUnits: String, CaseIterable, Identifiable {
+    case metric
+    case imperial
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .metric:
+            return "Kilometers"
+        case .imperial:
+            return "Miles"
+        }
+    }
+
+    var abbreviation: String {
+        switch self {
+        case .metric:
+            return "km"
+        case .imperial:
+            return "mi"
+        }
+    }
+
+    func format(_ kilometers: Double, includeUnit: Bool = false) -> String {
+        let value = self == .imperial ? kilometers * 0.621371 : kilometers
+        let formatted = value.formatted(.number.precision(.fractionLength(1)))
+        return includeUnit ? "\(formatted) \(abbreviation)" : formatted
     }
 }
 
@@ -347,7 +414,7 @@ enum Board: String, CaseIterable, Decodable, Identifiable {
         case .commits:
             return "Commits"
         case .distance:
-            return "Distance"
+            return "Run"
         }
     }
 }
