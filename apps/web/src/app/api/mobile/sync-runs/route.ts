@@ -26,14 +26,20 @@ function isValidSyncRun(
   run: SyncRunRequest,
   expectedPlatform: "ios" | "android",
 ): boolean {
+  const startedAt = Date.parse(run.startedAt);
+  const finishedAt = run.finishedAt === null ? null : Date.parse(run.finishedAt);
+  const counters = Object.entries(run.counters ?? {});
+
   return (
     run.platform === expectedPlatform &&
     isSyncStatus(run.status) &&
-    Number.isFinite(Date.parse(run.startedAt)) &&
-    (run.finishedAt === null || Number.isFinite(Date.parse(run.finishedAt))) &&
+    Number.isFinite(startedAt) &&
+    (finishedAt === null || (Number.isFinite(finishedAt) && finishedAt >= startedAt)) &&
     typeof run.counters === "object" &&
     run.counters !== null &&
-    Object.values(run.counters).every((value) => Number.isFinite(value))
+    counters.length <= 20 &&
+    counters.every(([, value]) => Number.isFinite(value) && value >= 0) &&
+    (run.errorSummary === undefined || run.errorSummary.length <= 500)
   );
 }
 

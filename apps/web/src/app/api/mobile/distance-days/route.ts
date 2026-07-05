@@ -1,4 +1,5 @@
 import { upsertDistanceDays, verifyDeviceToken } from "@/server/data/mobile";
+import { recomputeScoreSnapshots } from "@/server/data/scores";
 import type {
   DistanceDayInput,
   DistanceDaysRequest,
@@ -21,6 +22,9 @@ export async function POST(request: NextRequest) {
   if (!Array.isArray(body.days)) {
     return NextResponse.json({ error: "days must be an array." }, { status: 400 });
   }
+  if (body.days.length > 45) {
+    return NextResponse.json({ error: "days may include at most 45 entries." }, { status: 400 });
+  }
 
   const accepted = body.days
     .filter((day) => isValidDistanceDay(day, auth.device.platform))
@@ -31,6 +35,9 @@ export async function POST(request: NextRequest) {
     }));
 
   await upsertDistanceDays({ auth, days: accepted });
+  await Promise.all([...new Set(accepted.map((day) => day.date.slice(0, 7)))].map((period) =>
+    recomputeScoreSnapshots(period),
+  ));
 
   return NextResponse.json({
     accepted: accepted.length,
