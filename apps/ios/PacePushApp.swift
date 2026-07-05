@@ -1,5 +1,8 @@
+import AuthenticationServices
 import Foundation
+import Security
 import SwiftUI
+import UIKit
 
 @main
 struct PacePushApp: App {
@@ -9,6 +12,9 @@ struct PacePushApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(store)
+                .onOpenURL { url in
+                    Task { await store.handleAuthCallback(url) }
+                }
         }
     }
 }
@@ -16,6 +22,22 @@ struct PacePushApp: App {
 struct RootView: View {
     @EnvironmentObject private var store: PacePushStore
 
+    var body: some View {
+        Group {
+            if store.onboardingComplete {
+                MainTabsView()
+            } else {
+                OnboardingView()
+            }
+        }
+        .tint(Brand.gold)
+        .task {
+            await store.bootstrap()
+        }
+    }
+}
+
+struct MainTabsView: View {
     var body: some View {
         TabView {
             TodayView()
@@ -33,10 +55,120 @@ struct RootView: View {
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
-        .tint(Brand.gold)
-        .task {
-            await store.refresh()
+    }
+}
+
+struct OnboardingView: View {
+    @EnvironmentObject private var store: PacePushStore
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HeaderView()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Set up Pace & Push")
+                            .font(.system(size: 36, weight: .black, design: .rounded))
+                            .foregroundStyle(Brand.ink)
+                        Text("Connect GitHub, enable Apple Health, and run one sync before the app shows your score.")
+                            .font(.headline)
+                            .foregroundStyle(Brand.ink.opacity(0.68))
+                    }
+                    .panelStyle()
+
+                    OnboardingStep(
+                        index: 1,
+                        title: "Connect GitHub",
+                        detail: store.isGitHubConnected ? "@\(store.me.login) connected" : "Used for commit counts and account identity.",
+                        complete: store.isGitHubConnected,
+                    ) {
+                        Button {
+                            Task { await store.connectGitHub() }
+                        } label: {
+                            Label("Connect GitHub", systemImage: "chevron.right.square")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(store.busy)
+                    }
+
+                    OnboardingStep(
+                        index: 2,
+                        title: "Enable Apple Health",
+                        detail: store.healthAuthorized ? "Read-only workout access enabled" : "Pace & Push reads running workouts only.",
+                        complete: store.healthAuthorized,
+                    ) {
+                        Button {
+                            Task { await store.requestHealthAccess() }
+                        } label: {
+                            Label("Enable Health", systemImage: "heart.text.square")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(store.busy || !store.isGitHubConnected)
+                    }
+
+                    OnboardingStep(
+                        index: 3,
+                        title: "Run first sync",
+                        detail: store.firstSyncAt == nil ? "Upload daily running totals, not raw workouts." : "First sync complete.",
+                        complete: store.firstSyncAt != nil,
+                    ) {
+                        Button {
+                            Task { await store.syncRunningDistance() }
+                        } label: {
+                            Label("Sync Running Data", systemImage: "arrow.triangle.2.circlepath")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(store.busy || !store.healthAuthorized)
+                    }
+
+                    if let error = store.lastError {
+                        Text(error)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(Brand.red)
+                            .panelStyle()
+                    }
+                }
+                .padding(20)
+            }
+            .background(Brand.paper)
         }
+    }
+}
+
+struct OnboardingStep<Actions: View>: View {
+    let index: Int
+    let title: String
+    let detail: String
+    let complete: Bool
+    @ViewBuilder let actions: () -> Actions
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Text(complete ? "✓" : "\(index)")
+                    .font(.headline.monospaced())
+                    .frame(width: 34, height: 34)
+                    .background(complete ? Brand.green.opacity(0.18) : Brand.gold)
+                    .overlay(Rectangle().stroke(Brand.ink, lineWidth: 2))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.title3.bold())
+                    Text(detail)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(Brand.ink.opacity(0.64))
+                }
+            }
+
+            if !complete {
+                actions()
+            }
+        }
+        .panelStyle()
     }
 }
 
@@ -50,7 +182,7 @@ struct TodayView: View {
                     HeaderView()
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Your July score")
+                        Text("Your \(store.me.score.period) score")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(Brand.ink.opacity(0.62))
                             .textCase(.uppercase)
@@ -59,7 +191,7 @@ struct TodayView: View {
                             .font(.system(size: 72, weight: .black, design: .rounded))
                             .foregroundStyle(Brand.ink)
 
-                        Text("Rank \(store.me.score.rank ?? 0) this month.")
+                        Text(store.me.score.rank.map { "Rank #\($0) this month." } ?? "No public rank yet.")
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(Brand.ink.opacity(0.72))
                     }
@@ -75,13 +207,16 @@ struct TodayView: View {
                     }
 
                     HStack(spacing: 12) {
-                        MetricTile(title: "Board", value: "#\(store.me.score.rank ?? 0)", color: Brand.blue)
+                        MetricTile(title: "Board", value: store.me.score.rank.map { "#\($0)" } ?? "-", color: Brand.blue)
                         MetricTile(title: "Sync", value: store.me.score.lastSyncAt == nil ? "Never" : "Ready", color: Brand.ink)
                     }
                 }
                 .padding(20)
             }
             .background(Brand.paper)
+            .refreshable {
+                await store.refresh()
+            }
         }
     }
 }
@@ -111,6 +246,12 @@ struct LeaderboardView: View {
                 }
                 .pickerStyle(.segmented)
                 .listRowBackground(Brand.paper)
+
+                if rows.isEmpty {
+                    Text("No public scores yet.")
+                        .foregroundStyle(Brand.ink.opacity(0.66))
+                        .listRowBackground(Brand.paper)
+                }
 
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                     LeaderboardRowView(rank: index + 1, row: row, units: store.units)
@@ -146,6 +287,11 @@ struct ProfileView: View {
                         Text(store.profile.bio ?? "Healthy body, shipped code.")
                             .foregroundStyle(Brand.ink.opacity(0.68))
 
+                        if store.profile.history.isEmpty {
+                            Text("Sync running data to build your profile history.")
+                                .foregroundStyle(Brand.ink.opacity(0.64))
+                        }
+
                         ForEach(store.profile.history) { point in
                             HStack {
                                 Text(point.date)
@@ -176,7 +322,6 @@ struct ProfileView: View {
 
 struct SyncView: View {
     @EnvironmentObject private var store: PacePushStore
-    @State private var pairingCode = ""
 
     var body: some View {
         NavigationStack {
@@ -185,26 +330,27 @@ struct SyncView: View {
                     HeaderView()
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Label("Connect this device", systemImage: "iphone.gen3")
+                        Label("Running sync", systemImage: "figure.run")
                             .font(.title3.bold())
 
-                        TextField("Paste pairing code", text: $pairingCode)
-                            .font(Font.system(.body, design: .monospaced))
-                            .padding(14)
-                            .background(Brand.paper)
-                            .overlay(Rectangle().stroke(Brand.ink, lineWidth: 2))
+                        StatusRow(label: "GitHub", value: store.isGitHubConnected ? "@\(store.me.login)" : "Disconnected")
+                        StatusRow(label: "Apple Health", value: store.healthAuthorized ? "Enabled" : "Needs permission")
+                        StatusRow(label: "Last sync", value: store.firstSyncAt ?? "Never")
 
                         Button {
-                            store.deviceToken = pairingCode.isEmpty ? nil : "paired"
+                            Task { await store.syncRunningDistance() }
                         } label: {
-                            Label("Pair", systemImage: "link")
+                            Label(store.busy ? "Syncing..." : "Sync Now", systemImage: "arrow.triangle.2.circlepath")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(PrimaryButtonStyle())
+                        .disabled(store.busy || !store.healthAuthorized)
 
-                        Text(store.deviceToken == nil ? "Waiting for a web pairing code." : "Device paired for local sync.")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(Brand.ink.opacity(0.68))
+                        if let error = store.lastError {
+                            Text(error)
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(Brand.red)
+                        }
                     }
                     .panelStyle()
                 }
@@ -222,6 +368,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Account") {
+                    Text("@\(store.me.login)")
+                    Button("Sign out", role: .destructive) {
+                        store.signOut()
+                    }
+                }
+
                 Section("Server") {
                     TextField("API base URL", text: $store.apiBaseURL)
                         .font(Font.system(.body, design: .monospaced))
@@ -238,10 +391,25 @@ struct SettingsView: View {
 
                 Section("Privacy") {
                     Toggle("Public leaderboard", isOn: .constant(store.me.publicLeaderboard))
-                    Text("Running distance summaries are synced by day for the PoC.")
+                    Text("Running distance summaries are synced by day. Raw workouts and routes are not uploaded.")
                 }
             }
             .navigationTitle("Settings")
+        }
+    }
+}
+
+struct StatusRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .foregroundStyle(Brand.ink.opacity(0.62))
+            Spacer()
+            Text(value)
+                .fontWeight(.bold)
         }
     }
 }
@@ -323,49 +491,410 @@ struct LeaderboardRowView: View {
 
 @MainActor
 final class PacePushStore: ObservableObject {
+    private let callbackScheme = "pacepush"
+    private let tokenKey = "mobileDeviceToken"
+    private let healthKey = "healthAuthorized"
+    private let firstSyncKey = "firstSyncAt"
     private let unitsKey = "distanceUnits"
+    private let keychain = KeychainStore(service: "com.paceandpush.app")
+    private let healthSync = HealthKitDistanceSync()
+    private let authSession = GitHubAuthSession()
 
     @Published var leaderboard = LeaderboardResponse.seed
     @Published var me = MeResponse.seed
     @Published var profile = PublicProfileResponse.seed
     @Published var apiBaseURL = "https://paceandpush.com"
     @Published var deviceToken: String?
+    @Published var healthAuthorized: Bool
+    @Published var firstSyncAt: String?
     @Published var lastError: String?
+    @Published var busy = false
     @Published var units: DistanceUnits {
         didSet {
             UserDefaults.standard.set(units.rawValue, forKey: unitsKey)
         }
     }
 
+    var isGitHubConnected: Bool {
+        deviceToken != nil
+    }
+
+    var onboardingComplete: Bool {
+        isGitHubConnected && healthAuthorized && firstSyncAt != nil
+    }
+
     init() {
         let savedUnits = UserDefaults.standard.string(forKey: unitsKey)
         units = DistanceUnits(rawValue: savedUnits ?? "") ?? .metric
+        healthAuthorized = UserDefaults.standard.bool(forKey: healthKey)
+        firstSyncAt = UserDefaults.standard.string(forKey: firstSyncKey)
+        deviceToken = try? keychain.readString(account: tokenKey)
+    }
+
+    func bootstrap() async {
+        guard deviceToken != nil else { return }
+        await refresh()
+    }
+
+    func connectGitHub() async {
+        guard let baseURL = URL(string: apiBaseURL) else {
+            lastError = "API base URL is invalid."
+            return
+        }
+
+        busy = true
+        lastError = nil
+        defer { busy = false }
+
+        do {
+            let client = PacePushAPIClient(baseURL: baseURL, token: nil)
+            let callback = try await authSession.authenticate(
+                startURL: client.mobileGitHubStartURL(
+                    platform: "ios",
+                    label: UIDevice.current.name,
+                    callbackScheme: callbackScheme,
+                ),
+                callbackScheme: callbackScheme,
+            )
+            try await finishGitHubCallback(callback)
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func handleAuthCallback(_ url: URL) async {
+        do {
+            try await finishGitHubCallback(url)
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func requestHealthAccess() async {
+        busy = true
+        lastError = nil
+        defer { busy = false }
+
+        do {
+            try await healthSync.requestAuthorization()
+            healthAuthorized = true
+            UserDefaults.standard.set(true, forKey: healthKey)
+        } catch {
+            lastError = "Apple Health is unavailable or permission was not granted."
+        }
+    }
+
+    func syncRunningDistance() async {
+        guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else {
+            lastError = "Connect GitHub before syncing."
+            return
+        }
+
+        busy = true
+        lastError = nil
+        let startedAt = Date()
+
+        do {
+            let client = PacePushAPIClient(baseURL: baseURL, token: token)
+            let startDate = Calendar(identifier: .gregorian).date(byAdding: .day, value: -35, to: Date()) ?? Date()
+            let result = try await healthSync.collectDistanceDays(from: startDate)
+            let upload = try await client.uploadDistanceDays(result.days)
+            try await client.recordSyncRun(
+                SyncRunRequest(
+                    platform: "ios",
+                    status: upload.flagged > 0 ? "warning" : "success",
+                    startedAt: startedAt.isoString,
+                    finishedAt: Date().isoString,
+                    counters: [
+                        "days": result.days.count,
+                        "accepted": upload.accepted,
+                        "flagged": upload.flagged,
+                    ],
+                    errorSummary: nil,
+                ),
+            )
+            firstSyncAt = Date().isoString
+            UserDefaults.standard.set(firstSyncAt, forKey: firstSyncKey)
+            await refresh()
+        } catch PacePushAPIError.unauthorized {
+            signOut()
+            lastError = "This device was revoked. Connect GitHub again."
+        } catch {
+            if let client = URL(string: apiBaseURL).map({ PacePushAPIClient(baseURL: $0, token: token) }) {
+                try? await client.recordSyncRun(
+                    SyncRunRequest(
+                        platform: "ios",
+                        status: "error",
+                        startedAt: startedAt.isoString,
+                        finishedAt: Date().isoString,
+                        counters: [:],
+                        errorSummary: error.localizedDescription,
+                    ),
+                )
+            }
+            lastError = error.localizedDescription
+        }
+
+        busy = false
     }
 
     func refresh() async {
         guard let baseURL = URL(string: apiBaseURL) else { return }
 
         do {
-            async let leaderboardResponse: LeaderboardResponse = fetch("/api/leaderboard", baseURL: baseURL)
-            async let meResponse: MeResponse = fetch("/api/me", baseURL: baseURL)
-            async let profileResponse: PublicProfileResponse = fetch("/api/users/Noc2", baseURL: baseURL)
-            leaderboard = try await leaderboardResponse
-            me = try await meResponse
-            profile = try await profileResponse
+            let client = PacePushAPIClient(baseURL: baseURL, token: deviceToken)
+            async let leaderboardResponse: LeaderboardResponse = client.fetch("/api/leaderboard", authenticated: false)
+            if deviceToken != nil {
+                async let meResponse: MeResponse = client.fetch("/api/mobile/me", authenticated: true)
+                async let profileResponse: PublicProfileResponse = client.fetch("/api/mobile/me/profile", authenticated: true)
+                leaderboard = try await leaderboardResponse
+                me = try await meResponse
+                profile = try await profileResponse
+            } else {
+                leaderboard = try await leaderboardResponse
+            }
             lastError = nil
+        } catch PacePushAPIError.unauthorized {
+            signOut()
+            lastError = "This device was revoked. Connect GitHub again."
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    func signOut() {
+        try? keychain.delete(account: tokenKey)
+        deviceToken = nil
+        firstSyncAt = nil
+        UserDefaults.standard.removeObject(forKey: firstSyncKey)
+        me = .seed
+        profile = .seed
     }
 
     func formatDistance(_ kilometers: Double, includeUnit: Bool = false) -> String {
         units.format(kilometers, includeUnit: includeUnit)
     }
 
-    private func fetch<T: Decodable>(_ path: String, baseURL: URL) async throws -> T {
-        let url = baseURL.appending(path: path)
-        let (data, _) = try await URLSession.shared.data(from: url)
+    private func finishGitHubCallback(_ url: URL) async throws {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw PacePushAPIError.invalidCallback
+        }
+        if let message = components.queryItems?.first(where: { $0.name == "error" })?.value {
+            throw PacePushAPIError.server(message)
+        }
+        guard let code = components.queryItems?.first(where: { $0.name == "code" })?.value,
+              let baseURL = URL(string: apiBaseURL)
+        else {
+            throw PacePushAPIError.invalidCallback
+        }
+
+        let client = PacePushAPIClient(baseURL: baseURL, token: nil)
+        let exchange: DeviceExchangeResponse = try await client.post(
+            "/api/mobile/auth/exchange",
+            body: MobileAuthExchangeRequest(code: code),
+            authenticated: false,
+        )
+        try keychain.saveString(exchange.token, account: tokenKey)
+        deviceToken = exchange.token
+        await refresh()
+    }
+}
+
+final class PacePushAPIClient {
+    let baseURL: URL
+    let token: String?
+
+    init(baseURL: URL, token: String?) {
+        self.baseURL = baseURL
+        self.token = token
+    }
+
+    func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL {
+        var components = URLComponents(url: url("/api/mobile/auth/github/start"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "platform", value: platform),
+            URLQueryItem(name: "label", value: label),
+            URLQueryItem(name: "callbackScheme", value: callbackScheme),
+        ]
+        guard let url = components?.url else { throw PacePushAPIError.invalidURL }
+        return url
+    }
+
+    func fetch<T: Decodable>(_ path: String, authenticated: Bool) async throws -> T {
+        var request = URLRequest(url: url(path))
+        request.setValue("application/json", forHTTPHeaderField: "accept")
+        if authenticated {
+            try authorize(&request)
+        }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
         return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    func post<Body: Encodable, Response: Decodable>(
+        _ path: String,
+        body: Body,
+        authenticated: Bool,
+    ) async throws -> Response {
+        var request = URLRequest(url: url(path))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "accept")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        if authenticated {
+            try authorize(&request)
+        }
+        request.httpBody = try JSONEncoder().encode(body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
+        return try JSONDecoder().decode(Response.self, from: data)
+    }
+
+    func uploadDistanceDays(_ days: [HealthKitDistanceDay]) async throws -> DistanceDaysResponse {
+        try await post(
+            "/api/mobile/distance-days",
+            body: DistanceDaysRequest(days: days),
+            authenticated: true,
+        )
+    }
+
+    func recordSyncRun(_ run: SyncRunRequest) async throws {
+        let _: SyncRunResponse = try await post(
+            "/api/mobile/sync-runs",
+            body: run,
+            authenticated: true,
+        )
+    }
+
+    func url(_ path: String) -> URL {
+        baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+    }
+
+    private func authorize(_ request: inout URLRequest) throws {
+        guard let token else { throw PacePushAPIError.unauthorized }
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
+    }
+
+    private func validate(response: URLResponse, data: Data) throws {
+        guard let http = response as? HTTPURLResponse else { return }
+        if http.statusCode == 401 {
+            throw PacePushAPIError.unauthorized
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            if let error = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
+                throw PacePushAPIError.server(error.error)
+            }
+            throw PacePushAPIError.server("Request failed with status \(http.statusCode).")
+        }
+    }
+}
+
+final class GitHubAuthSession: NSObject, ASWebAuthenticationPresentationContextProviding {
+    private var session: ASWebAuthenticationSession?
+    private var continuation: CheckedContinuation<URL, Error>?
+
+    func authenticate(startURL: URL, callbackScheme: String) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            let session = ASWebAuthenticationSession(
+                url: startURL,
+                callbackURLScheme: callbackScheme,
+            ) { callbackURL, error in
+                if let callbackURL {
+                    continuation.resume(returning: callbackURL)
+                } else {
+                    continuation.resume(throwing: error ?? PacePushAPIError.invalidCallback)
+                }
+                self.continuation = nil
+                self.session = nil
+            }
+            session.presentationContextProvider = self
+            session.prefersEphemeralWebBrowserSession = false
+            self.session = session
+            if !session.start() {
+                continuation.resume(throwing: PacePushAPIError.invalidCallback)
+                self.continuation = nil
+                self.session = nil
+            }
+        }
+    }
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            if let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
+                return window
+            }
+        }
+        return ASPresentationAnchor()
+    }
+}
+
+struct KeychainStore {
+    let service: String
+
+    func saveString(_ value: String, account: String) throws {
+        let data = Data(value.utf8)
+        try delete(account: account)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecValueData as String: data,
+        ]
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else { throw PacePushAPIError.keychain(status) }
+    }
+
+    func readString(account: String) throws -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess else { throw PacePushAPIError.keychain(status) }
+        guard let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    func delete(account: String) throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            throw PacePushAPIError.keychain(status)
+        }
+    }
+}
+
+enum PacePushAPIError: LocalizedError {
+    case invalidURL
+    case invalidCallback
+    case unauthorized
+    case server(String)
+    case keychain(OSStatus)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "Could not build the request URL."
+        case .invalidCallback:
+            return "GitHub sign-in did not return a valid callback."
+        case .unauthorized:
+            return "This device is not authorized."
+        case .server(let message):
+            return message
+        case .keychain(let status):
+            return "Keychain failed with status \(status)."
+        }
     }
 }
 
@@ -419,6 +948,50 @@ enum Board: String, CaseIterable, Decodable, Identifiable {
     }
 }
 
+struct APIErrorResponse: Decodable {
+    let error: String
+}
+
+struct MobileAuthExchangeRequest: Encodable {
+    let code: String
+}
+
+struct DeviceExchangeResponse: Decodable {
+    let device: MobileDeviceSummary
+    let token: String
+}
+
+struct MobileDeviceSummary: Decodable, Identifiable {
+    let id: String
+    let platform: String
+    let label: String
+    let lastSeenAt: String?
+    let revoked: Bool
+}
+
+struct DistanceDaysRequest: Encodable {
+    let days: [HealthKitDistanceDay]
+}
+
+struct DistanceDaysResponse: Decodable {
+    let accepted: Int
+    let flagged: Int
+}
+
+struct SyncRunRequest: Encodable {
+    let platform: String
+    let status: String
+    let startedAt: String
+    let finishedAt: String?
+    let counters: [String: Int]
+    let errorSummary: String?
+}
+
+struct SyncRunResponse: Decodable {
+    let id: String
+    let status: String
+}
+
 struct LeaderboardResponse: Decodable {
     let period: String
     let board: Board
@@ -427,11 +1000,7 @@ struct LeaderboardResponse: Decodable {
     static let seed = LeaderboardResponse(
         period: "2026-07",
         board: .balanced,
-        rows: [
-            LeaderboardRow(rank: 1, login: "Noc2", displayName: "David Hawig", score: 94.2, commits: 312, kilometers: 86.4, streakDays: 11),
-            LeaderboardRow(rank: 2, login: "alina-dev", displayName: "Alina Roth", score: 88.7, commits: 244, kilometers: 97.8, streakDays: 8),
-            LeaderboardRow(rank: 3, login: "mjansen", displayName: "Mika Jansen", score: 77.1, commits: 178, kilometers: 73.2, streakDays: 5)
-        ]
+        rows: []
     )
 }
 
@@ -453,13 +1022,15 @@ struct MeResponse: Decodable {
     let publicLeaderboard: Bool
     let units: String
     let score: ScoreSummary
+    let devices: [MobileDeviceSummary]
 
     static let seed = MeResponse(
-        login: "Noc2",
-        displayName: "David Hawig",
-        publicLeaderboard: true,
+        login: "guest",
+        displayName: "Guest",
+        publicLeaderboard: false,
         units: "metric",
-        score: ScoreSummary(period: "2026-07", score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: nil)
+        score: ScoreSummary(period: "2026-07", score: 0, rank: nil, commits: 0, kilometers: 0, lastSyncAt: nil),
+        devices: []
     )
 }
 
@@ -471,15 +1042,11 @@ struct PublicProfileResponse: Decodable {
     let history: [ProfileHistoryPoint]
 
     static let seed = PublicProfileResponse(
-        login: "Noc2",
-        displayName: "David Hawig",
-        bio: "Healthy body, shipped code.",
+        login: "guest",
+        displayName: "Guest",
+        bio: nil,
         score: MeResponse.seed.score,
-        history: [
-            ProfileHistoryPoint(date: "2026-07-01", commits: 41, kilometers: 8.1, score: 42.8),
-            ProfileHistoryPoint(date: "2026-07-02", commits: 93, kilometers: 23.5, score: 68.4),
-            ProfileHistoryPoint(date: "2026-07-03", commits: 128, kilometers: 31.2, score: 75.6)
-        ]
+        history: []
     )
 }
 
@@ -519,6 +1086,20 @@ struct PrimaryButtonStyle: ButtonStyle {
             .background(configuration.isPressed ? Brand.gold.opacity(0.72) : Brand.gold)
             .overlay(Rectangle().stroke(Brand.ink, lineWidth: 2))
     }
+}
+
+extension Date {
+    var isoString: String {
+        ISO8601DateFormatter.pacePush.string(from: self)
+    }
+}
+
+extension ISO8601DateFormatter {
+    static let pacePush: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 }
 
 extension View {

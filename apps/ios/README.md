@@ -12,6 +12,16 @@ Native SwiftUI client for Pace & Push.
 The simulator build is intended for seeing the current app shell. HealthKit data
 access requires a real iPhone and Apple Developer signing with HealthKit enabled.
 
+## Native onboarding
+
+The app gates the tab UI until setup is complete:
+
+1. Connect GitHub through the `ASWebAuthenticationSession` flow.
+2. Return through the `pacepush://auth/callback` URL scheme.
+3. Store the returned mobile device token in Keychain.
+4. Request read-only HealthKit workout access.
+5. Run a foreground running-distance sync.
+
 The PoC app shell will include Today, Leaderboard, Profile, Sync, and Settings
 tabs, plus HealthKit running distance sync.
 

@@ -16,6 +16,8 @@
 		1D60A2D82CB74C6500110A10 /* PacePushApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacePushApp.swift; sourceTree = "<group>"; };
 		1D60A2DA2CB74C6500110A10 /* HealthKitDistanceSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitDistanceSync.swift; sourceTree = "<group>"; };
 		1D60A2DC2CB74C6500110A10 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		1D60A2E62CB74C6500110A10 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		1D60A2E72CB74C6500110A10 /* PacePush.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PacePush.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -34,6 +36,8 @@
 			children = (
 				1D60A2D82CB74C6500110A10 /* PacePushApp.swift */,
 				1D60A2DA2CB74C6500110A10 /* HealthKitDistanceSync.swift */,
+				1D60A2E62CB74C6500110A10 /* Info.plist */,
+				1D60A2E72CB74C6500110A10 /* PacePush.entitlements */,
 				1D60A2DC2CB74C6500110A10 /* README.md */,
 				1D60A2D62CB74C6500110A10 /* Products */,
 			);
@@ -79,6 +83,11 @@
 				TargetAttributes = {
 					1D60A2D42CB74C6500110A10 = {
 						CreatedOnToolsVersion = 26.6;
+						SystemCapabilities = {
+							com.apple.HealthKit = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -244,17 +253,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PacePush.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Pace & Push";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pace & Push reads running workouts from HealthKit to calculate daily running distance.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pace & Push does not write Health data.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -276,17 +280,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PacePush.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Pace & Push";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pace & Push reads running workouts from HealthKit to calculate daily running distance.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pace & Push does not write Health data.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
