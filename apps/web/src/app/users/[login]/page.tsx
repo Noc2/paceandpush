@@ -7,33 +7,41 @@ import {
 } from "@/lib/distance-units";
 import { getSessionUser } from "@/server/auth/session";
 import { getAccountUser } from "@/server/data/accounts";
-import { getLeaderboard, getPublicProfile } from "@/server/data/read-model";
+import { getLeaderboard, getPublicProfile, parsePeriod } from "@/server/data/read-model";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PeriodSelector, formatPeriodLabel } from "@/app/PeriodSelector";
 
 type UserPageProps = {
   params: Promise<{
     login: string;
   }>;
+  searchParams?: Promise<{
+    period?: string;
+  }>;
 };
 
-export default async function UserPage({ params }: UserPageProps) {
+export default async function UserPage({ params, searchParams }: UserPageProps) {
   const { login } = await params;
+  const query = searchParams ? await searchParams : {};
+  const period = parsePeriod(query.period ?? null);
   const sessionUser = await getSessionUser();
   const [profile, viewer] = await Promise.all([
-    getPublicProfile(decodeURIComponent(login)),
+    getPublicProfile(decodeURIComponent(login), period),
     getAccountUser(sessionUser),
   ]);
   if (!profile) notFound();
 
   const units = parseUnitPreference(viewer?.units);
-  const leaderboard = await getLeaderboard();
+  const leaderboard = await getLeaderboard("balanced", period);
   const row = leaderboard.rows.find(
     (leader) => leader.login.toLowerCase() === profile.login.toLowerCase(),
   );
-  const chartPath = `/api/embed/${encodeURIComponent(profile.login)}/chart.svg?units=${units}`;
+  const chartParams = new URLSearchParams({ period: profile.score.period, units });
+  const chartPath = `/api/embed/${encodeURIComponent(profile.login)}/chart.svg?${chartParams}`;
   const embedMarkdown = `![${brandName} chart](https://paceandpush.com${chartPath})`;
+  const periodLabel = formatPeriodLabel(profile.score.period);
 
   return (
     <main className="app-shell">
@@ -48,7 +56,7 @@ export default async function UserPage({ params }: UserPageProps) {
               <small>{brandTagline}</small>
             </span>
           </Link>
-          <Link className="button" href="/">
+          <Link className="button" href={`/?period=${profile.score.period}`}>
             Leaderboard
           </Link>
         </header>
@@ -65,6 +73,11 @@ export default async function UserPage({ params }: UserPageProps) {
           <Stat label={runningDistanceLabel(units)} value={formatDistance(profile.score.kilometers, units)} />
           <Stat label="Streak" value={`${row?.streakDays ?? 0}d`} />
         </div>
+
+        <PeriodSelector
+          activePeriod={profile.score.period}
+          action={`/users/${encodeURIComponent(profile.login)}`}
+        />
 
         <section className="chart-panel" aria-label="Embeddable profile chart">
           <div className="chart-panel-copy">
@@ -83,8 +96,8 @@ export default async function UserPage({ params }: UserPageProps) {
           />
         </section>
 
-        <section className="history-list" aria-label="July history">
-          <h2>July history</h2>
+        <section className="history-list" aria-label={`${periodLabel} history`}>
+          <h2>{periodLabel} history</h2>
           {profile.history.map((point) => (
             <div key={point.date}>
               <span>{point.date}</span>

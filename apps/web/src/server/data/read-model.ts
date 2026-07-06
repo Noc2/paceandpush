@@ -108,6 +108,14 @@ export async function getPublicProfile(
 
   if (!user) return null;
 
+  if (!(await hasScoreSnapshot(user.id, period))) {
+    try {
+      await recomputeScoreSnapshots(period);
+    } catch (error) {
+      console.error("[scores] public profile snapshot refresh failed", error);
+    }
+  }
+
   const score = await getScoreSummary(user.id, period);
 
   return {

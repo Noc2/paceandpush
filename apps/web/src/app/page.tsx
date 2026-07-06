@@ -3,6 +3,7 @@ import { getLeaderboard, getMe, parseBoard, parsePeriod } from "@/server/data/re
 import type { Board, LeaderboardRow } from "@paceandpush/api-contracts";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
+import { PeriodSelector } from "@/app/PeriodSelector";
 import {
   distanceUnitAbbreviation,
   formatDistance,
@@ -16,16 +17,6 @@ type HomePageProps = {
     board?: string;
     period?: string;
   }>;
-};
-
-type PeriodOption = {
-  label: string;
-  value: string;
-};
-
-type PeriodOptionGroup = {
-  label: string;
-  options: PeriodOption[];
 };
 
 export default async function HomePage({ searchParams }: HomePageProps) {
@@ -52,9 +43,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <Stat label={runningDistanceLabel(me.units)} value={formatDistance(me.score.kilometers, me.units)} />
         </section>
 
-        <PeriodSelector activePeriod={leaderboard.period} board={leaderboard.board} />
+        <PeriodSelector
+          activePeriod={leaderboard.period}
+          action="/"
+          hiddenParams={[{ name: "board", value: leaderboard.board }]}
+        />
         <BoardTabs active={leaderboard.board} period={leaderboard.period} units={me.units} />
-        <LeaderboardTable rows={leaderboard.rows} units={me.units} />
+        <LeaderboardTable rows={leaderboard.rows} period={leaderboard.period} units={me.units} />
       </section>
     </main>
   );
@@ -93,31 +88,6 @@ function AppHeader({ login }: { login: string }) {
   );
 }
 
-function PeriodSelector({ activePeriod, board }: { activePeriod: string; board: Board }) {
-  const optionGroups = getPeriodOptionGroups(activePeriod);
-
-  return (
-    <form className="period-selector" action="/" method="get" aria-label="Score period">
-      <input type="hidden" name="board" value={board} />
-      <label htmlFor="period">Period</label>
-      <select id="period" name="period" defaultValue={activePeriod}>
-        {optionGroups.map((group) => (
-          <optgroup key={group.label} label={group.label}>
-            {group.options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-      <button className="button" type="submit">
-        Apply
-      </button>
-    </form>
-  );
-}
-
 function BoardTabs({
   active,
   period,
@@ -148,7 +118,15 @@ function BoardTabs({
   );
 }
 
-function LeaderboardTable({ rows, units }: { rows: LeaderboardRow[]; units: UnitPreference }) {
+function LeaderboardTable({
+  rows,
+  period,
+  units,
+}: {
+  rows: LeaderboardRow[];
+  period: string;
+  units: UnitPreference;
+}) {
   return (
     <div className="leaderboard" role="table" aria-label="Leaderboard">
       <div className="leaderboard-head" role="row">
@@ -167,7 +145,7 @@ function LeaderboardTable({ rows, units }: { rows: LeaderboardRow[]; units: Unit
       ) : null}
       {rows.map((row) => (
         <Link
-          href={`/users/${row.login}`}
+          href={`/users/${encodeURIComponent(row.login)}?period=${period}`}
           className="leaderboard-row"
           role="row"
           key={row.login}
@@ -194,91 +172,4 @@ function Stat({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
-}
-
-function getPeriodOptionGroups(activePeriod: string): PeriodOptionGroup[] {
-  const now = new Date();
-  const years = new Set<string>();
-  const months = new Set<string>();
-  const weeks = new Set<string>();
-
-  for (let offset = 0; offset < 5; offset += 1) {
-    years.add(String(now.getUTCFullYear() - offset));
-  }
-  for (let offset = 0; offset < 12; offset += 1) {
-    months.add(toMonthPeriod(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1))));
-  }
-  for (let offset = 0; offset < 12; offset += 1) {
-    weeks.add(toIsoWeekPeriod(addDays(now, -offset * 7)));
-  }
-
-  if (/^\d{4}$/.test(activePeriod)) {
-    years.add(activePeriod);
-  } else if (/^\d{4}-W\d{2}$/.test(activePeriod)) {
-    weeks.add(activePeriod);
-  } else {
-    months.add(activePeriod);
-  }
-
-  return [
-    {
-      label: "Years",
-      options: [...years].sort().reverse().map((period) => ({
-        label: formatPeriodLabel(period),
-        value: period,
-      })),
-    },
-    {
-      label: "Months",
-      options: [...months].sort().reverse().map((period) => ({
-        label: formatPeriodLabel(period),
-        value: period,
-      })),
-    },
-    {
-      label: "Weeks",
-      options: [...weeks].sort().reverse().map((period) => ({
-        label: formatPeriodLabel(period),
-        value: period,
-      })),
-    },
-  ];
-}
-
-function toMonthPeriod(date: Date): string {
-  return date.toISOString().slice(0, 7);
-}
-
-function formatPeriodLabel(period: string): string {
-  if (/^\d{4}$/.test(period)) {
-    return period;
-  }
-
-  const weekMatch = /^(\d{4})-W(\d{2})$/.exec(period);
-  if (weekMatch) {
-    return `Week ${Number(weekMatch[2])}, ${weekMatch[1]}`;
-  }
-
-  const [year, month] = period.split("-").map(Number);
-  return new Intl.DateTimeFormat("en", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, month - 1, 1)));
-}
-
-function toIsoWeekPeriod(date: Date): string {
-  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const day = target.getUTCDay() || 7;
-  target.setUTCDate(target.getUTCDate() + 4 - day);
-
-  const isoYear = target.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
-  const week = Math.ceil((((target.getTime() - yearStart.getTime()) / (24 * 60 * 60 * 1000)) + 1) / 7);
-
-  return `${isoYear}-W${String(week).padStart(2, "0")}`;
-}
-
-function addDays(date: Date, days: number): Date {
-  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }

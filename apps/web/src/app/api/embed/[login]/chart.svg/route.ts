@@ -1,15 +1,16 @@
-import { getPublicProfile } from "@/server/data/read-model";
+import { getPublicProfile, parsePeriod } from "@/server/data/read-model";
 import { renderProfileChartSvg } from "@/server/charts/profile-chart";
 import { parseUnitPreference } from "@/lib/distance-units";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   context: { params: Promise<{ login: string }> },
 ) {
   const { login } = await context.params;
-  const profile = await getPublicProfile(decodeURIComponent(login));
-  const units = parseUnitPreference(new URL(request.url).searchParams.get("units"));
+  const period = parsePeriod(request.nextUrl.searchParams.get("period"));
+  const profile = await getPublicProfile(decodeURIComponent(login), period);
+  const units = parseUnitPreference(request.nextUrl.searchParams.get("units"));
 
   if (!profile) {
     return new NextResponse("Profile not found.", { status: 404 });

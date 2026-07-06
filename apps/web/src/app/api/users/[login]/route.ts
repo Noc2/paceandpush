@@ -1,12 +1,13 @@
-import { getPublicProfile } from "@/server/data/read-model";
-import { NextResponse } from "next/server";
+import { getPublicProfile, parsePeriod } from "@/server/data/read-model";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   context: { params: Promise<{ login: string }> },
 ) {
   const { login } = await context.params;
-  const profile = await getPublicProfile(decodeURIComponent(login));
+  const period = parsePeriod(request.nextUrl.searchParams.get("period"));
+  const profile = await getPublicProfile(decodeURIComponent(login), period);
   if (!profile) {
     return NextResponse.json({ error: "Profile not found." }, { status: 404 });
   }
