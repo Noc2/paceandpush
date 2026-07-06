@@ -239,6 +239,43 @@ a {
   border-right: 0;
 }
 
+.leaderboard-search {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0 0;
+}
+
+.leaderboard-search label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.leaderboard-search-row {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+}
+
+.leaderboard-search input[type="search"] {
+  width: min(360px, 100%);
+  min-height: 38px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 750;
+}
+
+.leaderboard-search input[type="search"]::placeholder {
+  color: var(--muted);
+}
+
 .period-mode-tabs a.active,
 .period-option-grid a.active,
 .period-option-list a.active,
@@ -1014,6 +1051,19 @@ a {
   .period-selector {
     align-items: stretch;
     grid-template-columns: 1fr;
+  }
+
+  .leaderboard-search {
+    grid-template-columns: 1fr;
+  }
+
+  .leaderboard-search-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .leaderboard-search input[type="search"] {
+    width: 100%;
   }
 
   .period-mode-tabs,

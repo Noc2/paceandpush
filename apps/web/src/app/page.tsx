@@ -1,5 +1,5 @@
 import { getSessionUser } from "@/server/auth/session";
-import { getLeaderboard, getMe, parsePeriod } from "@/server/data/read-model";
+import { getLeaderboard, getMe, parsePeriod, searchPublicUsers } from "@/server/data/read-model";
 import type { LeaderboardRow } from "@paceandpush/api-contracts";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
@@ -17,6 +17,7 @@ type HomePageProps = {
     board?: string;
     dir?: string;
     period?: string;
+    q?: string;
     sort?: string;
   }>;
 };
@@ -29,10 +30,18 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const period = parsePeriod(params.period ?? null);
   const sort = parseLeaderboardSort(params.sort) ?? parseLeaderboardSort(params.board) ?? "score";
   const direction = parseSortDirection(params.dir, sort);
-  const [leaderboard, me] = await Promise.all([
-    getLeaderboard("balanced", period),
+  const searchQuery = parseSearchQuery(params.q);
+  const [leaderboardResult, me] = await Promise.all([
+    searchQuery
+      ? searchPublicUsers({ period, query: searchQuery })
+      : getLeaderboard("balanced", period),
     getMe(await getSessionUser(), period),
   ]);
+  const hiddenParams = [
+    { name: "sort", value: sort },
+    { name: "dir", value: direction },
+    ...(searchQuery ? [{ name: "q", value: searchQuery }] : []),
+  ];
 
   return (
     <main className="app-shell">
@@ -50,16 +59,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </section>
 
         <PeriodSelector
-          activePeriod={leaderboard.period}
+          activePeriod={leaderboardResult.period}
           action="/"
-          hiddenParams={[
-            { name: "sort", value: sort },
-            { name: "dir", value: direction },
-          ]}
+          hiddenParams={hiddenParams}
+        />
+        <SearchForm
+          direction={direction}
+          period={leaderboardResult.period}
+          query={searchQuery}
+          sort={sort}
         />
         <LeaderboardTable
-          rows={leaderboard.rows}
-          period={leaderboard.period}
+          rows={leaderboardResult.rows}
+          period={leaderboardResult.period}
+          query={searchQuery}
           sort={sort}
           direction={direction}
           units={me.units}
@@ -105,20 +118,23 @@ function AppHeader({ login }: { login: string }) {
 function LeaderboardTable({
   rows,
   period,
+  query,
   sort,
   direction,
   units,
 }: {
   rows: LeaderboardRow[];
   period: string;
+  query: string;
   sort: LeaderboardSort;
   direction: SortDirection;
   units: UnitPreference;
 }) {
   const sortedRows = sortLeaderboardRows(rows, sort, direction);
+  const emptyState = getEmptyState(query);
 
   return (
-    <div className="leaderboard" role="table" aria-label="Leaderboard">
+    <div className="leaderboard" role="table" aria-label={query ? "Search results" : "Leaderboard"}>
       <div className="leaderboard-head" role="row">
         <span role="columnheader">#</span>
         <SortHeader
@@ -126,6 +142,7 @@ function LeaderboardTable({
           direction={direction}
           label="Developer"
           period={period}
+          query={query}
           sort={sort}
         />
         <SortHeader
@@ -133,6 +150,7 @@ function LeaderboardTable({
           direction={direction}
           label="Score"
           period={period}
+          query={query}
           sort={sort}
         />
         <SortHeader
@@ -140,6 +158,7 @@ function LeaderboardTable({
           direction={direction}
           label="Commits"
           period={period}
+          query={query}
           sort={sort}
         />
         <SortHeader
@@ -147,6 +166,7 @@ function LeaderboardTable({
           direction={direction}
           label={runningDistanceShortLabel(units)}
           period={period}
+          query={query}
           sort={sort}
         />
         <SortHeader
@@ -154,13 +174,14 @@ function LeaderboardTable({
           direction={direction}
           label="Streak"
           period={period}
+          query={query}
           sort={sort}
         />
       </div>
       {rows.length === 0 ? (
         <div className="empty-state">
-          <strong>No public scores yet</strong>
-          <span>The leaderboard will fill in after activity is synced and the score job runs.</span>
+          <strong>{emptyState.title}</strong>
+          <span>{emptyState.description}</span>
         </div>
       ) : null}
       {sortedRows.map((row, index) => (
@@ -185,17 +206,58 @@ function LeaderboardTable({
   );
 }
 
+function SearchForm({
+  direction,
+  period,
+  query,
+  sort,
+}: {
+  direction: SortDirection;
+  period: string;
+  query: string;
+  sort: LeaderboardSort;
+}) {
+  return (
+    <form className="leaderboard-search" action="/" method="get" aria-label="Search public developers">
+      <input type="hidden" name="period" value={period} />
+      <input type="hidden" name="sort" value={sort} />
+      <input type="hidden" name="dir" value={direction} />
+      <label htmlFor="leaderboard-search">Search</label>
+      <div className="leaderboard-search-row">
+        <input
+          id="leaderboard-search"
+          name="q"
+          type="search"
+          defaultValue={query}
+          placeholder="Developer"
+          autoComplete="off"
+        />
+        <button className="button" type="submit">
+          Search
+        </button>
+        {query ? (
+          <Link className="button" href={leaderboardSortHref(period, sort, direction)}>
+            Clear
+          </Link>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
 function SortHeader({
   column,
   direction,
   label,
   period,
+  query,
   sort,
 }: {
   column: LeaderboardSort;
   direction: SortDirection;
   label: string;
   period: string;
+  query: string;
   sort: LeaderboardSort;
 }) {
   const isActive = column === sort;
@@ -206,7 +268,7 @@ function SortHeader({
     <span role="columnheader" aria-sort={ariaSort}>
       <Link
         className={isActive ? "leaderboard-sort-link active" : "leaderboard-sort-link"}
-        href={leaderboardSortHref(period, column, nextDirection)}
+        href={leaderboardSortHref(period, column, nextDirection, query)}
         aria-label={`Sort by ${label} ${nextDirection === "asc" ? "ascending" : "descending"}`}
       >
         <span>{label}</span>
@@ -216,6 +278,27 @@ function SortHeader({
   );
 }
 
+function getEmptyState(query: string): { description: string; title: string } {
+  if (query.length === 1) {
+    return {
+      title: "Keep typing",
+      description: "Search needs at least 2 characters.",
+    };
+  }
+
+  if (query) {
+    return {
+      title: "No matching public developers",
+      description: "Try another GitHub handle or display name.",
+    };
+  }
+
+  return {
+    title: "No public scores yet",
+    description: "The leaderboard will fill in after activity is synced and the score job runs.",
+  };
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="stat">
@@ -223,6 +306,10 @@ function Stat({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function parseSearchQuery(value: string | null | undefined): string {
+  return value?.trim().replace(/\s+/g, " ") ?? "";
 }
 
 function parseLeaderboardSort(value: string | null | undefined): LeaderboardSort | null {
@@ -260,12 +347,14 @@ function leaderboardSortHref(
   period: string,
   sort: LeaderboardSort,
   direction: SortDirection,
+  query = "",
 ): string {
   const params = new URLSearchParams({
     period,
     sort,
     dir: direction,
   });
+  if (query) params.set("q", query);
 
   return `/?${params.toString()}`;
 }
