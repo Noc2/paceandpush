@@ -1,5 +1,6 @@
 import { upsertDistanceDays, verifyDeviceToken } from "@/server/data/mobile";
 import { recomputeScoreSnapshots } from "@/server/data/scores";
+import { periodForKind } from "@/lib/periods";
 import type {
   DistanceDayInput,
   DistanceDaysRequest,
@@ -35,14 +36,28 @@ export async function POST(request: NextRequest) {
     }));
 
   await upsertDistanceDays({ auth, days: accepted });
-  await Promise.all([...new Set(accepted.map((day) => day.date.slice(0, 7)))].map((period) =>
-    recomputeScoreSnapshots(period),
-  ));
+  const scorePeriods = scorePeriodsForDistanceDays(accepted);
+  const recomputeResults = await Promise.allSettled(
+    scorePeriods.map((period) => recomputeScoreSnapshots(period)),
+  );
+  const failedPeriods = scorePeriods.filter(
+    (_, index) => recomputeResults[index]?.status === "rejected",
+  );
+
+  if (failedPeriods.length > 0) {
+    console.error("[mobile] distance score recompute failed", {
+      periods: failedPeriods,
+      errors: recomputeResults
+        .filter((result) => result.status === "rejected")
+        .map((result) => result.reason),
+    });
+  }
 
   return NextResponse.json({
     accepted: accepted.length,
     flagged:
       body.days.length - accepted.length + accepted.filter((day) => day.flagged).length,
+    ...(failedPeriods.length > 0 ? { warnings: ["score_recompute_failed"] } : {}),
   });
 }
 
@@ -65,4 +80,19 @@ function isValidDistanceDay(
 
 function isImplausibleDistanceDay(day: DistanceDayInput): boolean {
   return day.meters > 100_000;
+}
+
+function scorePeriodsForDistanceDays(
+  days: Array<DistanceDayInput & { flagged: boolean }>,
+): string[] {
+  const periods = new Set<string>();
+
+  for (const day of days) {
+    const date = new Date(`${day.date}T00:00:00.000Z`);
+    periods.add(periodForKind("week", date));
+    periods.add(periodForKind("month", date));
+    periods.add(periodForKind("year", date));
+  }
+
+  return [...periods].sort();
 }

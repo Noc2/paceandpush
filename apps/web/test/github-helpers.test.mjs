@@ -340,6 +340,19 @@ test("health endpoint checks database availability", async () => {
   assert.match(source, /503/);
 });
 
+test("distance uploads recompute week month and year score periods", async () => {
+  const source = await readFile(
+    new URL("../src/app/api/mobile/distance-days/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /periodForKind\("week"/);
+  assert.match(source, /periodForKind\("month"/);
+  assert.match(source, /periodForKind\("year"/);
+  assert.match(source, /Promise\.allSettled/);
+  assert.match(source, /score_recompute_failed/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");

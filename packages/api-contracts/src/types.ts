@@ -109,6 +109,7 @@ export interface DistanceDaysRequest {
 export interface DistanceDaysResponse {
   accepted: number;
   flagged: number;
+  warnings?: string[];
 }
 
 export interface SyncRunRequest {
