@@ -5,6 +5,7 @@ import {
   commitDays,
   distanceDays,
   githubAccounts,
+  mobileAuthExchanges,
   mobileDevices,
   scoreSnapshots,
   syncRuns,
@@ -242,9 +243,37 @@ export async function exportAccountData(userId: string) {
     .limit(1);
 
   const [devices, commits, distances, scores, runs] = await Promise.all([
-    db.select().from(mobileDevices).where(eq(mobileDevices.userId, userId)),
-    db.select().from(commitDays).where(eq(commitDays.userId, userId)),
-    db.select().from(distanceDays).where(eq(distanceDays.userId, userId)),
+    db
+      .select({
+        id: mobileDevices.id,
+        platform: mobileDevices.platform,
+        label: mobileDevices.label,
+        revoked: mobileDevices.revoked,
+        lastSeenAt: mobileDevices.lastSeenAt,
+        createdAt: mobileDevices.createdAt,
+      })
+      .from(mobileDevices)
+      .where(eq(mobileDevices.userId, userId)),
+    db
+      .select({
+        day: commitDays.day,
+        commitCount: commitDays.commitCount,
+        createdAt: commitDays.createdAt,
+        updatedAt: commitDays.updatedAt,
+      })
+      .from(commitDays)
+      .where(eq(commitDays.userId, userId)),
+    db
+      .select({
+        day: distanceDays.day,
+        meters: distanceDays.meters,
+        sourcePlatform: distanceDays.sourcePlatform,
+        flagged: distanceDays.flagged,
+        createdAt: distanceDays.createdAt,
+        updatedAt: distanceDays.updatedAt,
+      })
+      .from(distanceDays)
+      .where(eq(distanceDays.userId, userId)),
     db.select().from(scoreSnapshots).where(eq(scoreSnapshots.userId, userId)),
     db.select().from(syncRuns).where(eq(syncRuns.userId, userId)),
   ]);
@@ -267,6 +296,7 @@ export async function deleteAccountData(userId: string): Promise<void> {
   await db.delete(commitDays).where(eq(commitDays.userId, userId));
   await db.delete(scoreSnapshots).where(eq(scoreSnapshots.userId, userId));
   await db.delete(mobileDevices).where(eq(mobileDevices.userId, userId));
+  await db.delete(mobileAuthExchanges).where(eq(mobileAuthExchanges.userId, userId));
   await db.delete(githubAccounts).where(eq(githubAccounts.userId, userId));
   await db.delete(users).where(eq(users.id, userId));
 }

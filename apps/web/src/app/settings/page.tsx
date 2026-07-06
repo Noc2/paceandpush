@@ -3,6 +3,7 @@ import { getMe } from "@/server/data/read-model";
 import { distanceUnitLabel } from "@/lib/distance-units";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
+import { AccountDataControls } from "./AccountDataControls";
 import { GitHubConnectionControl } from "./GitHubConnectionControl";
 import { LeaderboardVisibilityControl } from "./LeaderboardVisibilityControl";
 import { MobileConnectPanel } from "./MobileConnectPanel";
@@ -95,8 +96,11 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             <UnitPreferenceControl initialUnits={me.units} />
           )}
           <SettingsRow label="Devices" value={`${activeDeviceCount} connected`} />
-          <SettingsRow label="Data export" value="/api/me/privacy-export" />
-          <SettingsRow label="Delete request" value="DELETE /api/me/delete" />
+          {me.login === "guest" ? (
+            <SettingsRow label="Account data" value="Sign in to export or delete" />
+          ) : (
+            <AccountDataControls />
+          )}
         </div>
       </section>
     </main>

@@ -195,6 +195,34 @@ test("mobile tokens require a dedicated production secret", () => {
   }
 });
 
+test("account deletion removes mobile auth exchanges before users", async () => {
+  const source = await readFile(
+    new URL("../src/server/data/accounts.ts", import.meta.url),
+    "utf8",
+  );
+  const mobileExchangeDelete = source.indexOf("db.delete(mobileAuthExchanges)");
+  const userDelete = source.indexOf("db.delete(users)");
+
+  assert.notEqual(mobileExchangeDelete, -1);
+  assert.notEqual(userDelete, -1);
+  assert.ok(mobileExchangeDelete < userDelete);
+});
+
+test("privacy export omits internal token and source hashes", async () => {
+  const source = await readFile(
+    new URL("../src/server/data/accounts.ts", import.meta.url),
+    "utf8",
+  );
+  const exportBlock = source.slice(
+    source.indexOf("export async function exportAccountData"),
+    source.indexOf("export async function deleteAccountData"),
+  );
+
+  assert.doesNotMatch(exportBlock, /tokenHash/);
+  assert.doesNotMatch(exportBlock, /sourceHash/);
+  assert.doesNotMatch(exportBlock, /sourceMetadata/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");

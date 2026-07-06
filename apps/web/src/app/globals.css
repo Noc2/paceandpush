@@ -638,7 +638,8 @@ a {
 
 .unit-setting > div,
 .github-setting > div,
-.setting-control > div {
+.setting-control > div,
+.account-data-controls > div {
   min-width: 0;
 }
 
@@ -705,7 +706,8 @@ a {
 .unit-setting .form-error,
 .github-setting .form-error,
 .github-setting .form-success,
-.setting-control .form-error {
+.setting-control .form-error,
+.account-data-controls .form-error {
   margin-top: 8px;
 }
 
