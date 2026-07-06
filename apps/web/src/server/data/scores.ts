@@ -254,7 +254,7 @@ async function getScoreTotals(period: string): Promise<ScoreTotals[]> {
     userId: user.id,
     publicLeaderboard: user.publicLeaderboard,
     commits: commitsByUser.get(user.id) ?? 0,
-    kilometers: Math.round(((metersByUser.get(user.id) ?? 0) / 1000) * 10) / 10,
+    kilometers: (metersByUser.get(user.id) ?? 0) / 1000,
   }));
 }
 

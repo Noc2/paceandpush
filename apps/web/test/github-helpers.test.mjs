@@ -392,6 +392,20 @@ test("GitHub commit refresh upserts before deleting stale days", async () => {
   assert.match(refreshBlock, /notInArray\(commitDays\.day/);
 });
 
+test("score totals keep raw kilometer precision before display rounding", async () => {
+  const source = await readFile(
+    new URL("../src/server/data/scores.ts", import.meta.url),
+    "utf8",
+  );
+  const totalsBlock = source.slice(
+    source.indexOf("async function getScoreTotals"),
+    source.indexOf("function compareBoardRows"),
+  );
+
+  assert.match(totalsBlock, /kilometers: \(metersByUser\.get\(user\.id\) \?\? 0\) \/ 1000/);
+  assert.doesNotMatch(totalsBlock, /Math\.round/);
+});
+
 test("score recompute cron reports hard failures to monitoring", async () => {
   const source = await readFile(
     new URL("../src/app/api/jobs/recompute-scores/route.ts", import.meta.url),
