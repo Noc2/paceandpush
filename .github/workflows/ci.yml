@@ -19,6 +19,7 @@ jobs:
 
       - run: npm ci
       - run: npm run db:migrations:check
+      - run: npm run audit:prod
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
