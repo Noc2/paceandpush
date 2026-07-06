@@ -15,7 +15,7 @@ import {
   currentPeriod,
   periodBounds,
   recomputeScoreSnapshots,
-  refreshPublicGitHubCommitsForUser,
+  refreshGitHubCommitsForUser,
 } from "@/server/data/scores";
 import { getDb, isDatabaseConfigured } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/server/db/schema";
@@ -358,7 +358,7 @@ async function getInitialScoreSummary(
   }
 
   try {
-    await refreshPublicGitHubCommitsForUser({
+    await refreshGitHubCommitsForUser({
       userId: account.id,
       login: account.login,
       period,

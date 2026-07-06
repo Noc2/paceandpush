@@ -1,10 +1,13 @@
 import { scoreCohort, type Board } from "@paceandpush/api-contracts";
+import {
+  getGitHubAccessToken,
+  listGitHubAccountsForScoreRefresh,
+} from "@/server/data/accounts";
 import { getDb } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, users } from "@/server/db/schema";
+import { fetchGitHubContributionDays } from "@/server/github/contributions";
 import { currentPeriod, periodBounds } from "@/lib/periods";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
-
-const dailyCommitCap = 50;
 
 interface ScoreTotals {
   userId: string;
@@ -13,80 +16,90 @@ interface ScoreTotals {
   publicLeaderboard: boolean;
 }
 
-interface GitHubEvent {
-  type?: string;
-  created_at?: string;
-  payload?: {
-    commits?: unknown[];
-    head?: string;
-  };
-}
-
 export { currentPeriod, isSupportedPeriod, parsePeriod, periodBounds } from "@/lib/periods";
 
-export async function refreshPublicGitHubCommits(period = currentPeriod()): Promise<{
+export async function refreshGitHubCommits(period = currentPeriod()): Promise<{
   checked: number;
   updatedDays: number;
   errors: Array<{ login: string; message: string }>;
 }> {
-  const db = getDb();
-  const rows = await db
-    .select({
-      id: users.id,
-      login: users.login,
-    })
-    .from(users);
-
+  const accounts = await listGitHubAccountsForScoreRefresh();
   let updatedDays = 0;
   const errors: Array<{ login: string; message: string }> = [];
 
-  for (const user of rows) {
+  for (const account of accounts) {
     try {
-      const result = await refreshPublicGitHubCommitsForUser({
-        userId: user.id,
-        login: user.login,
+      if (!account.accessToken) {
+        throw new Error("Reconnect GitHub to allow commit refresh.");
+      }
+
+      const result = await refreshGitHubCommitsForUser({
+        accessToken: account.accessToken,
+        userId: account.userId,
+        login: account.login,
         period,
       });
       updatedDays += result.updatedDays;
     } catch (error) {
       errors.push({
-        login: user.login,
+        login: account.login,
         message: error instanceof Error ? error.message : "GitHub refresh failed.",
       });
     }
   }
 
   return {
-    checked: rows.length,
+    checked: accounts.length,
     updatedDays,
     errors,
   };
 }
 
-export async function refreshPublicGitHubCommitsForUser({
+export async function refreshGitHubCommitsForUser({
+  accessToken,
   userId,
   login,
   period = currentPeriod(),
 }: {
+  accessToken?: string;
   userId: string;
   login: string;
   period?: string;
 }): Promise<{ updatedDays: number }> {
   const { start, end } = periodBounds(period);
-  const dayCounts = await fetchPublicCommitDays(login, start, end);
-  if (dayCounts.size === 0) return { updatedDays: 0 };
+  const token = accessToken ?? await getGitHubAccessToken(userId);
+  if (!token) {
+    throw new Error("Reconnect GitHub to allow commit refresh.");
+  }
+
+  const dayCounts = await fetchGitHubContributionDays({
+    accessToken: token,
+    end,
+    login,
+    start,
+  });
+  const activeDays = dayCounts.filter((day) => day.totalCount > 0);
+
+  await getDb()
+    .delete(commitDays)
+    .where(and(eq(commitDays.userId, userId), gte(commitDays.day, start), lte(commitDays.day, end)));
+
+  if (activeDays.length === 0) return { updatedDays: 0 };
 
   await getDb()
     .insert(commitDays)
     .values(
-      [...dayCounts.entries()].map(([day, count]) => ({
+      activeDays.map((day) => ({
         userId,
-        day,
-        commitCount: Math.min(count, dailyCommitCap),
+        day: day.day,
+        commitCount: day.totalCount,
         sourceMetadata: {
-          source: "github_public_events",
-          cappedAt: dailyCommitCap,
-          fallback: "push_events_without_commit_payload_count_as_one",
+          source: "github_graphql_contributions_collection",
+          publicCommitCount: day.publicCommits,
+          restrictedContributionCount: day.restrictedContributions,
+          fields: ["totalCommitContributions", "restrictedContributionsCount"],
+          note:
+            "restrictedContributionsCount is GitHub's private/restricted contribution aggregate visible to this token.",
         },
         updatedAt: new Date(),
       })),
@@ -100,7 +113,7 @@ export async function refreshPublicGitHubCommitsForUser({
       },
     });
 
-  return { updatedDays: dayCounts.size };
+  return { updatedDays: activeDays.length };
 }
 
 export async function recomputeScoreSnapshots(period = currentPeriod()): Promise<{
@@ -173,9 +186,9 @@ export async function refreshScoresAfterLeaderboardVisibilityChange({
 }): Promise<void> {
   if (publicLeaderboard) {
     try {
-      await refreshPublicGitHubCommitsForUser({ userId, login, period });
+      await refreshGitHubCommitsForUser({ userId, login, period });
     } catch (error) {
-      console.error("[scores] public GitHub refresh after leaderboard opt-in failed", error);
+      console.error("[scores] GitHub commit refresh after leaderboard opt-in failed", error);
     }
   }
 
@@ -220,7 +233,7 @@ async function getScoreTotals(period: string): Promise<ScoreTotals[]> {
   for (const row of commitRows) {
     commitsByUser.set(
       row.userId,
-      (commitsByUser.get(row.userId) ?? 0) + Math.min(row.commitCount, dailyCommitCap),
+      (commitsByUser.get(row.userId) ?? 0) + row.commitCount,
     );
   }
 
@@ -244,53 +257,4 @@ function compareBoardRows(
   if (board === "commits") return right.commits - left.commits;
   if (board === "distance") return right.kilometers - left.kilometers;
   return right.score - left.score;
-}
-
-async function fetchPublicCommitDays(
-  login: string,
-  start: string,
-  end: string,
-): Promise<Map<string, number>> {
-  const response = await fetch(
-    `https://api.github.com/users/${encodeURIComponent(login)}/events/public?per_page=100`,
-    {
-      headers: {
-        accept: "application/vnd.github+json",
-        "x-github-api-version": "2022-11-28",
-      },
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`GitHub public events returned ${response.status}`);
-  }
-
-  const events = (await response.json()) as GitHubEvent[];
-  const dayCounts = new Map<string, number>();
-
-  for (const event of events) {
-    if (event.type !== "PushEvent" || !event.created_at) continue;
-
-    const day = event.created_at.slice(0, 10);
-    if (day < start || day > end) continue;
-
-    const commitCount = getPushEventCommitCount(event);
-    if (commitCount === 0) continue;
-
-    dayCounts.set(day, (dayCounts.get(day) ?? 0) + commitCount);
-  }
-
-  return dayCounts;
-}
-
-function getPushEventCommitCount(event: GitHubEvent): number {
-  if (Array.isArray(event.payload?.commits)) {
-    return event.payload.commits.length;
-  }
-
-  if (event.payload?.head && /^0+$/.test(event.payload.head)) {
-    return 0;
-  }
-
-  return 1;
 }

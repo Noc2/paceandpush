@@ -2,7 +2,7 @@ import {
   currentPeriod,
   parsePeriod,
   recomputeScoreSnapshots,
-  refreshPublicGitHubCommits,
+  refreshGitHubCommits,
 } from "@/server/data/scores";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   }
 
   const period = parsePeriod(request.nextUrl.searchParams.get("period") || currentPeriod());
-  const github = await refreshPublicGitHubCommits(period);
+  const github = await refreshGitHubCommits(period);
   const scores = await recomputeScoreSnapshots(period);
 
   return NextResponse.json({

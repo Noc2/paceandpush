@@ -2,7 +2,7 @@ import { getSessionCookieName, signSession } from "@/server/auth/session";
 import { upsertGitHubAccount } from "@/server/data/accounts";
 import {
   recomputeScoreSnapshots,
-  refreshPublicGitHubCommitsForUser,
+  refreshGitHubCommitsForUser,
 } from "@/server/data/scores";
 import {
   exchangeGitHubCode,
@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
   });
 
   try {
-    await refreshPublicGitHubCommitsForUser({
+    await refreshGitHubCommitsForUser({
+      accessToken: token.accessToken,
       userId: user.id,
       login: user.login,
     });

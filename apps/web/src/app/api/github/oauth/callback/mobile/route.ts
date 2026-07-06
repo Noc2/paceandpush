@@ -2,7 +2,7 @@ import { upsertGitHubAccount } from "@/server/data/accounts";
 import { createMobileAuthExchange } from "@/server/data/mobile";
 import {
   recomputeScoreSnapshots,
-  refreshPublicGitHubCommitsForUser,
+  refreshGitHubCommitsForUser,
 } from "@/server/data/scores";
 import {
   exchangeGitHubCode,
@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
     });
 
     try {
-      await refreshPublicGitHubCommitsForUser({
+      await refreshGitHubCommitsForUser({
+        accessToken: token.accessToken,
         userId: user.id,
         login: user.login,
       });
