@@ -24,9 +24,9 @@ and Health Connect data ingestion.
 
 ### Clients
 
-- `apps/web`: public website, GitHub sign-in, mobile OAuth broker,
-  leaderboard, profiles, settings, companion-app listing, device pairing
-  fallback, and onboarding.
+- `apps/web`: public website, leaderboard, search, public profiles, app
+  download QR/link actions, GitHub sign-in fallback, mobile OAuth broker,
+  direct-link account fallback, and device pairing fallback.
 - `apps/ios`: native SwiftUI app with HealthKit sync and the same score,
   leaderboard, profile, and settings basics as the website.
 - `apps/android`: native Kotlin/Compose app with Health Connect sync and the
@@ -148,12 +148,15 @@ Initial endpoints:
 
 ### Web Mobile Onboarding
 
-- The leaderboard/home surface lists the iOS and Android companion apps and
-  explains that they are the HealthKit/Health Connect running distance sources.
-- Settings includes a device connection section for signed-in users.
-- The connection section creates a short-lived pairing code through
+- The leaderboard and public profile surfaces expose iPhone and Android download
+  buttons in the top-right header.
+- Download buttons open a QR/link modal using the configured App Store,
+  TestFlight, Google Play, or Android beta URLs.
+- Native mobile OAuth is the primary account onboarding path for app users.
+- Settings remains a direct-link account fallback for signed-in users.
+- The fallback connection section creates a short-lived pairing code through
   `/api/mobile/pairing-codes`, shows the expiry, and lists connected devices.
-- Users can revoke paired devices from the same settings section.
+- Users can revoke paired devices from the same fallback settings section.
 
 ## Research Notes
 
@@ -267,7 +270,10 @@ Useful references:
 13. `feat: build web leaderboard and profile views`
     - Build the leaderboard-first web experience using the sparse developer-tool
       direction and shared prompt mark.
-    - Add homepage leaderboard, profile page, settings, and empty states.
+    - Add homepage leaderboard, profile page, public search, app download
+      actions, and empty states.
+    - Keep settings out of primary public navigation while preserving the
+      direct-link account fallback.
 
 14. `feat: add charts privacy controls and delete flows`
     - Add score, commits, and kilometers history to web, iOS, and Android.
@@ -277,9 +283,10 @@ Useful references:
     - Add delete-all data flow and clear user-facing copy.
 
 15. `feat: add web mobile app onboarding`
-    - List the iOS and Android companion apps on the website.
-    - Add the web pairing-code generation flow.
-    - Show connected mobile devices and revoke controls in Settings.
+    - Add iPhone and Android download buttons with QR/link modals.
+    - Configure App Store/TestFlight and Google Play/internal testing URLs.
+    - Keep the web pairing-code generation flow as a fallback.
+    - Show connected mobile devices and revoke controls in direct-link Settings.
 
 16. `chore: prepare vercel and mobile beta launch`
     - Configure Vercel project and domain checklist for `paceandpush.com`.
@@ -289,10 +296,12 @@ Useful references:
 
 ## PoC Acceptance Criteria
 
-- A user can sign in with GitHub on the web.
-- The website lists the iOS and Android companion apps and explains how running
-  distance reaches Pace & Push.
-- A signed-in web user can generate a pairing code and review connected devices.
+- The website opens directly on the public leaderboard.
+- The website lets visitors search public users and open public profiles.
+- The website exposes iPhone and Android download actions with QR codes and
+  direct links when the store/beta URLs are configured.
+- A signed-in web user can still generate a fallback pairing code and review
+  connected devices through direct-link Settings.
 - A user can pair iOS and Android apps to the same account.
 - The mobile apps show score, leaderboard, profile, settings, and sync state.
 - iOS can read native HealthKit running workout distance and upload daily

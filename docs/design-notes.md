@@ -7,7 +7,8 @@ leaderboard experience, not a marketing landing page.
 ## Principles
 
 - Make the leaderboard the first screen.
-- Use the same information architecture on web, iOS, and Android.
+- Keep the web as public discovery: leaderboard, search, profiles, and app downloads.
+- Use the native apps as the primary participation, sync, and settings surface.
 - Keep health data consent explicit and visible.
 - Use plain, sharp UI surfaces with subtle hand-drawn chart details.
 - Treat the mobile apps as full clients, not just sync utilities.
@@ -47,9 +48,11 @@ does not collapse into a single-hue fitness or developer theme.
 
 ### Web
 
-- Header: brand, period picker, GitHub connect/account button.
-- Main view: leaderboard with board tabs.
-- Secondary view: profile chart and recent sync details.
+- Header: brand plus iPhone and Android download actions.
+- Main view: public leaderboard with period picker, sorting, and search.
+- Secondary view: public profile chart, GitHub embed, and app-download actions.
+- Keep `/settings` available as a direct account fallback, but do not make it a
+  primary public navigation item.
 
 ### Mobile
 

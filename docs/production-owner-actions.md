@@ -49,6 +49,8 @@ These items need owner input, provider access, legal details, or platform-accoun
 
 9. Set production secrets in Vercel.
    - `NEXT_PUBLIC_APP_URL=https://paceandpush.com`
+   - `NEXT_PUBLIC_IOS_APP_URL`
+   - `NEXT_PUBLIC_ANDROID_APP_URL`
    - `DATABASE_URL` or `POSTGRES_URL`
    - `GITHUB_CLIENT_ID`
    - `GITHUB_CLIENT_SECRET`

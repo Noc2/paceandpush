@@ -14,6 +14,8 @@ Owner-only production setup is tracked in
 - Add `paceandpush.com` and `www.paceandpush.com` to the production deployment.
 - Configure production environment variables:
   - `NEXT_PUBLIC_APP_URL=https://paceandpush.com`
+  - `NEXT_PUBLIC_IOS_APP_URL`
+  - `NEXT_PUBLIC_ANDROID_APP_URL`
   - `DATABASE_URL`
   - `GITHUB_CLIENT_ID`
   - `GITHUB_CLIENT_SECRET`
@@ -33,7 +35,10 @@ Owner-only production setup is tracked in
   production `DATABASE_URL` before deploying application traffic.
 - Confirm leaderboard, profile, settings, privacy export, device revoke, sync
   run, and running distance upload routes read/write production database rows.
-- Confirm the web homepage lists the iOS and Android companion apps.
+- Confirm the web homepage and public profiles show iPhone and Android download
+  actions.
+- Confirm each download action opens a QR modal with the configured store or
+  beta link.
 - Confirm a signed-in web user can generate a mobile pairing code from Settings.
 - Backfill the first public month before inviting external testers, and ask
   existing accounts to reconnect GitHub after deploying encrypted token storage.

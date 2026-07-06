@@ -16,13 +16,15 @@ website: current score, leaderboard, public profile, sync state, and settings.
 The website-generated pairing code remains useful as a fallback and manual test
 path, but it should not be the primary iOS onboarding path.
 
-## Web Companion App Surface
+## Web App Download Surface
 
-- The web homepage should list the iOS and Android companion apps as the running
-  distance sync path.
-- Settings should show connected devices, generate pairing codes, and revoke
-  devices.
-- The pairing code flow should be visible only after GitHub sign-in.
+- The web homepage and public profiles should show iPhone and Android download
+  actions.
+- The download actions should open QR/link modals backed by configured store or
+  beta URLs.
+- Direct-link Settings can show connected devices, generate fallback pairing
+  codes, and revoke devices.
+- The fallback pairing code flow should be visible only after GitHub sign-in.
 
 ## iOS
 
