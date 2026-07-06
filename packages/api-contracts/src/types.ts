@@ -116,9 +116,9 @@ export interface SyncRunRequest {
   platform: Platform;
   status: SyncStatus;
   startedAt: string;
-  finishedAt: string | null;
+  finishedAt?: string | null;
   counters: Record<string, number>;
-  errorSummary?: string;
+  errorSummary?: string | null;
 }
 
 export interface SyncRunResponse {

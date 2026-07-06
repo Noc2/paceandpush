@@ -516,6 +516,22 @@ test("production builds validate required environment variables", async () => {
   assert.match(envExample, /POSTGRES_URL=/);
 });
 
+test("sync run validation accepts omitted finishedAt and null errorSummary", async () => {
+  const routeSource = await readFile(
+    new URL("../src/app/api/mobile/sync-runs/route.ts", import.meta.url),
+    "utf8",
+  );
+  const contractSource = await readFile(
+    new URL("../../../packages/api-contracts/src/types.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(routeSource, /run\.finishedAt == null/);
+  assert.match(routeSource, /run\.errorSummary == null/);
+  assert.match(contractSource, /finishedAt\?: string \| null/);
+  assert.match(contractSource, /errorSummary\?: string \| null/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");

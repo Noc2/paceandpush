@@ -27,7 +27,7 @@ function isValidSyncRun(
   expectedPlatform: "ios" | "android",
 ): boolean {
   const startedAt = Date.parse(run.startedAt);
-  const finishedAt = run.finishedAt === null ? null : Date.parse(run.finishedAt);
+  const finishedAt = run.finishedAt == null ? null : Date.parse(run.finishedAt);
   const counters = Object.entries(run.counters ?? {});
 
   return (
@@ -39,7 +39,7 @@ function isValidSyncRun(
     run.counters !== null &&
     counters.length <= 20 &&
     counters.every(([, value]) => Number.isFinite(value) && value >= 0) &&
-    (run.errorSummary === undefined || run.errorSummary.length <= 500)
+    (run.errorSummary == null || run.errorSummary.length <= 500)
   );
 }
 
