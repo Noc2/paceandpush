@@ -8,6 +8,7 @@ import ts from "typescript";
 const require = createRequire(import.meta.url);
 
 const contributions = await loadTypeScriptModule("../src/server/github/contributions.ts");
+const mobileOauthConfig = await loadTypeScriptModule("../src/server/mobile/oauth-config.ts");
 const mobileTokens = await loadTypeScriptModule("../src/server/mobile/tokens.ts");
 const callbackErrors = await loadTypeScriptModule("../src/server/mobile/callback-errors.ts");
 const oauth = await loadTypeScriptModule("../src/server/github/oauth.ts");
@@ -287,6 +288,54 @@ test("mobile GitHub callback exposes safe error codes", async () => {
     callbackErrors.mobileAuthExchangeErrorMessage(new Error("Mobile auth code is invalid or expired.")),
     "GitHub sign-in expired. Please start GitHub connection again.",
   );
+});
+
+test("mobile GitHub start validates callback and exchange prerequisites", async () => {
+  const previous = snapshotEnv([
+    "DATABASE_URL",
+    "GITHUB_CLIENT_ID",
+    "GITHUB_CLIENT_SECRET",
+    "GITHUB_TOKEN_ENCRYPTION_KEY",
+    "MOBILE_TOKEN_SECRET",
+    "NODE_ENV",
+    "POSTGRES_URL",
+    "SESSION_SECRET",
+  ]);
+
+  try {
+    delete process.env.DATABASE_URL;
+    process.env.GITHUB_CLIENT_ID = "client";
+    process.env.GITHUB_CLIENT_SECRET = "secret";
+    process.env.GITHUB_TOKEN_ENCRYPTION_KEY = "x".repeat(32);
+    process.env.MOBILE_TOKEN_SECRET = "mobile-secret-with-at-least-thirty-two";
+    process.env.NODE_ENV = "production";
+    delete process.env.POSTGRES_URL;
+    process.env.SESSION_SECRET = "session-secret-with-at-least-thirty-two";
+
+    assert.match(
+      mobileOauthConfig.mobileGitHubOAuthConfigurationError(),
+      /DATABASE_URL or POSTGRES_URL/,
+    );
+
+    process.env.POSTGRES_URL = "postgres://example";
+    process.env.GITHUB_TOKEN_ENCRYPTION_KEY = "short";
+    assert.match(
+      mobileOauthConfig.mobileGitHubOAuthConfigurationError(),
+      /GITHUB_TOKEN_ENCRYPTION_KEY must be at least 32 characters/,
+    );
+
+    process.env.GITHUB_TOKEN_ENCRYPTION_KEY = "x".repeat(32);
+    process.env.MOBILE_TOKEN_SECRET = process.env.SESSION_SECRET;
+    assert.match(
+      mobileOauthConfig.mobileGitHubOAuthConfigurationError(),
+      /MOBILE_TOKEN_SECRET must be distinct/,
+    );
+
+    process.env.MOBILE_TOKEN_SECRET = "mobile-secret-with-at-least-thirty-two";
+    assert.equal(mobileOauthConfig.mobileGitHubOAuthConfigurationError(), null);
+  } finally {
+    restoreEnvSnapshot(previous);
+  }
 });
 
 test("privacy export omits internal token and source hashes", async () => {
@@ -680,6 +729,16 @@ function restoreEnv(key, previousValue) {
     delete process.env[key];
   } else {
     process.env[key] = previousValue;
+  }
+}
+
+function snapshotEnv(keys) {
+  return Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+}
+
+function restoreEnvSnapshot(snapshot) {
+  for (const [key, value] of Object.entries(snapshot)) {
+    restoreEnv(key, value);
   }
 }
 

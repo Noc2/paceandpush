@@ -1,13 +1,15 @@
 import { buildGitHubAuthorizeUrl } from "@/server/github/oauth";
+import { mobileGitHubOAuthConfigurationError } from "@/server/mobile/oauth-config";
 import { createMobileAuthState } from "@/server/mobile/tokens";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
-  if (!process.env.GITHUB_CLIENT_ID) {
+  const configurationError = mobileGitHubOAuthConfigurationError();
+  if (configurationError) {
     return NextResponse.json(
       {
         error: "github_oauth_not_configured",
-        message: "Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET to enable GitHub sign-in.",
+        message: configurationError,
       },
       { status: 501 },
     );
