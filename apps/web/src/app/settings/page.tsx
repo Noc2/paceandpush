@@ -3,6 +3,7 @@ import { getMe } from "@/server/data/read-model";
 import { distanceUnitLabel } from "@/lib/distance-units";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
+import { LeaderboardVisibilityControl } from "./LeaderboardVisibilityControl";
 import { MobileConnectPanel } from "./MobileConnectPanel";
 import { UnitPreferenceControl } from "./UnitPreferenceControl";
 
@@ -66,7 +67,11 @@ export default async function SettingsPage() {
               Connect GitHub
             </Link>
           ) : null}
-          <SettingsRow label="Leaderboard" value={me.publicLeaderboard ? "Public" : "Private"} />
+          {me.login === "guest" ? (
+            <SettingsRow label="Leaderboard" value="Private" />
+          ) : (
+            <LeaderboardVisibilityControl initialPublicLeaderboard={me.publicLeaderboard} />
+          )}
           {me.login === "guest" ? (
             <SettingsRow label="Units" value={distanceUnitLabel(me.units)} />
           ) : (

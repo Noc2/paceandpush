@@ -176,6 +176,28 @@ export async function recomputeScoreSnapshots(period = currentPeriod()): Promise
   };
 }
 
+export async function refreshScoresAfterLeaderboardVisibilityChange({
+  userId,
+  login,
+  publicLeaderboard,
+  period = currentPeriod(),
+}: {
+  userId: string;
+  login: string;
+  publicLeaderboard: boolean;
+  period?: string;
+}): Promise<void> {
+  if (publicLeaderboard) {
+    try {
+      await refreshPublicGitHubCommitsForUser({ userId, login, period });
+    } catch (error) {
+      console.error("[scores] public GitHub refresh after leaderboard opt-in failed", error);
+    }
+  }
+
+  await recomputeScoreSnapshots(period);
+}
+
 async function getScoreTotals(period: string): Promise<ScoreTotals[]> {
   const db = getDb();
   const { start, end } = periodBounds(period);

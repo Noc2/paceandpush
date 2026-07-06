@@ -1,5 +1,6 @@
 import { updateAccountSettings } from "@/server/data/accounts";
 import { verifyDeviceToken } from "@/server/data/mobile";
+import { refreshScoresAfterLeaderboardVisibilityChange } from "@/server/data/scores";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(request: NextRequest) {
@@ -18,12 +19,22 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
   }
 
+  const nextPublicLeaderboard =
+    typeof body.publicLeaderboard === "boolean" ? body.publicLeaderboard : undefined;
+
   const updatedUser = await updateAccountSettings({
     userId: auth.user.id,
-    publicLeaderboard:
-      typeof body.publicLeaderboard === "boolean" ? body.publicLeaderboard : undefined,
+    publicLeaderboard: nextPublicLeaderboard,
     units: body.units === "imperial" || body.units === "metric" ? body.units : undefined,
   });
+
+  if (typeof nextPublicLeaderboard === "boolean") {
+    await refreshScoresAfterLeaderboardVisibilityChange({
+      userId: auth.user.id,
+      login: auth.user.login,
+      publicLeaderboard: nextPublicLeaderboard,
+    });
+  }
 
   return NextResponse.json({
     login: updatedUser.login,

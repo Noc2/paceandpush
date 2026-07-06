@@ -352,7 +352,8 @@ a {
   overflow-wrap: anywhere;
 }
 
-.unit-setting > div {
+.unit-setting > div,
+.setting-control > div {
   min-width: 0;
 }
 
@@ -389,8 +390,62 @@ a {
   opacity: 0.72;
 }
 
-.unit-setting .form-error {
+.unit-setting .form-error,
+.setting-control .form-error {
   margin-top: 8px;
+}
+
+.switch-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.switch-control input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch-control span {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 28px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+}
+
+.switch-control span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--ink);
+  background: var(--muted);
+  content: "";
+}
+
+.switch-control input:checked + span {
+  background: var(--orange);
+}
+
+.switch-control input:checked + span::after {
+  left: 23px;
+  background: var(--ink);
+}
+
+.switch-control input:focus-visible + span {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.switch-control input:disabled + span {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .settings-cta {
