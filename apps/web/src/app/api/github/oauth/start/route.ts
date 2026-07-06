@@ -18,7 +18,10 @@ export async function GET(request: NextRequest) {
 
   const state = randomUUID();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-  const response = NextResponse.redirect(buildGitHubAuthorizeUrl(state));
+  const redirectUri = new URL("/api/github/oauth/callback", appUrl).toString();
+  const response = NextResponse.redirect(
+    buildGitHubAuthorizeUrl(state, { redirectUri }),
+  );
   response.cookies.set(githubOAuthStateCookieName, state, {
     httpOnly: true,
     maxAge: 10 * 60,

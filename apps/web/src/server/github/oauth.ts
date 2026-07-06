@@ -55,13 +55,22 @@ export async function exchangeGitHubCode(
   });
 
   if (!response.ok) {
-    throw new Error(`GitHub token exchange failed with ${response.status}`);
+    throw new Error(
+      `GitHub token exchange failed with ${response.status}${await gitHubErrorSuffix(response)}`,
+    );
   }
 
   const payload = (await response.json()) as {
     access_token?: string;
     scope?: string;
+    error?: string;
+    error_description?: string;
   };
+  if (payload.error) {
+    throw new Error(
+      `GitHub token exchange failed: ${payload.error_description || payload.error}`,
+    );
+  }
   if (!payload.access_token) {
     throw new Error("GitHub token exchange did not return an access token");
   }
@@ -82,7 +91,9 @@ export async function fetchGitHubUser(accessToken: string): Promise<SessionUser>
   });
 
   if (!response.ok) {
-    throw new Error(`GitHub user fetch failed with ${response.status}`);
+    throw new Error(
+      `GitHub user fetch failed with ${response.status}${await gitHubErrorSuffix(response)}`,
+    );
   }
 
   const payload = (await response.json()) as {
@@ -98,4 +109,18 @@ export async function fetchGitHubUser(accessToken: string): Promise<SessionUser>
     displayName: payload.name || payload.login,
     avatarUrl: payload.avatar_url || null,
   };
+}
+
+async function gitHubErrorSuffix(response: Response): Promise<string> {
+  try {
+    const payload = (await response.clone().json()) as {
+      error?: string;
+      error_description?: string;
+      message?: string;
+    };
+    const message = payload.error_description || payload.message || payload.error;
+    return message ? `: ${message}` : "";
+  } catch {
+    return "";
+  }
 }

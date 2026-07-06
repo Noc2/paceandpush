@@ -8,6 +8,7 @@ import ts from "typescript";
 const require = createRequire(import.meta.url);
 
 const contributions = await loadTypeScriptModule("../src/server/github/contributions.ts");
+const oauth = await loadTypeScriptModule("../src/server/github/oauth.ts");
 const tokenCrypto = await loadTypeScriptModule("../src/server/github/token-crypto.ts");
 
 test("GitHub contribution windows cover each UTC date inclusively", () => {
@@ -112,7 +113,50 @@ test("GitHub access tokens round-trip through encrypted storage format", () => {
   }
 });
 
-async function loadTypeScriptModule(relativePath) {
+test("GitHub OAuth authorize URL includes the explicit redirect URI", () => {
+  const previousClientId = process.env.GITHUB_CLIENT_ID;
+  process.env.GITHUB_CLIENT_ID = "github-client-id";
+
+  try {
+    const url = oauth.buildGitHubAuthorizeUrl("oauth-state", {
+      redirectUri: "https://paceandpush.com/api/github/oauth/callback",
+    });
+
+    assert.equal(url.origin, "https://github.com");
+    assert.equal(url.pathname, "/login/oauth/authorize");
+    assert.equal(url.searchParams.get("client_id"), "github-client-id");
+    assert.equal(url.searchParams.get("state"), "oauth-state");
+    assert.equal(url.searchParams.get("scope"), "read:user");
+    assert.equal(
+      url.searchParams.get("redirect_uri"),
+      "https://paceandpush.com/api/github/oauth/callback",
+    );
+  } finally {
+    restoreEnv("GITHUB_CLIENT_ID", previousClientId);
+  }
+});
+
+test("GitHub user fetch includes GitHub error details", async () => {
+  const oauthWithFetch = await loadTypeScriptModule("../src/server/github/oauth.ts", {
+    fetch: async () => ({
+      ok: false,
+      status: 401,
+      clone() {
+        return this;
+      },
+      async json() {
+        return { message: "Bad credentials" };
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () => oauthWithFetch.fetchGitHubUser("bad-token"),
+    /GitHub user fetch failed with 401: Bad credentials/,
+  );
+});
+
+async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");
   const output = ts.transpileModule(source, {
@@ -132,11 +176,21 @@ async function loadTypeScriptModule(relativePath) {
     module,
     process,
     require,
+    URL,
+    ...contextOverrides,
   }, {
     filename: url.pathname,
   });
 
   return module.exports;
+}
+
+function restoreEnv(key, previousValue) {
+  if (previousValue === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = previousValue;
+  }
 }
 
 function plain(value) {

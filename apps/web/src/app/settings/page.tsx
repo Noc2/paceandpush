@@ -8,7 +8,15 @@ import { LeaderboardVisibilityControl } from "./LeaderboardVisibilityControl";
 import { MobileConnectPanel } from "./MobileConnectPanel";
 import { UnitPreferenceControl } from "./UnitPreferenceControl";
 
-export default async function SettingsPage() {
+type SettingsPageProps = {
+  searchParams?: Promise<{
+    github?: string;
+  }>;
+};
+
+export default async function SettingsPage({ searchParams }: SettingsPageProps) {
+  const params = searchParams ? await searchParams : {};
+  const githubMessage = gitHubConnectionMessage(params.github);
   const me = await getMe(await getSessionUser());
   const activeDeviceCount = me.devices.filter((device) => !device.revoked).length;
 
@@ -39,6 +47,12 @@ export default async function SettingsPage() {
               : `Public leaderboard is ${me.publicLeaderboard ? "on" : "off"}.`}
           </p>
         </section>
+
+        {githubMessage ? (
+          <p className="form-error" role="alert">
+            {githubMessage}
+          </p>
+        ) : null}
 
         <section
           id="mobile-apps"
@@ -87,6 +101,17 @@ export default async function SettingsPage() {
       </section>
     </main>
   );
+}
+
+function gitHubConnectionMessage(code: string | undefined): string | null {
+  switch (code) {
+    case "connect_failed":
+      return "GitHub connection failed. Please try connecting GitHub again.";
+    case "invalid_callback":
+      return "GitHub sign-in expired. Please start GitHub connection again.";
+    default:
+      return null;
+  }
 }
 
 function SettingsRow({ label, value }: { label: string; value: string }) {
