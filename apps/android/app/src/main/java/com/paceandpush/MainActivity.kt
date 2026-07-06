@@ -40,6 +40,7 @@ class MainActivity : Activity() {
     private val green = Color.rgb(22, 101, 52)
     private val red = Color.rgb(180, 35, 24)
     private val blue = Color.rgb(11, 92, 173)
+    private val line = Color.argb(56, 33, 30, 26)
 
     private var activeTab = Tab.Today
     private var board = Board.Balanced
@@ -248,8 +249,9 @@ class MainActivity : Activity() {
                 )
             }
 
+            addView(leaderboardHeader())
             sortedRows.forEachIndexed { index, row ->
-                addView(leaderboardRow(index + 1, row))
+                addView(leaderboardRow(index + 1, row, board))
             }
         }
     }
@@ -444,38 +446,74 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun leaderboardRow(rank: Int, row: LeaderboardRow): View {
-        return panel {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-
+    private fun leaderboardHeader(): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             addView(
-                bodyText(rank.toString().padStart(2, '0'), 18f).apply {
-                    typeface = Typeface.MONOSPACE
-                    layoutParams = LinearLayout.LayoutParams(dp(48), -2)
+                LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, dp(14), 0, dp(8))
+
+                    addView(labelText("#"), LinearLayout.LayoutParams(dp(48), -2))
+                    addView(labelText("Developer"), LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(
+                        labelText(board.leaderboardMetricTitle(units)).apply {
+                            gravity = Gravity.END
+                        },
+                        LinearLayout.LayoutParams(dp(108), -2),
+                    )
                 },
             )
+            addView(divider(), LinearLayout.LayoutParams(-1, dp(1)))
+        }
+    }
+
+    private fun leaderboardRow(rank: Int, row: LeaderboardRow, board: Board): View {
+        val metric = board.leaderboardMetric(row, units)
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
 
             addView(
                 LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    addView(titleText(row.login, 18f).apply { typeface = Typeface.MONOSPACE })
-                    addView(bodyText(row.displayName, 14f))
-                    layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
-                },
-            )
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, dp(14), 0, dp(14))
 
-            addView(
-                LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.END
-                    addView(scoreText(row.score.toFixed(1), 18f, blue))
-                    addView(bodyText(formatDistance(row.kilometers, includeUnit = true), 13f).apply {
-                        gravity = Gravity.END
-                        typeface = Typeface.DEFAULT_BOLD
-                    })
+                    addView(
+                        bodyText(rank.toString().padStart(2, '0'), 18f).apply {
+                            typeface = Typeface.MONOSPACE
+                        },
+                        LinearLayout.LayoutParams(dp(48), -2),
+                    )
+
+                    addView(
+                        LinearLayout(this@MainActivity).apply {
+                            orientation = LinearLayout.VERTICAL
+                            addView(titleText(row.login, 18f).apply { typeface = Typeface.MONOSPACE })
+                            addView(bodyText(row.displayName, 14f))
+                        },
+                        LinearLayout.LayoutParams(0, -2, 1f),
+                    )
+
+                    addView(
+                        LinearLayout(this@MainActivity).apply {
+                            orientation = LinearLayout.VERTICAL
+                            gravity = Gravity.END
+                            addView(scoreText(metric.value, 18f, metric.color).apply {
+                                gravity = Gravity.END
+                            })
+                            addView(bodyText(metric.detail, 13f).apply {
+                                gravity = Gravity.END
+                                typeface = Typeface.DEFAULT_BOLD
+                            })
+                        },
+                        LinearLayout.LayoutParams(dp(108), -2),
+                    )
                 },
             )
+            addView(divider(), LinearLayout.LayoutParams(-1, dp(1)))
         }
     }
 
@@ -503,6 +541,34 @@ class MainActivity : Activity() {
                     },
                 )
             }
+        }
+    }
+
+    private fun Board.leaderboardMetricTitle(units: DistanceUnits): String {
+        return when (this) {
+            Board.Balanced -> "Score"
+            Board.Commits -> "Commits"
+            Board.Distance -> "Run ${units.abbreviation}"
+        }
+    }
+
+    private fun Board.leaderboardMetric(row: LeaderboardRow, units: DistanceUnits): LeaderboardMetric {
+        return when (this) {
+            Board.Balanced -> LeaderboardMetric(
+                value = row.score.toFixed(1),
+                detail = "${row.commits} commits / ${formatDistance(row.kilometers, includeUnit = true)}",
+                color = blue,
+            )
+            Board.Commits -> LeaderboardMetric(
+                value = row.commits.toString(),
+                detail = "${row.score.toFixed(1)} score",
+                color = green,
+            )
+            Board.Distance -> LeaderboardMetric(
+                value = units.format(row.kilometers),
+                detail = "${row.commits} commits",
+                color = red,
+            )
         }
     }
 
@@ -802,6 +868,12 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun divider(): View {
+        return View(this).apply {
+            setBackgroundColor(line)
+        }
+    }
+
     private fun Double.toFixed(digits: Int): String = "%.${digits}f".format(this)
 
     private fun formatDistance(kilometers: Double, includeUnit: Boolean = false): String {
@@ -824,13 +896,13 @@ private enum class Tab(val title: String) {
 private enum class Board(val title: String) {
     Balanced("Balanced"),
     Commits("Commits"),
-    Distance("Distance"),
+    Distance("Run"),
 }
 
 private enum class DistanceUnits(
     val rawValue: String,
     val title: String,
-    private val abbreviation: String,
+    val abbreviation: String,
     private val factor: Double,
 ) {
     Metric("metric", "Kilometers", "km", 1.0),
@@ -872,6 +944,12 @@ private data class LeaderboardRow(
     val commits: Int,
     val kilometers: Double,
     val streakDays: Int,
+)
+
+private data class LeaderboardMetric(
+    val value: String,
+    val detail: String,
+    val color: Int,
 )
 
 private data class ProfileHistoryPoint(

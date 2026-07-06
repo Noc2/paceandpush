@@ -310,37 +310,52 @@ struct LeaderboardView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Picker("Board", selection: $board) {
-                    ForEach(Board.allCases) { item in
-                        Text(item.title).tag(item)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HeaderView()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Leaderboard")
+                            .font(.system(size: 34, weight: .black, design: .rounded))
+                            .foregroundStyle(Brand.ink)
+
+                        LeaderboardSearchField(searchText: $searchText)
+                        BoardSelector(board: $board)
+                    }
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        LeaderboardTableHeader(board: board, units: store.units)
+
+                        if rows.isEmpty {
+                            Text(emptyMessage)
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(Brand.muted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 18)
+                                .borderedRow()
+                        }
+
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                            LeaderboardRowView(rank: index + 1, row: row, board: board, units: store.units)
+                        }
                     }
                 }
-                .pickerStyle(.segmented)
-                .listRowBackground(Brand.paper)
-
-                if rows.isEmpty {
-                    Text(emptyMessage)
-                        .foregroundStyle(Brand.muted)
-                        .listRowBackground(Brand.paper)
-                }
-
-                ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                    LeaderboardRowView(rank: index + 1, row: row, units: store.units)
-                        .listRowBackground(Brand.paper)
-                }
+                .padding(20)
             }
-            .scrollContentBackground(.hidden)
             .background(Brand.paper)
             .foregroundStyle(Brand.ink)
-            .navigationTitle("Leaderboard")
-            .searchable(text: $searchText, prompt: "Developer")
             .toolbar {
                 Button {
-                    Task { await store.refresh() }
+                    Task { await store.refresh(board: board) }
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
+            }
+            .refreshable {
+                await store.refresh(board: board)
+            }
+            .task(id: board) {
+                await store.refreshLeaderboard(board: board)
             }
         }
     }
@@ -546,10 +561,96 @@ struct MetricTile: View {
     }
 }
 
+struct LeaderboardSearchField: View {
+    @Binding var searchText: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(Brand.ink)
+
+            TextField("Developer", text: $searchText)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.headline.weight(.semibold))
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.headline.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Brand.muted)
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: 44)
+        .overlay(Rectangle().stroke(Brand.ink.opacity(0.36), lineWidth: 1))
+    }
+}
+
+struct BoardSelector: View {
+    @Binding var board: Board
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Board.allCases) { item in
+                Button {
+                    board = item
+                } label: {
+                    Text(item.title)
+                        .font(.headline.weight(.bold))
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .foregroundStyle(Brand.ink)
+                        .background(item == board ? Brand.orange : Brand.paper)
+                }
+                .buttonStyle(.plain)
+                .overlay(alignment: .trailing) {
+                    if item != .distance {
+                        Rectangle()
+                            .frame(width: 1)
+                            .foregroundStyle(Brand.ink)
+                    }
+                }
+            }
+        }
+        .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
+    }
+}
+
+struct LeaderboardTableHeader: View {
+    let board: Board
+    let units: DistanceUnits
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("#")
+                .frame(width: 38, alignment: .leading)
+            Text("Developer")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(board.leaderboardMetricTitle(units: units))
+                .frame(width: 92, alignment: .trailing)
+        }
+        .font(.caption.weight(.black))
+        .foregroundStyle(Brand.muted)
+        .textCase(.uppercase)
+        .padding(.vertical, 12)
+        .borderedRow()
+    }
+}
+
 struct LeaderboardRowView: View {
     let rank: Int
     let row: LeaderboardRow
+    let board: Board
     let units: DistanceUnits
+
+    private var metric: LeaderboardMetric {
+        board.leaderboardMetric(for: row, units: units)
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -568,15 +669,17 @@ struct LeaderboardRowView: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text(row.score.formatted(.number.precision(.fractionLength(1))))
-                    .font(.headline.monospaced())
-                    .foregroundStyle(Brand.blue)
-                Text(units.format(row.kilometers, includeUnit: true))
+                Text(metric.value)
+                    .font(.headline.monospaced().weight(.bold))
+                    .foregroundStyle(metric.color)
+                Text(metric.detail)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Brand.muted)
             }
+            .frame(width: 108, alignment: .trailing)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 14)
+        .borderedRow()
     }
 }
 
@@ -830,12 +933,12 @@ final class PacePushStore: ObservableObject {
         busy = false
     }
 
-    func refresh() async {
+    func refresh(board: Board = .balanced) async {
         guard let baseURL = URL(string: apiBaseURL) else { return }
 
         do {
             let client = PacePushAPIClient(baseURL: baseURL, token: deviceToken)
-            async let leaderboardResponse: LeaderboardResponse = client.fetch("/api/leaderboard", authenticated: false)
+            async let leaderboardResponse = client.fetchLeaderboard(board: board)
             if deviceToken != nil {
                 async let meResponse: MeResponse = client.fetch("/api/mobile/me", authenticated: true)
                 async let profileResponse: PublicProfileResponse = client.fetch("/api/mobile/me/profile", authenticated: true)
@@ -849,6 +952,23 @@ final class PacePushStore: ObservableObject {
             } else {
                 leaderboard = try await leaderboardResponse
             }
+            lastError = nil
+        } catch PacePushAPIError.unauthorized {
+            signOut()
+            lastError = "This device was revoked. Connect GitHub again."
+            lastSuccess = nil
+        } catch {
+            lastError = error.localizedDescription
+            lastSuccess = nil
+        }
+    }
+
+    func refreshLeaderboard(board: Board = .balanced) async {
+        guard let baseURL = URL(string: apiBaseURL) else { return }
+
+        do {
+            let client = PacePushAPIClient(baseURL: baseURL, token: deviceToken)
+            leaderboard = try await client.fetchLeaderboard(board: board)
             lastError = nil
         } catch PacePushAPIError.unauthorized {
             signOut()
@@ -1018,15 +1138,35 @@ final class PacePushAPIClient {
         )
     }
 
-    func fetch<T: Decodable>(_ path: String, authenticated: Bool) async throws -> T {
-        var request = URLRequest(url: url(path))
+    func fetch<T: Decodable>(
+        _ path: String,
+        queryItems: [URLQueryItem] = [],
+        authenticated: Bool,
+        cachePolicy: URLRequest.CachePolicy = .useProtocolCachePolicy,
+    ) async throws -> T {
+        var request = URLRequest(url: url(path, queryItems: queryItems), cachePolicy: cachePolicy)
         request.setValue("application/json", forHTTPHeaderField: "accept")
+        if cachePolicy != .useProtocolCachePolicy {
+            request.setValue("no-cache", forHTTPHeaderField: "cache-control")
+        }
         if authenticated {
             try authorize(&request)
         }
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response: response, data: data)
         return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    func fetchLeaderboard(board: Board) async throws -> LeaderboardResponse {
+        try await fetch(
+            "/api/leaderboard",
+            queryItems: [
+                URLQueryItem(name: "board", value: board.rawValue),
+                URLQueryItem(name: "_appRefresh", value: String(Int(Date().timeIntervalSince1970 * 1000))),
+            ],
+            authenticated: false,
+            cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+        )
     }
 
     func post<Body: Encodable, Response: Decodable>(
@@ -1081,8 +1221,15 @@ final class PacePushAPIClient {
         )
     }
 
-    func url(_ path: String) -> URL {
-        baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+    func url(_ path: String, queryItems: [URLQueryItem] = []) -> URL {
+        let url = baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+        guard !queryItems.isEmpty,
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        else {
+            return url
+        }
+        components.queryItems = queryItems
+        return components.url ?? url
     }
 
     private func authorize(_ request: inout URLRequest) throws {
@@ -1367,6 +1514,46 @@ enum Board: String, CaseIterable, Decodable, Identifiable {
             return "Run"
         }
     }
+
+    func leaderboardMetricTitle(units: DistanceUnits) -> String {
+        switch self {
+        case .balanced:
+            return "Score"
+        case .commits:
+            return "Commits"
+        case .distance:
+            return "Run \(units.abbreviation)"
+        }
+    }
+
+    func leaderboardMetric(for row: LeaderboardRow, units: DistanceUnits) -> LeaderboardMetric {
+        switch self {
+        case .balanced:
+            return LeaderboardMetric(
+                value: row.score.formatted(.number.precision(.fractionLength(1))),
+                detail: "\(row.commits) commits / \(units.format(row.kilometers, includeUnit: true))",
+                color: Brand.blue,
+            )
+        case .commits:
+            return LeaderboardMetric(
+                value: "\(row.commits)",
+                detail: "\(row.score.formatted(.number.precision(.fractionLength(1)))) score",
+                color: Brand.green,
+            )
+        case .distance:
+            return LeaderboardMetric(
+                value: units.format(row.kilometers),
+                detail: "\(row.commits) commits",
+                color: Brand.red,
+            )
+        }
+    }
+}
+
+struct LeaderboardMetric {
+    let value: String
+    let detail: String
+    let color: Color
 }
 
 struct APIErrorResponse: Decodable {
