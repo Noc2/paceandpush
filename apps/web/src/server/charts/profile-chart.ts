@@ -23,6 +23,8 @@ export function renderProfileChartSvg(
   const maxScore = Math.max(...history.map((point) => point.score), 1);
   const dailyCommits = toDailyValues(history.map((point) => point.commits));
   const maxDailyCommits = Math.max(...dailyCommits, 1);
+  const visibleLogin = truncateSvgText(profile.login, 28);
+  const visibleDisplayName = truncateSvgText(profile.displayName, 34);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-labelledby="title desc">
@@ -34,8 +36,8 @@ export function renderProfileChartSvg(
   <g transform="translate(30 28)">
     <rect width="34" height="34" fill="${brandColors.secondaryOrange}" stroke="${brandColors.ink}" stroke-width="2"/>
     <text x="17" y="25" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="24" font-weight="900" fill="${brandColors.ink}">${escapeXml(promptMark.character)}</text>
-    <text x="48" y="16" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="800" fill="${brandColors.ink}">@${escapeXml(profile.login)}</text>
-    <text x="48" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="650" fill="${brandColors.mutedInk}">${escapeXml(profile.displayName)}</text>
+    <text x="48" y="16" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="800" fill="${brandColors.ink}">@${escapeXml(visibleLogin)}</text>
+    <text x="48" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="650" fill="${brandColors.mutedInk}">${escapeXml(visibleDisplayName)}</text>
   </g>
 
   <g transform="translate(442 28)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
@@ -144,4 +146,10 @@ function escapeXml(value: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function truncateSvgText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  if (maxLength <= 3) return value.slice(0, maxLength);
+  return `${value.slice(0, maxLength - 3)}...`;
 }

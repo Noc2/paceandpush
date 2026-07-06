@@ -305,6 +305,17 @@ test("embed svg route has a sandboxed content security policy", async () => {
   assert.match(source, /x-content-type-options/);
 });
 
+test("embed svg truncates visible profile names", async () => {
+  const source = await readFile(
+    new URL("../src/server/charts/profile-chart.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /const visibleLogin = truncateSvgText\(profile\.login, 28\)/);
+  assert.match(source, /const visibleDisplayName = truncateSvgText\(profile\.displayName, 34\)/);
+  assert.match(source, /function truncateSvgText/);
+});
+
 test("public snapshot refreshes are limited to current and previous periods", () => {
   const now = new Date("2026-07-06T12:00:00.000Z");
 
