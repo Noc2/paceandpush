@@ -316,6 +316,18 @@ test("GitHub commit refresh upserts before deleting stale days", async () => {
   assert.match(refreshBlock, /notInArray\(commitDays\.day/);
 });
 
+test("score recompute cron reports hard failures to monitoring", async () => {
+  const source = await readFile(
+    new URL("../src/app/api/jobs/recompute-scores/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /export const maxDuration = \d+/);
+  assert.match(source, /timingSafeEqual/);
+  assert.match(source, /status: totalGitHubFailure \? 502 : 200/);
+  assert.match(source, /status: 500/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");
