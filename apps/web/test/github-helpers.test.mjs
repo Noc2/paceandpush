@@ -360,6 +360,20 @@ test("leaderboard streaks are loaded in batched queries", async () => {
   assert.match(source, /inArray\(distanceDays\.userId, uniqueUserIds\)/);
 });
 
+test("public leaderboard rows are capped", async () => {
+  const source = await readFile(
+    new URL("../src/server/data/read-model.ts", import.meta.url),
+    "utf8",
+  );
+  const leaderboardQuery = source.slice(
+    source.indexOf("async function getLeaderboardSnapshotRows"),
+    source.indexOf("async function getPublicUserSearchRows"),
+  );
+
+  assert.match(source, /const leaderboardRowLimit = 100/);
+  assert.match(leaderboardQuery, /\.limit\(leaderboardRowLimit\)/);
+});
+
 test("GitHub commit refresh upserts before deleting stale days", async () => {
   const source = await readFile(
     new URL("../src/server/data/scores.ts", import.meta.url),

@@ -39,6 +39,8 @@ type SearchPublicUsersOptions = {
   query: string;
 };
 
+const leaderboardRowLimit = 100;
+
 export async function getLeaderboard(
   board: Board = "balanced",
   period = currentPeriod(),
@@ -119,7 +121,8 @@ async function getLeaderboardSnapshotRows(
         eq(users.publicLeaderboard, true),
       ),
     )
-    .orderBy(scoreSnapshots.rank);
+    .orderBy(scoreSnapshots.rank)
+    .limit(leaderboardRowLimit);
 }
 
 async function getPublicUserSearchRows(
