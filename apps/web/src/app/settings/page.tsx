@@ -7,6 +7,7 @@ import { AccountDataControls } from "./AccountDataControls";
 import { GitHubConnectionControl } from "./GitHubConnectionControl";
 import { LeaderboardVisibilityControl } from "./LeaderboardVisibilityControl";
 import { MobileConnectPanel } from "./MobileConnectPanel";
+import { SignOutControl } from "./SignOutControl";
 import { UnitPreferenceControl } from "./UnitPreferenceControl";
 
 type SettingsPageProps = {
@@ -101,6 +102,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           ) : (
             <AccountDataControls />
           )}
+          {me.login === "guest" ? null : <SignOutControl />}
         </div>
       </section>
     </main>

@@ -422,6 +422,25 @@ test("distance uploads are canonical by day instead of source hash", async () =>
   assert.match(migrationSource, /CREATE INDEX IF NOT EXISTS distance_days_user_source_hash_idx/);
 });
 
+test("settings exposes a logout control that clears the session cookie", async () => {
+  const routeSource = await readFile(
+    new URL("../src/app/api/auth/logout/route.ts", import.meta.url),
+    "utf8",
+  );
+  const pageSource = await readFile(
+    new URL("../src/app/settings/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const controlSource = await readFile(
+    new URL("../src/app/settings/SignOutControl.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(routeSource, /response\.cookies\.delete\(getSessionCookieName\(\)\)/);
+  assert.match(pageSource, /<SignOutControl \/>/);
+  assert.match(controlSource, /fetch\("\/api\/auth\/logout", \{ method: "POST" \}\)/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");
