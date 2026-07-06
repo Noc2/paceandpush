@@ -14,6 +14,8 @@ with native iOS and Android companion app betas.
   - `DATABASE_URL`
   - `GITHUB_CLIENT_ID`
   - `GITHUB_CLIENT_SECRET`
+  - `GITHUB_TOKEN_ENCRYPTION_KEY`
+  - `GITHUB_TOKEN_ENCRYPTION_KEY_ID=default`
   - `SESSION_SECRET`
   - `MOBILE_TOKEN_SECRET`
   - `CRON_SECRET`
@@ -30,10 +32,12 @@ with native iOS and Android companion app betas.
   run, and running distance upload routes read/write production database rows.
 - Confirm the web homepage lists the iOS and Android companion apps.
 - Confirm a signed-in web user can generate a mobile pairing code from Settings.
-- Backfill the first public month before inviting external testers.
+- Backfill the first public month before inviting external testers, and ask
+  existing accounts to reconnect GitHub after deploying encrypted token storage.
 - Keep mobile running distance storage to daily totals for the PoC.
-- Treat GitHub commit counts as public-event based until a deeper contribution
-  ingestion strategy is added.
+- Treat GitHub commit counts as GraphQL contribution-summary based, with
+  restricted/private contribution aggregates counted only when visible to the
+  signed-in user's GitHub token.
 
 ## CI
 

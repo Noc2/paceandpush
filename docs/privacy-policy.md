@@ -7,7 +7,10 @@ The public privacy policy now lives in the web app at
 ## Current Coverage
 
 - GitHub identity: GitHub id, username, display name, and avatar URL.
-- GitHub activity summaries: daily commit counts used for scoring.
+- GitHub activity summaries: daily commit counts and restricted/private
+  contribution aggregates used for scoring.
+- GitHub OAuth credentials: token hash plus encrypted access token for
+  server-side score refresh.
 - Distance summaries: daily running distance totals from HealthKit or Health
   Connect.
 - Device sync metadata: platform, device label, sync status, and timestamps.

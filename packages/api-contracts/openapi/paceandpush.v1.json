@@ -315,7 +315,7 @@
     },
     "/api/jobs/recompute-scores": {
       "get": {
-        "summary": "Refresh public GitHub events and recompute score snapshots",
+        "summary": "Refresh GitHub contribution summaries and recompute score snapshots",
         "parameters": [
           {
             "name": "period",

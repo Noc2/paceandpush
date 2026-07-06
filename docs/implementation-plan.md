@@ -76,7 +76,7 @@ and Health Connect data ingestion.
 Initial tables:
 
 - `users`: GitHub identity, display name, avatar, visibility settings.
-- `github_accounts`: GitHub IDs, login, access token metadata.
+- `github_accounts`: GitHub IDs, login, access token hash/encrypted token metadata.
 - `mobile_devices`: user ID, platform, device label, token hash, revoked state.
 - `commit_days`: user ID, date, commit count, source metadata.
 - `distance_days`: user ID, date, running meters, source platform, source hash.
@@ -99,7 +99,8 @@ separate commits-only and kilometers-only boards.
 
 Guardrails:
 
-- Cap counted commit contributions per day.
+- Count GitHub commit totals through authenticated GraphQL contribution summaries,
+  with restricted/private contribution aggregates stored in source metadata.
 - Count running distance only for the balanced score.
 - Flag implausible daily running distance for review rather than silently
   removing it.

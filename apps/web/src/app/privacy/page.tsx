@@ -32,7 +32,7 @@ export default function PrivacyPage() {
           <h1>Privacy Policy</h1>
           <p>
             This policy explains how {brandName} processes account, coding, and
-            distance data. Last updated: July 5, 2026.
+            distance data. Last updated: July 6, 2026.
           </p>
         </section>
 
@@ -53,13 +53,19 @@ export default function PrivacyPage() {
             <h3>GitHub sign-in</h3>
             <ul>
               <li>GitHub id, username, display name, and avatar URL.</li>
-              <li>OAuth scope information and a hash of the GitHub access token.</li>
+              <li>
+                OAuth scope information, a hash of the GitHub access token, and
+                an encrypted copy of the token used for server-side refreshes.
+              </li>
               <li>Session cookies used to keep you signed in.</li>
             </ul>
 
             <h3>GitHub activity</h3>
             <ul>
-              <li>Daily public commit counts used for scoring.</li>
+              <li>
+                Daily GitHub commit counts and restricted/private contribution
+                aggregates visible to your GitHub token and used for scoring.
+              </li>
               <li>Metadata needed to refresh and explain score snapshots.</li>
               <li>
                 {brandName} does not collect private repository source code for
@@ -121,18 +127,21 @@ export default function PrivacyPage() {
               Public leaderboard visibility is on by default for new accounts,
               and you can turn it off during app onboarding or in settings. When
               it is on, the public leaderboard and profile pages may show your
-              GitHub username, display name, score, rank, commit total, distance
-              total, streak, and score history.
+              GitHub username, display name, score, rank, GitHub commit total,
+              distance total, streak, and score history. Commit totals may include
+              restricted/private contribution aggregates that GitHub makes visible
+              to your signed-in account.
             </p>
           </section>
 
           <section className="legal-section">
             <h2>Scoring and Ranking</h2>
             <p>
-              {brandName} calculates period scores from daily public commit
-              counts and daily aggregate distance totals. The score is used to
-              rank public users on the leaderboard. This ranking is for the
-              product experience only and does not produce legal or similarly
+              {brandName} calculates period scores from daily GitHub commit
+              counts, restricted/private contribution aggregates visible to your
+              GitHub token, and daily aggregate distance totals. The score is
+              used to rank public users on the leaderboard. This ranking is for
+              the product experience only and does not produce legal or similarly
               significant effects.
             </p>
           </section>
@@ -201,11 +210,12 @@ export default function PrivacyPage() {
           <section className="legal-section">
             <h2>Security</h2>
             <p>
-              {brandName} stores access tokens as hashes where the product does
-              not need to recover the original value, minimizes health-derived
-              uploads to daily totals, and keeps device authentication separate
-              from GitHub sign-in. Final production security controls and
-              incident-response contacts must be confirmed before public launch.
+              {brandName} stores GitHub access tokens encrypted at rest when the
+              product needs to refresh commit counts, keeps token hashes for
+              audit and export metadata, minimizes health-derived uploads to
+              daily totals, and keeps device authentication separate from GitHub
+              sign-in. Final production security controls and incident-response
+              contacts must be confirmed before public launch.
             </p>
           </section>
 
