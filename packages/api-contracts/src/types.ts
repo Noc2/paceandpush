@@ -29,6 +29,12 @@ export interface LeaderboardResponse {
   rows: LeaderboardRow[];
 }
 
+export interface UserSearchResponse {
+  query: string;
+  period: string;
+  rows: LeaderboardRow[];
+}
+
 export interface ProfileHistoryPoint {
   date: string;
   commits: number;

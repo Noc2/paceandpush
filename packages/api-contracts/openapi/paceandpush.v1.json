@@ -83,6 +83,33 @@
         }
       }
     },
+    "/api/search/users": {
+      "get": {
+        "summary": "Search public leaderboard users",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": { "type": "string", "minLength": 2 }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "schema": { "type": "string", "pattern": "^(?:\\d{4}|\\d{4}-(?:0[1-9]|1[0-2])|\\d{4}-W(?:0[1-9]|[1-4]\\d|5[0-3]))$" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching public users"
+          }
+        }
+      }
+    },
     "/api/users/{login}": {
       "get": {
         "summary": "Public user profile",

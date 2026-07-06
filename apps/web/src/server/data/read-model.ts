@@ -1,10 +1,12 @@
 import type {
   Board,
+  LeaderboardRow,
   LeaderboardResponse,
   MeResponse,
   ProfileHistoryPoint,
   PublicProfileResponse,
   ScoreSummary,
+  UserSearchResponse,
 } from "@paceandpush/api-contracts";
 import type { SessionUser } from "@/server/auth/session";
 import { getAccountUser } from "@/server/data/accounts";
@@ -27,6 +29,12 @@ type LeaderboardSnapshotRow = {
   commits: number;
   distanceMeters: number;
   userId: string;
+};
+
+type SearchPublicUsersOptions = {
+  limit?: number;
+  period?: string;
+  query: string;
 };
 
 export async function getLeaderboard(
@@ -54,17 +62,35 @@ export async function getLeaderboard(
   return {
     period,
     board,
-    rows: await Promise.all(
-      rows.map(async (row, index) => ({
-        rank: row.rank ?? index + 1,
-        login: row.login,
-        displayName: row.displayName,
-        score: Number(row.score),
-        commits: row.commits,
-        kilometers: Math.round((row.distanceMeters / 1000) * 10) / 10,
-        streakDays: await getStreakDays(row.userId, period),
-      })),
-    ),
+    rows: await toLeaderboardRows(rows, period),
+  };
+}
+
+export async function searchPublicUsers({
+  limit = 20,
+  period = currentPeriod(),
+  query,
+}: SearchPublicUsersOptions): Promise<UserSearchResponse> {
+  const normalizedQuery = normalizeSearchQuery(query);
+
+  if (!isDatabaseConfigured() || normalizedQuery.length < 2) {
+    return {
+      query: normalizedQuery,
+      period,
+      rows: [],
+    };
+  }
+
+  const rows = await getPublicUserSearchRows(
+    normalizedQuery,
+    period,
+    normalizeSearchLimit(limit),
+  );
+
+  return {
+    query: normalizedQuery,
+    period,
+    rows: await toLeaderboardRows(rows, period),
   };
 }
 
@@ -92,6 +118,69 @@ async function getLeaderboardSnapshotRows(
       ),
     )
     .orderBy(scoreSnapshots.rank);
+}
+
+async function getPublicUserSearchRows(
+  query: string,
+  period: string,
+  limit: number,
+): Promise<LeaderboardSnapshotRow[]> {
+  const lowerQuery = query.toLowerCase();
+  const escapedQuery = escapeLikePattern(lowerQuery);
+  const containsPattern = `%${escapedQuery}%`;
+  const prefixPattern = `${escapedQuery}%`;
+  const searchDocument = sql`lower(${users.login} || ' ' || ${users.displayName} || ' ' || coalesce(${users.bio}, ''))`;
+
+  return getDb()
+    .select({
+      rank: scoreSnapshots.rank,
+      login: users.login,
+      displayName: users.displayName,
+      score: scoreSnapshots.balancedScore,
+      commits: scoreSnapshots.commitTotal,
+      distanceMeters: scoreSnapshots.distanceMetersTotal,
+      userId: users.id,
+    })
+    .from(scoreSnapshots)
+    .innerJoin(users, eq(scoreSnapshots.userId, users.id))
+    .where(
+      and(
+        eq(scoreSnapshots.period, period),
+        eq(scoreSnapshots.board, "balanced"),
+        eq(users.publicLeaderboard, true),
+        sql`${searchDocument} LIKE ${containsPattern} ESCAPE '!'`,
+      ),
+    )
+    .orderBy(
+      sql`
+        CASE
+          WHEN lower(${users.login}) = ${lowerQuery} THEN 0
+          WHEN lower(${users.login}) LIKE ${prefixPattern} ESCAPE '!' THEN 1
+          WHEN lower(${users.displayName}) LIKE ${prefixPattern} ESCAPE '!' THEN 2
+          ELSE 3
+        END
+      `,
+      sql`${scoreSnapshots.rank} ASC NULLS LAST`,
+      users.login,
+    )
+    .limit(limit);
+}
+
+async function toLeaderboardRows(
+  rows: LeaderboardSnapshotRow[],
+  period: string,
+): Promise<LeaderboardRow[]> {
+  return Promise.all(
+    rows.map(async (row, index) => ({
+      rank: row.rank ?? index + 1,
+      login: row.login,
+      displayName: row.displayName,
+      score: Number(row.score),
+      commits: row.commits,
+      kilometers: Math.round((row.distanceMeters / 1000) * 10) / 10,
+      streakDays: await getStreakDays(row.userId, period),
+    })),
+  );
 }
 
 export async function getPublicProfile(
@@ -196,6 +285,19 @@ export function parseBoard(value: string | null): Board {
     return value;
   }
   return "balanced";
+}
+
+function normalizeSearchQuery(query: string): string {
+  return query.trim().replace(/\s+/g, " ");
+}
+
+function normalizeSearchLimit(limit: number): number {
+  if (!Number.isFinite(limit)) return 20;
+  return Math.min(Math.max(Math.trunc(limit), 1), 50);
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[!%_]/g, (character) => `!${character}`);
 }
 
 export { parsePeriod } from "@/server/data/scores";

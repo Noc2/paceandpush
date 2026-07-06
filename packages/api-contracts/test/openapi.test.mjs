@@ -13,6 +13,7 @@ test("OpenAPI lists the production route surface", () => {
     "/api/me/privacy-export",
     "/api/me/delete",
     "/api/leaderboard",
+    "/api/search/users",
     "/api/users/{login}",
     "/api/mobile/pairing-codes",
     "/api/mobile/auth/github/start",
