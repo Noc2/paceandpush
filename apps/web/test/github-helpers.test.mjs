@@ -353,6 +353,28 @@ test("distance uploads recompute week month and year score periods", async () =>
   assert.match(source, /score_recompute_failed/);
 });
 
+test("distance uploads are canonical by day instead of source hash", async () => {
+  const routeSource = await readFile(
+    new URL("../src/app/api/mobile/distance-days/route.ts", import.meta.url),
+    "utf8",
+  );
+  const schemaSource = await readFile(
+    new URL("../src/server/db/schema.ts", import.meta.url),
+    "utf8",
+  );
+  const migrationSource = await readFile(
+    new URL("../drizzle/0008_distance_source_hash_lookup.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(routeSource, /canonicalDistanceDays/);
+  assert.match(routeSource, /daysByDate\.set\(day\.date, day\)/);
+  assert.match(schemaSource, /sourceHashIdx: index\("distance_days_user_source_hash_idx"\)/);
+  assert.doesNotMatch(schemaSource, /sourceHashIdx: uniqueIndex/);
+  assert.match(migrationSource, /DROP INDEX IF EXISTS distance_days_user_source_hash_idx/);
+  assert.match(migrationSource, /CREATE INDEX IF NOT EXISTS distance_days_user_source_hash_idx/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");

@@ -129,7 +129,7 @@ export const distanceDays = pgTable(
   },
   (table) => ({
     userDayIdx: uniqueIndex("distance_days_user_day_idx").on(table.userId, table.day),
-    sourceHashIdx: uniqueIndex("distance_days_user_source_hash_idx").on(
+    sourceHashIdx: index("distance_days_user_source_hash_idx").on(
       table.userId,
       table.sourceHash,
     ),

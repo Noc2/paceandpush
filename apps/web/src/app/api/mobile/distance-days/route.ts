@@ -34,9 +34,10 @@ export async function POST(request: NextRequest) {
       meters: Math.round(day.meters),
       flagged: isImplausibleDistanceDay(day),
     }));
+  const canonicalDays = canonicalDistanceDays(accepted);
 
-  await upsertDistanceDays({ auth, days: accepted });
-  const scorePeriods = scorePeriodsForDistanceDays(accepted);
+  await upsertDistanceDays({ auth, days: canonicalDays });
+  const scorePeriods = scorePeriodsForDistanceDays(canonicalDays);
   const recomputeResults = await Promise.allSettled(
     scorePeriods.map((period) => recomputeScoreSnapshots(period)),
   );
@@ -54,9 +55,9 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({
-    accepted: accepted.length,
+    accepted: canonicalDays.length,
     flagged:
-      body.days.length - accepted.length + accepted.filter((day) => day.flagged).length,
+      body.days.length - accepted.length + canonicalDays.filter((day) => day.flagged).length,
     ...(failedPeriods.length > 0 ? { warnings: ["score_recompute_failed"] } : {}),
   });
 }
@@ -80,6 +81,18 @@ function isValidDistanceDay(
 
 function isImplausibleDistanceDay(day: DistanceDayInput): boolean {
   return day.meters > 100_000;
+}
+
+function canonicalDistanceDays(
+  days: Array<DistanceDayInput & { flagged: boolean }>,
+): Array<DistanceDayInput & { flagged: boolean }> {
+  const daysByDate = new Map<string, DistanceDayInput & { flagged: boolean }>();
+
+  for (const day of days) {
+    daysByDate.set(day.date, day);
+  }
+
+  return [...daysByDate.values()];
 }
 
 function scorePeriodsForDistanceDays(
