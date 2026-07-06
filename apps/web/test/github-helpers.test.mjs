@@ -530,18 +530,38 @@ test("GitHub login lookup allows username recycling", async () => {
   assert.match(readModelSource, /orderBy\(desc\(users\.updatedAt\)\)/);
 });
 
-test("production builds validate required environment variables", async () => {
+test("production runtime validates required environment variables", async () => {
   const nextConfig = await readFile(
     new URL("../next.config.ts", import.meta.url),
     "utf8",
   );
   const envExample = await readFile(new URL("../../../.env.example", import.meta.url), "utf8");
+  const dbClient = await readFile(
+    new URL("../src/server/db/client.ts", import.meta.url),
+    "utf8",
+  );
+  const session = await readFile(
+    new URL("../src/server/auth/session.ts", import.meta.url),
+    "utf8",
+  );
+  const mobileTokens = await readFile(
+    new URL("../src/server/mobile/tokens.ts", import.meta.url),
+    "utf8",
+  );
+  const cronJob = await readFile(
+    new URL("../src/app/api/jobs/recompute-scores/route.ts", import.meta.url),
+    "utf8",
+  );
 
-  assert.match(nextConfig, /process\.env\.VERCEL_ENV !== "production"/);
-  assert.match(nextConfig, /NEXT_PUBLIC_APP_URL/);
-  assert.match(nextConfig, /DATABASE_URL && !process\.env\.POSTGRES_URL/);
-  assert.match(nextConfig, /MOBILE_TOKEN_SECRET must be distinct/);
+  assert.doesNotMatch(nextConfig, /assertProductionEnv/);
+  assert.match(dbClient, /DATABASE_URL or POSTGRES_URL is required/);
+  assert.match(session, /SESSION_SECRET is required in production/);
+  assert.match(mobileTokens, /MOBILE_TOKEN_SECRET is required in production/);
+  assert.match(mobileTokens, /MOBILE_TOKEN_SECRET must be distinct/);
+  assert.match(cronJob, /process\.env\.CRON_SECRET/);
+  assert.match(envExample, /NEXT_PUBLIC_APP_URL=/);
   assert.match(envExample, /POSTGRES_URL=/);
+  assert.match(envExample, /CRON_SECRET=/);
 });
 
 test("web layout consumes shared brand CSS variables", async () => {
