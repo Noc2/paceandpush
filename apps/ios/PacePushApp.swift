@@ -82,22 +82,6 @@ struct OnboardingView: View {
 
                     OnboardingStep(
                         index: 1,
-                        title: "Connect GitHub",
-                        detail: store.isGitHubConnected ? "@\(store.me.login) connected" : "Used for commit counts and account identity.",
-                        complete: store.isGitHubConnected,
-                    ) {
-                        Button {
-                            Task { await store.connectGitHub() }
-                        } label: {
-                            Label("Connect GitHub", systemImage: "chevron.right.square")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .disabled(store.busy)
-                    }
-
-                    OnboardingStep(
-                        index: 2,
                         title: "Choose leaderboard visibility",
                         detail: store.publicLeaderboardPreference ? "Your score can appear on public boards." : "Your score stays private.",
                         complete: store.publicLeaderboardPreferenceChosen,
@@ -113,6 +97,36 @@ struct OnboardingView: View {
                             ),
                         )
                         .disabled(store.busy)
+
+                        if !store.publicLeaderboardPreferenceChosen {
+                            Button {
+                                Task { await store.confirmPublicLeaderboardPreference() }
+                            } label: {
+                                Label(
+                                    store.publicLeaderboardPreference ? "Use Public Leaderboard" : "Keep Score Private",
+                                    systemImage: store.publicLeaderboardPreference ? "eye.square" : "eye.slash",
+                                )
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(PrimaryButtonStyle())
+                            .disabled(store.busy)
+                        }
+                    }
+
+                    OnboardingStep(
+                        index: 2,
+                        title: "Connect GitHub",
+                        detail: store.isGitHubConnected ? "@\(store.me.login) connected" : "Used for commit counts and account identity.",
+                        complete: store.isGitHubConnected,
+                    ) {
+                        Button {
+                            Task { await store.connectGitHub() }
+                        } label: {
+                            Label("Connect GitHub", systemImage: "chevron.right.square")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(store.busy || !store.publicLeaderboardPreferenceChosen)
                     }
 
                     OnboardingStep(
@@ -128,7 +142,7 @@ struct OnboardingView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(PrimaryButtonStyle())
-                        .disabled(store.busy || !store.isGitHubConnected)
+                        .disabled(store.busy)
                     }
 
                     OnboardingStep(
@@ -744,6 +758,10 @@ final class PacePushStore: ObservableObject {
             lastError = error.localizedDescription
             lastSuccess = nil
         }
+    }
+
+    func confirmPublicLeaderboardPreference() async {
+        await setPublicLeaderboardPreference(publicLeaderboardPreference)
     }
 
     func syncRunningDistance() async {
@@ -1516,13 +1534,23 @@ private enum BrandAppearance {
 }
 
 struct PrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.bold))
-            .foregroundStyle(Brand.ink)
+            .foregroundStyle(isEnabled ? Brand.ink : Brand.muted)
             .padding(14)
-            .background(configuration.isPressed ? Brand.orange.opacity(0.72) : Brand.orange)
-            .overlay(Rectangle().stroke(Brand.ink, lineWidth: 2))
+            .background(buttonBackground(isPressed: configuration.isPressed))
+            .overlay(Rectangle().stroke(isEnabled ? Brand.ink : Brand.muted, lineWidth: 2))
+    }
+
+    private func buttonBackground(isPressed: Bool) -> Color {
+        if !isEnabled {
+            return Brand.muted.opacity(0.16)
+        }
+
+        return isPressed ? Brand.orange.opacity(0.72) : Brand.orange
     }
 }
 
