@@ -55,6 +55,7 @@ Owner-only production setup is tracked in
 - `npm run typecheck`
 - `npm run lint`
 - `npm test`
+- `npm run test:e2e`
 - `npm run build`
 - iOS `xcodebuild test` for the `PacePush` scheme.
 
@@ -84,6 +85,7 @@ Owner-only production setup is tracked in
 - `npm run typecheck`
 - `npm run lint`
 - `npm test`
+- `npm run test:e2e`
 - `npm run build`
 - iOS XCTest/XCUITest suite passes for the `PacePush` scheme.
 - Android build in Android Studio with Health Connect SDK resolved.

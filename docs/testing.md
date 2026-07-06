@@ -1,8 +1,8 @@
 # Testing
 
-Pace & Push currently has web/API checks plus native iOS XCTest coverage. The
-iOS tests are designed to keep the simulator path deterministic while the native
-app is still changing quickly.
+Pace & Push currently has web/API checks, mobile-web Playwright coverage, and
+native iOS XCTest coverage. The iOS tests are designed to keep the simulator
+path deterministic while the native app is still changing quickly.
 
 ## Web and API
 
@@ -19,6 +19,22 @@ npm run build
 
 `npm test` runs the Node test suites in `apps/web/test` and
 `packages/api-contracts/test`.
+
+## Mobile web
+
+Playwright covers the public leaderboard and app-download path with an
+iPhone-sized WebKit project. The test server intentionally runs without database
+environment variables and uses deterministic beta-store URLs.
+
+Install the WebKit browser once, then run the suite from the repository root:
+
+```sh
+npx playwright install webkit
+npm run test:e2e
+```
+
+Set `PLAYWRIGHT_BASE_URL` to run the same checks against an already-running
+deployment or local server.
 
 ## iOS
 

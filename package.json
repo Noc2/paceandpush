@@ -17,8 +17,12 @@
     "db:migrate": "npm run db:migrate -w @paceandpush/web",
     "db:migrations:check": "npm run db:migrations:check -w @paceandpush/web",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "test:e2e": "playwright test",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
   }
 }
