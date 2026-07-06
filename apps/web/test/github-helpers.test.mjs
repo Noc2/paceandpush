@@ -223,6 +223,35 @@ test("privacy export omits internal token and source hashes", async () => {
   assert.doesNotMatch(exportBlock, /sourceMetadata/);
 });
 
+test("web security headers are configured", async () => {
+  const nextConfig = await readFile(
+    new URL("../next.config.ts", import.meta.url),
+    "utf8",
+  );
+  for (const header of [
+    "Content-Security-Policy",
+    "Strict-Transport-Security",
+    "X-Content-Type-Options",
+    "X-Frame-Options",
+    "Referrer-Policy",
+    "Permissions-Policy",
+  ]) {
+    assert.match(nextConfig, new RegExp(header));
+  }
+});
+
+test("embed svg route has a sandboxed content security policy", async () => {
+  const source = await readFile(
+    new URL("../src/app/api/embed/[login]/chart.svg/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /content-security-policy/);
+  assert.match(source, /default-src 'none'/);
+  assert.match(source, /sandbox/);
+  assert.match(source, /x-content-type-options/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");

@@ -6,7 +6,11 @@ export async function GET(request: NextRequest) {
   const period = parsePeriod(request.nextUrl.searchParams.get("period"));
   const limit = parseSearchLimit(request.nextUrl.searchParams.get("limit"));
 
-  return NextResponse.json(await searchPublicUsers({ limit, period, query }));
+  return NextResponse.json(await searchPublicUsers({ limit, period, query }), {
+    headers: {
+      "cache-control": "public, s-maxage=300, stale-while-revalidate=3600",
+    },
+  });
 }
 
 function parseSearchLimit(value: string | null): number | undefined {

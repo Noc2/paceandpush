@@ -20,6 +20,8 @@ export async function GET(
     headers: {
       "content-type": "image/svg+xml; charset=utf-8",
       "cache-control": "public, max-age=300, s-maxage=900, stale-while-revalidate=3600",
+      "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      "x-content-type-options": "nosniff",
     },
   });
 }
