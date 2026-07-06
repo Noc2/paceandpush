@@ -145,27 +145,23 @@ struct OnboardingView: View {
                         .disabled(store.busy)
                     }
 
-                    OnboardingStep(
-                        index: 4,
-                        title: "Run first sync",
-                        detail: store.firstSyncAt == nil ? "Upload daily running totals, not raw workouts." : "First sync complete.",
-                        complete: store.firstSyncAt != nil,
-                    ) {
-                        Button {
-                            Task { await store.syncRunningDistance() }
-                        } label: {
-                            Label("Sync Running Data", systemImage: "arrow.triangle.2.circlepath")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .disabled(store.busy || !store.healthAuthorized)
-                    }
-
                     if let error = store.lastError {
-                        Text(error)
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(Brand.red)
-                            .panelStyle()
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(error)
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(Brand.red)
+
+                            if store.canRetryFirstSync {
+                                Button {
+                                    Task { await store.syncRunningDistance() }
+                                } label: {
+                                    Label("Try Sync Again", systemImage: "arrow.triangle.2.circlepath")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(PrimaryButtonStyle())
+                            }
+                        }
+                        .panelStyle()
                     } else if let success = store.lastSuccess {
                         Text(success)
                             .font(.callout.weight(.semibold))
@@ -620,7 +616,11 @@ final class PacePushStore: ObservableObject {
     }
 
     var onboardingComplete: Bool {
-        isGitHubConnected && healthAuthorized && firstSyncAt != nil
+        publicLeaderboardPreferenceChosen && isGitHubConnected && healthAuthorized && firstSyncAt != nil
+    }
+
+    var canRetryFirstSync: Bool {
+        setupReadyForFirstSync && !busy
     }
 
     init() {
@@ -636,6 +636,7 @@ final class PacePushStore: ObservableObject {
     func bootstrap() async {
         guard deviceToken != nil else { return }
         await refresh()
+        await syncFirstRunIfReady()
     }
 
     func connectGitHub() async {
@@ -727,6 +728,11 @@ final class PacePushStore: ObservableObject {
             try await healthSync.requestAuthorization()
             healthAuthorized = true
             UserDefaults.standard.set(true, forKey: healthKey)
+            if isGitHubConnected {
+                await syncFirstRunIfReady()
+            } else {
+                lastSuccess = "Apple Health enabled. Next, connect GitHub."
+            }
         } catch {
             lastError = "Apple Health is unavailable or permission was not granted."
             lastSuccess = nil
@@ -764,7 +770,7 @@ final class PacePushStore: ObservableObject {
         await setPublicLeaderboardPreference(publicLeaderboardPreference)
     }
 
-    func syncRunningDistance() async {
+    func syncRunningDistance(successMessage: String = "Running data synced.") async {
         guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else {
             lastError = "Connect GitHub before syncing."
             lastSuccess = nil
@@ -798,6 +804,9 @@ final class PacePushStore: ObservableObject {
             firstSyncAt = Date().isoString
             UserDefaults.standard.set(firstSyncAt, forKey: firstSyncKey)
             await refresh()
+            if lastError == nil {
+                lastSuccess = successMessage
+            }
         } catch PacePushAPIError.unauthorized {
             signOut()
             lastError = "This device was revoked. Connect GitHub again."
@@ -910,7 +919,11 @@ final class PacePushStore: ObservableObject {
         }
         await refresh()
         if lastError == nil {
-            lastSuccess = "GitHub connected. Next, enable Apple Health."
+            if healthAuthorized {
+                await syncFirstRunIfReady()
+            } else {
+                lastSuccess = "GitHub connected. Next, enable Apple Health."
+            }
         }
     }
 
@@ -964,6 +977,16 @@ final class PacePushStore: ObservableObject {
             )
         }
         await refresh()
+        await syncFirstRunIfReady()
+    }
+
+    private var setupReadyForFirstSync: Bool {
+        isGitHubConnected && healthAuthorized && firstSyncAt == nil
+    }
+
+    private func syncFirstRunIfReady() async {
+        guard setupReadyForFirstSync else { return }
+        await syncRunningDistance(successMessage: "Setup complete. Running data synced.")
     }
 }
 
