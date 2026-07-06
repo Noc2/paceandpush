@@ -128,6 +128,134 @@ textarea {
   gap: 10px;
 }
 
+.download-actions {
+  flex: 0 0 auto;
+}
+
+.download-modal-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(31, 28, 23, 0.36);
+  padding: 24px;
+}
+
+.download-modal {
+  width: min(620px, 100%);
+  max-height: min(680px, calc(100vh - 48px));
+  overflow-y: auto;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 10px 10px 0 rgba(31, 28, 23, 0.2);
+  padding: 18px;
+}
+
+.download-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 16px;
+}
+
+.download-modal-header h2 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.08;
+}
+
+.download-modal-close {
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.download-modal-body {
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  padding-top: 18px;
+}
+
+.download-qr {
+  display: grid;
+  width: 184px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: #fffaf0;
+}
+
+.download-qr img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.download-qr span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.download-link-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.download-link-panel > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.download-link-panel code {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-left: 4px solid var(--orange);
+  background: rgba(249, 115, 22, 0.08);
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.download-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.download-pending {
+  display: grid;
+  gap: 6px;
+  padding-top: 18px;
+}
+
+.download-pending strong {
+  font-size: 20px;
+}
+
+.download-pending span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .site-footer {
   border-top: 1px solid var(--line);
   padding: 18px 32px 28px;
@@ -1159,6 +1287,7 @@ textarea {
   .pairing-code-card,
   .pairing-code-result,
   .device-row,
+  .download-modal-body,
   .chart-panel,
   .history-list div,
   .legal-list div {
@@ -1167,6 +1296,10 @@ textarea {
   }
 
   .pairing-code-qr {
+    width: min(224px, 100%);
+  }
+
+  .download-qr {
     width: min(224px, 100%);
   }
 
