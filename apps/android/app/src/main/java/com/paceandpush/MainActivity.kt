@@ -34,11 +34,12 @@ class MainActivity : Activity() {
     }
 
     private val ink = Color.rgb(33, 30, 26)
+    private val muted = Color.rgb(95, 90, 81)
     private val paper = Color.rgb(248, 242, 230)
     private val orange = Color.rgb(249, 115, 22)
-    private val green = Color.rgb(36, 161, 72)
-    private val red = Color.rgb(250, 77, 54)
-    private val blue = Color.rgb(15, 98, 254)
+    private val green = Color.rgb(22, 101, 52)
+    private val red = Color.rgb(180, 35, 24)
+    private val blue = Color.rgb(11, 92, 173)
 
     private var activeTab = Tab.Today
     private var board = Board.Balanced
@@ -84,6 +85,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyBrandSystemBars()
         val preferences = getPreferences(MODE_PRIVATE)
         apiBaseUrl = normalizeBaseUrl(preferences.getString(PREF_API_BASE_URL, null)) ?: DEFAULT_API_BASE_URL
         paired = !preferences.getString(PREF_DEVICE_TOKEN, null).isNullOrBlank()
@@ -106,6 +108,7 @@ class MainActivity : Activity() {
             addView(
                 LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.VERTICAL
+                    setBackgroundColor(paper)
                     setPadding(dp(20), dp(20), dp(20), dp(28))
                     addView(header())
                     addView(tabBar())
@@ -258,7 +261,7 @@ class MainActivity : Activity() {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             setSingleLine(true)
             setTextColor(ink)
-            setHintTextColor(ink)
+            setHintTextColor(muted)
             setPadding(dp(10), 0, dp(10), 0)
         }
 
@@ -335,10 +338,9 @@ class MainActivity : Activity() {
             addView(titleText("Connect this device", 22f))
             val statusMessage = pairingStatusMessage
                 ?: if (paired) "Device paired for local sync." else "Scan QR or paste a pairing code from the web app."
-            val statusColor = if (pairingStatusMessage == null) ink else pairingStatusColor
+            val statusColor = if (pairingStatusMessage == null) muted else pairingStatusColor
             addView(bodyText(statusMessage, 16f).apply {
                 setTextColor(statusColor)
-                alpha = if (pairingStatusMessage == null) 0.74f else 0.86f
             })
             addView(
                 Button(this@MainActivity).apply {
@@ -359,6 +361,7 @@ class MainActivity : Activity() {
                 setSingleLine(true)
                 setPadding(dp(12), dp(8), dp(12), dp(8))
                 setTextColor(ink)
+                setHintTextColor(muted)
             }
             addView(codeInput)
             addView(
@@ -388,6 +391,7 @@ class MainActivity : Activity() {
                 typeface = Typeface.MONOSPACE
                 setSingleLine(true)
                 setTextColor(ink)
+                setHintTextColor(muted)
             }
             addView(urlInput)
             addView(labelText("Distance units").apply { setPadding(0, dp(12), 0, 0) })
@@ -678,6 +682,19 @@ class MainActivity : Activity() {
         showPairingStatus(message, red)
     }
 
+    private fun applyBrandSystemBars() {
+        window.statusBarColor = paper
+        window.navigationBarColor = paper
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            var flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                flags = flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            }
+            window.decorView.systemUiVisibility = flags
+        }
+    }
+
     private fun queryBaseUrl(uri: Uri): String? {
         listOf("baseUrl", "base_url", "apiBaseUrl").forEach { key ->
             allowedBaseUrl(uri.getQueryParameter(key))?.let { return it }
@@ -763,8 +780,7 @@ class MainActivity : Activity() {
         return TextView(this).apply {
             text = value
             textSize = size
-            setTextColor(ink)
-            alpha = 0.74f
+            setTextColor(muted)
         }
     }
 
@@ -773,8 +789,7 @@ class MainActivity : Activity() {
             text = value.uppercase()
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(ink)
-            alpha = 0.62f
+            setTextColor(muted)
         }
     }
 

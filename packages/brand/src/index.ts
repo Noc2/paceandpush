@@ -6,13 +6,13 @@ export const brandColors = {
   paper: "#f7f3ea",
   paperRaised: "#fffaf0",
   ink: "#1f1c17",
-  mutedInk: "#746f64",
+  mutedInk: "#5f5a51",
   line: "#d8d0c2",
   lineStrong: "#b9ad9d",
-  commitGreen: "#2f9e44",
-  distanceCoral: "#f15a3a",
+  commitGreen: "#166534",
+  distanceCoral: "#b42318",
   secondaryOrange: "#f97316",
-  rankBlue: "#3277b8",
+  rankBlue: "#0b5cad",
   warmHighlight: "#f6c85f",
 } as const;
 

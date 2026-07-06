@@ -8,6 +8,10 @@ import UIKit
 struct PacePushApp: App {
     @StateObject private var store = PacePushStore()
 
+    init() {
+        BrandAppearance.apply()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -31,6 +35,8 @@ struct RootView: View {
             }
         }
         .tint(Brand.orange)
+        .foregroundStyle(Brand.ink)
+        .preferredColorScheme(.light)
         .task {
             await store.bootstrap()
         }
@@ -175,7 +181,7 @@ struct OnboardingStep<Actions: View>: View {
                         .font(.title3.bold())
                     Text(detail)
                         .font(.callout.weight(.semibold))
-                        .foregroundStyle(Brand.ink.opacity(0.64))
+                        .foregroundStyle(Brand.muted)
                 }
             }
 
@@ -199,7 +205,7 @@ struct TodayView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Your \(store.me.score.period) score")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(Brand.ink.opacity(0.62))
+                            .foregroundStyle(Brand.muted)
                             .textCase(.uppercase)
 
                         Text(store.me.score.score.formatted(.number.precision(.fractionLength(1))))
@@ -208,7 +214,7 @@ struct TodayView: View {
 
                         Text(store.me.score.rank.map { "Rank #\($0) this month." } ?? "No public rank yet.")
                             .font(.title3.weight(.semibold))
-                            .foregroundStyle(Brand.ink.opacity(0.72))
+                            .foregroundStyle(Brand.muted)
                     }
                     .panelStyle()
 
@@ -282,7 +288,7 @@ struct LeaderboardView: View {
 
                 if rows.isEmpty {
                     Text(emptyMessage)
-                        .foregroundStyle(Brand.ink.opacity(0.66))
+                        .foregroundStyle(Brand.muted)
                         .listRowBackground(Brand.paper)
                 }
 
@@ -293,6 +299,7 @@ struct LeaderboardView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Brand.paper)
+            .foregroundStyle(Brand.ink)
             .navigationTitle("Leaderboard")
             .searchable(text: $searchText, prompt: "Developer")
             .toolbar {
@@ -319,11 +326,11 @@ struct ProfileView: View {
                         Text("@\(store.profile.login)")
                             .font(.title.bold())
                         Text(store.profile.bio ?? "Healthy body, shipped code.")
-                            .foregroundStyle(Brand.ink.opacity(0.68))
+                            .foregroundStyle(Brand.muted)
 
                         if store.profile.history.isEmpty {
                             Text("Sync running data to build your profile history.")
-                                .foregroundStyle(Brand.ink.opacity(0.64))
+                                .foregroundStyle(Brand.muted)
                         }
 
                         ForEach(store.profile.history) { point in
@@ -337,7 +344,7 @@ struct ProfileView: View {
                                         .fontWeight(.bold)
                                     Text(store.formatDistance(point.kilometers, includeUnit: true))
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Brand.ink.opacity(0.62))
+                                        .foregroundStyle(Brand.muted)
                                 }
                             }
                             .padding(.vertical, 6)
@@ -404,14 +411,18 @@ struct SettingsView: View {
             Form {
                 Section("Account") {
                     Text("@\(store.me.login)")
-                    Button("Sign out", role: .destructive) {
+                    Button(role: .destructive) {
                         store.signOut()
+                    } label: {
+                        Text("Sign out")
+                            .foregroundStyle(Brand.red)
                     }
                 }
 
                 Section("Server") {
                     TextField("API base URL", text: $store.apiBaseURL)
                         .font(Font.system(.body, design: .monospaced))
+                        .foregroundStyle(Brand.ink)
                 }
 
                 Section("Units") {
@@ -435,8 +446,12 @@ struct SettingsView: View {
                     )
                     .disabled(store.busy || !store.isGitHubConnected)
                     Text("Running distance summaries are synced by day. Raw workouts and routes are not uploaded.")
+                        .foregroundStyle(Brand.muted)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Brand.paper)
+            .foregroundStyle(Brand.ink)
             .navigationTitle("Settings")
         }
     }
@@ -449,7 +464,7 @@ struct StatusRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .foregroundStyle(Brand.ink.opacity(0.62))
+                .foregroundStyle(Brand.muted)
             Spacer()
             Text(value)
                 .fontWeight(.bold)
@@ -472,7 +487,7 @@ struct HeaderView: View {
                     .font(.title.bold())
                 Text("Healthy body, shipped code.")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Brand.ink.opacity(0.62))
+                    .foregroundStyle(Brand.muted)
             }
         }
     }
@@ -487,7 +502,7 @@ struct MetricTile: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(Brand.ink.opacity(0.62))
+                .foregroundStyle(Brand.muted)
                 .textCase(.uppercase)
             Text(value)
                 .font(.title.bold())
@@ -514,7 +529,7 @@ struct LeaderboardRowView: View {
                     .font(.headline.monospaced())
                 Text(row.displayName)
                     .font(.caption)
-                    .foregroundStyle(Brand.ink.opacity(0.62))
+                    .foregroundStyle(Brand.muted)
             }
 
             Spacer()
@@ -525,7 +540,7 @@ struct LeaderboardRowView: View {
                     .foregroundStyle(Brand.blue)
                 Text(units.format(row.kilometers, includeUnit: true))
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Brand.ink.opacity(0.62))
+                    .foregroundStyle(Brand.muted)
             }
         }
         .padding(.vertical, 8)
@@ -1354,12 +1369,52 @@ struct ProfileHistoryPoint: Decodable, Identifiable {
 }
 
 enum Brand {
-    static let paper = Color(hex: 0xf8f2e6)
-    static let ink = Color(hex: 0x211e1a)
-    static let orange = Color(hex: 0xf97316)
-    static let green = Color(hex: 0x24a148)
-    static let red = Color(hex: 0xfa4d36)
-    static let blue = Color(hex: 0x0f62fe)
+    private static let paperHex: UInt32 = 0xf8f2e6
+    private static let inkHex: UInt32 = 0x211e1a
+    private static let mutedHex: UInt32 = 0x5f5a51
+    private static let orangeHex: UInt32 = 0xf97316
+    private static let greenHex: UInt32 = 0x166534
+    private static let redHex: UInt32 = 0xb42318
+    private static let blueHex: UInt32 = 0x0b5cad
+
+    static let paper = Color(hex: paperHex)
+    static let ink = Color(hex: inkHex)
+    static let muted = Color(hex: mutedHex)
+    static let orange = Color(hex: orangeHex)
+    static let green = Color(hex: greenHex)
+    static let red = Color(hex: redHex)
+    static let blue = Color(hex: blueHex)
+
+    static let uiPaper = UIColor(hex: paperHex)
+    static let uiInk = UIColor(hex: inkHex)
+    static let uiMuted = UIColor(hex: mutedHex)
+    static let uiOrange = UIColor(hex: orangeHex)
+}
+
+private enum BrandAppearance {
+    static func apply() {
+        let navigationBar = UINavigationBar.appearance()
+        navigationBar.tintColor = Brand.uiInk
+        navigationBar.barTintColor = Brand.uiPaper
+        navigationBar.backgroundColor = Brand.uiPaper
+        navigationBar.titleTextAttributes = [.foregroundColor: Brand.uiInk]
+        navigationBar.largeTitleTextAttributes = [.foregroundColor: Brand.uiInk]
+
+        let tabBar = UITabBar.appearance()
+        tabBar.tintColor = Brand.uiInk
+        tabBar.unselectedItemTintColor = Brand.uiMuted
+        tabBar.barTintColor = Brand.uiPaper
+        tabBar.backgroundColor = Brand.uiPaper
+
+        let segmentedControl = UISegmentedControl.appearance()
+        segmentedControl.selectedSegmentTintColor = Brand.uiOrange
+        segmentedControl.setTitleTextAttributes([.foregroundColor: Brand.uiInk], for: .normal)
+        segmentedControl.setTitleTextAttributes([.foregroundColor: Brand.uiInk], for: .selected)
+
+        UITableView.appearance().backgroundColor = Brand.uiPaper
+        UITextField.appearance().textColor = Brand.uiInk
+        UITextField.appearance().tintColor = Brand.uiInk
+    }
 }
 
 struct PrimaryButtonStyle: ButtonStyle {
@@ -1422,6 +1477,17 @@ extension Color {
             red: Double((hex >> 16) & 0xff) / 255,
             green: Double((hex >> 8) & 0xff) / 255,
             blue: Double(hex & 0xff) / 255
+        )
+    }
+}
+
+extension UIColor {
+    convenience init(hex: UInt32) {
+        self.init(
+            red: CGFloat((hex >> 16) & 0xff) / 255,
+            green: CGFloat((hex >> 8) & 0xff) / 255,
+            blue: CGFloat(hex & 0xff) / 255,
+            alpha: 1
         )
     }
 }

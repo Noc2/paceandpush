@@ -43,7 +43,7 @@ export function renderProfileChartSvg(
   <g transform="translate(442 28)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
     ${metricText(0, "Score", profile.score.score.toFixed(1), brandColors.rankBlue)}
     ${metricText(92, "Commits", String(profile.score.commits), brandColors.commitGreen)}
-    ${metricText(206, `Run ${distanceUnitAbbreviation(units)}`, formatDistance(profile.score.kilometers, units), brandColors.secondaryOrange)}
+    ${metricText(206, `Run ${distanceUnitAbbreviation(units)}`, formatDistance(profile.score.kilometers, units), brandColors.distanceCoral)}
   </g>
 
   <g>

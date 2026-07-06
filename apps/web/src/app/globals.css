@@ -15,7 +15,10 @@
 }
 
 html {
+  background: var(--paper);
+  color: var(--ink);
   color-scheme: light;
+  color-scheme: only light;
 }
 
 body {
@@ -36,6 +39,19 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  color: var(--ink);
+  font: inherit;
+}
+
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 
 .app-shell {
