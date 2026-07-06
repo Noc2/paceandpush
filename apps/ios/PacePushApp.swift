@@ -32,7 +32,7 @@ struct RootView: View {
                 OnboardingView()
             }
         }
-        .tint(Brand.gold)
+        .tint(Brand.orange)
         .task {
             await store.bootstrap()
         }
@@ -189,7 +189,7 @@ struct OnboardingStep<Actions: View>: View {
                 Text(complete ? "✓" : "\(index)")
                     .font(.headline.monospaced())
                     .frame(width: 34, height: 34)
-                    .background(complete ? Brand.green.opacity(0.18) : Brand.gold)
+                    .background(complete ? Brand.green.opacity(0.18) : Brand.orange)
                     .overlay(Rectangle().stroke(Brand.ink, lineWidth: 2))
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -626,7 +626,7 @@ struct HeaderView: View {
                 .font(.system(size: 34, weight: .black, design: .monospaced))
                 .foregroundStyle(Brand.ink)
                 .frame(width: 48, height: 48)
-                .background(Brand.gold)
+                .background(Brand.orange)
                 .overlay(Rectangle().stroke(Brand.ink, lineWidth: 3))
 
             VStack(alignment: .leading, spacing: 2) {
@@ -1518,7 +1518,7 @@ struct ProfileHistoryPoint: Decodable, Identifiable {
 enum Brand {
     static let paper = Color(hex: 0xf8f2e6)
     static let ink = Color(hex: 0x211e1a)
-    static let gold = Color(hex: 0xf7c948)
+    static let orange = Color(hex: 0xf97316)
     static let green = Color(hex: 0x24a148)
     static let red = Color(hex: 0xfa4d36)
     static let blue = Color(hex: 0x0f62fe)
@@ -1530,7 +1530,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .font(.headline.weight(.bold))
             .foregroundStyle(Brand.ink)
             .padding(14)
-            .background(configuration.isPressed ? Brand.gold.opacity(0.72) : Brand.gold)
+            .background(configuration.isPressed ? Brand.orange.opacity(0.72) : Brand.orange)
             .overlay(Rectangle().stroke(Brand.ink, lineWidth: 2))
     }
 }

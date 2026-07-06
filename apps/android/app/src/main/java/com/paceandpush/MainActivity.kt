@@ -35,7 +35,7 @@ class MainActivity : Activity() {
 
     private val ink = Color.rgb(33, 30, 26)
     private val paper = Color.rgb(248, 242, 230)
-    private val gold = Color.rgb(247, 201, 72)
+    private val orange = Color.rgb(249, 115, 22)
     private val green = Color.rgb(36, 161, 72)
     private val red = Color.rgb(250, 77, 54)
     private val blue = Color.rgb(15, 98, 254)
@@ -130,7 +130,7 @@ class MainActivity : Activity() {
                     gravity = Gravity.CENTER
                     typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
                     setTextColor(ink)
-                    setBackgroundColor(gold)
+                    setBackgroundColor(orange)
                     layoutParams = LinearLayout.LayoutParams(dp(52), dp(52)).apply {
                         rightMargin = dp(12)
                     }
@@ -158,7 +158,7 @@ class MainActivity : Activity() {
                         text = tab.title
                         isAllCaps = false
                         setTextColor(ink)
-                        setBackgroundColor(if (tab == activeTab) gold else paper)
+                        setBackgroundColor(if (tab == activeTab) orange else paper)
                         setOnClickListener {
                             activeTab = tab
                             render()
@@ -216,7 +216,7 @@ class MainActivity : Activity() {
                                 text = option.title
                                 isAllCaps = false
                                 setTextColor(ink)
-                                setBackgroundColor(if (option == board) gold else paper)
+                                setBackgroundColor(if (option == board) orange else paper)
                                 setOnClickListener {
                                     board = option
                                     render()
@@ -346,7 +346,7 @@ class MainActivity : Activity() {
                     isAllCaps = false
                     isEnabled = !pairingInProgress
                     setTextColor(ink)
-                    setBackgroundColor(gold)
+                    setBackgroundColor(orange)
                     setOnClickListener {
                         startQrScan()
                     }
@@ -367,7 +367,7 @@ class MainActivity : Activity() {
                     isAllCaps = false
                     isEnabled = !pairingInProgress
                     setTextColor(ink)
-                    setBackgroundColor(gold)
+                    setBackgroundColor(orange)
                     setOnClickListener {
                         pairFromPayload(codeInput.text.toString())
                     }
@@ -398,7 +398,7 @@ class MainActivity : Activity() {
                     text = "Save"
                     isAllCaps = false
                     setTextColor(ink)
-                    setBackgroundColor(gold)
+                    setBackgroundColor(orange)
                     setOnClickListener {
                         val normalizedUrl = normalizeBaseUrl(urlInput.text.toString())
                         if (normalizedUrl == null) {
@@ -484,7 +484,7 @@ class MainActivity : Activity() {
                         text = option.title
                         isAllCaps = false
                         setTextColor(ink)
-                        setBackgroundColor(if (option == units) gold else paper)
+                        setBackgroundColor(if (option == units) orange else paper)
                         setOnClickListener {
                             units = option
                             getPreferences(MODE_PRIVATE)
