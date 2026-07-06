@@ -118,10 +118,11 @@ export default function PrivacyPage() {
           <section className="legal-section">
             <h2>Public Leaderboard Data</h2>
             <p>
-              Public leaderboard visibility is off by default for new database
-              accounts. When you turn it on, the public leaderboard and profile
-              pages may show your GitHub username, display name, score, rank,
-              commit total, distance total, streak, and score history.
+              Public leaderboard visibility is on by default for new accounts,
+              and you can turn it off during app onboarding or in settings. When
+              it is on, the public leaderboard and profile pages may show your
+              GitHub username, display name, score, rank, commit total, distance
+              total, streak, and score history.
             </p>
           </section>
 

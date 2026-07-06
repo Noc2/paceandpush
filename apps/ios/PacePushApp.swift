@@ -109,6 +109,24 @@ struct OnboardingView: View {
 
                     OnboardingStep(
                         index: 2,
+                        title: "Choose leaderboard visibility",
+                        detail: store.publicLeaderboardPreference ? "Your score can appear on public boards." : "Your score stays private.",
+                        complete: store.isGitHubConnected,
+                    ) {
+                        Toggle(
+                            "Public leaderboard",
+                            isOn: Binding(
+                                get: { store.publicLeaderboardPreference },
+                                set: { value in
+                                    Task { await store.setPublicLeaderboardPreference(value) }
+                                },
+                            ),
+                        )
+                        .disabled(store.busy || !store.isGitHubConnected)
+                    }
+
+                    OnboardingStep(
+                        index: 3,
                         title: "Enable Apple Health",
                         detail: store.healthAuthorized ? "Read-only workout access enabled" : "Pace & Push reads running workouts only.",
                         complete: store.healthAuthorized,
@@ -124,7 +142,7 @@ struct OnboardingView: View {
                     }
 
                     OnboardingStep(
-                        index: 3,
+                        index: 4,
                         title: "Run first sync",
                         detail: store.firstSyncAt == nil ? "Upload daily running totals, not raw workouts." : "First sync complete.",
                         complete: store.firstSyncAt != nil,
@@ -549,7 +567,16 @@ struct SettingsView: View {
                 }
 
                 Section("Privacy") {
-                    Toggle("Public leaderboard", isOn: .constant(store.me.publicLeaderboard))
+                    Toggle(
+                        "Public leaderboard",
+                        isOn: Binding(
+                            get: { store.publicLeaderboardPreference },
+                            set: { value in
+                                Task { await store.setPublicLeaderboardPreference(value) }
+                            },
+                        ),
+                    )
+                    .disabled(store.busy || !store.isGitHubConnected)
                     Text("Running distance summaries are synced by day. Raw workouts and routes are not uploaded.")
                 }
             }
@@ -655,6 +682,7 @@ final class PacePushStore: ObservableObject {
     private let healthKey = "healthAuthorized"
     private let firstSyncKey = "firstSyncAt"
     private let unitsKey = "distanceUnits"
+    private let publicLeaderboardPreferenceKey = "publicLeaderboardPreference"
     private let keychain = KeychainStore(service: "com.paceandpush.app")
     private let healthSync = HealthKitDistanceSync()
     private let authSession = GitHubAuthSession()
@@ -666,6 +694,7 @@ final class PacePushStore: ObservableObject {
     @Published var deviceToken: String?
     @Published var healthAuthorized: Bool
     @Published var firstSyncAt: String?
+    @Published var publicLeaderboardPreference: Bool
     @Published var lastError: String?
     @Published var busy = false
     @Published var units: DistanceUnits {
@@ -687,6 +716,7 @@ final class PacePushStore: ObservableObject {
         units = DistanceUnits(rawValue: savedUnits ?? "") ?? .metric
         healthAuthorized = UserDefaults.standard.bool(forKey: healthKey)
         firstSyncAt = UserDefaults.standard.string(forKey: firstSyncKey)
+        publicLeaderboardPreference = UserDefaults.standard.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? true
         deviceToken = try? keychain.readString(account: tokenKey)
     }
 
@@ -780,6 +810,29 @@ final class PacePushStore: ObservableObject {
         }
     }
 
+    func setPublicLeaderboardPreference(_ isPublic: Bool) async {
+        publicLeaderboardPreference = isPublic
+        UserDefaults.standard.set(isPublic, forKey: publicLeaderboardPreferenceKey)
+
+        guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else { return }
+
+        busy = true
+        lastError = nil
+        defer { busy = false }
+
+        do {
+            try await savePublicLeaderboardPreference(isPublic, baseURL: baseURL, token: token)
+            await refresh()
+        } catch PacePushAPIError.unauthorized {
+            signOut()
+            lastError = "This device was revoked. Connect GitHub again."
+        } catch {
+            publicLeaderboardPreference = me.publicLeaderboard
+            UserDefaults.standard.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
+            lastError = error.localizedDescription
+        }
+    }
+
     func syncRunningDistance() async {
         guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else {
             lastError = "Connect GitHub before syncing."
@@ -845,6 +898,8 @@ final class PacePushStore: ObservableObject {
                 async let profileResponse: PublicProfileResponse = client.fetch("/api/mobile/me/profile", authenticated: true)
                 leaderboard = try await leaderboardResponse
                 me = try await meResponse
+                publicLeaderboardPreference = me.publicLeaderboard
+                UserDefaults.standard.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
                 profile = try await profileResponse
             } else {
                 leaderboard = try await leaderboardResponse
@@ -865,6 +920,17 @@ final class PacePushStore: ObservableObject {
         UserDefaults.standard.removeObject(forKey: firstSyncKey)
         me = .seed
         profile = .seed
+    }
+
+    private func savePublicLeaderboardPreference(_ isPublic: Bool, baseURL: URL, token: String) async throws {
+        let client = PacePushAPIClient(baseURL: baseURL, token: token)
+        let settings: AccountSettingsResponse = try await client.patch(
+            "/api/mobile/me/settings",
+            body: AccountSettingsRequest(publicLeaderboard: isPublic, units: nil),
+            authenticated: true,
+        )
+        publicLeaderboardPreference = settings.publicLeaderboard
+        UserDefaults.standard.set(settings.publicLeaderboard, forKey: publicLeaderboardPreferenceKey)
     }
 
     func formatDistance(_ kilometers: Double, includeUnit: Bool = false) -> String {
@@ -959,6 +1025,24 @@ final class PacePushAPIClient {
     ) async throws -> Response {
         var request = URLRequest(url: url(path))
         request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "accept")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        if authenticated {
+            try authorize(&request)
+        }
+        request.httpBody = try JSONEncoder().encode(body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
+        return try JSONDecoder().decode(Response.self, from: data)
+    }
+
+    func patch<Body: Encodable, Response: Decodable>(
+        _ path: String,
+        body: Body,
+        authenticated: Bool,
+    ) async throws -> Response {
+        var request = URLRequest(url: url(path))
+        request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "accept")
         request.setValue("application/json", forHTTPHeaderField: "content-type")
         if authenticated {
@@ -1322,6 +1406,18 @@ struct SyncRunRequest: Encodable {
 struct SyncRunResponse: Decodable {
     let id: String
     let status: String
+}
+
+struct AccountSettingsRequest: Encodable {
+    let publicLeaderboard: Bool?
+    let units: String?
+}
+
+struct AccountSettingsResponse: Decodable {
+    let login: String
+    let displayName: String
+    let publicLeaderboard: Bool
+    let units: String
 }
 
 struct LeaderboardResponse: Decodable {

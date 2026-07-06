@@ -16,7 +16,7 @@ and Health Connect data ingestion.
   - Commits
   - Run kilometers
 - Show user profiles with commit, distance, and score history.
-- Let users opt into public leaderboard visibility.
+- Show users on the public leaderboard by default, with clear opt-out controls.
 - Let users delete their Pace & Push data and revoke mobile devices.
 - Let native apps connect to GitHub directly through backend-mediated OAuth and
   store Pace & Push mobile device tokens securely. Keep web-generated pairing
@@ -103,7 +103,7 @@ Guardrails:
 - Count running distance only for the balanced score.
 - Flag implausible daily running distance for review rather than silently
   removing it.
-- Keep public leaderboard participation opt-in.
+- Keep public leaderboard participation user-controllable, defaulting to public.
 
 ## Mobile App MVP Screens
 
@@ -114,7 +114,7 @@ Both native apps should ship these screens in the PoC:
 - Profile: own profile chart plus public profile view for other users.
 - Sync: health permission state, synced date range, sync now button, recent sync
   results.
-- Settings: public leaderboard opt-in, units, connected GitHub account,
+- Settings: public leaderboard visibility, units, connected GitHub account,
   disconnect device, delete all data.
 
 ## API Surface
@@ -271,7 +271,7 @@ Useful references:
 14. `feat: add charts privacy controls and delete flows`
     - Add score, commits, and kilometers history to web, iOS, and Android.
     - Show sync status and recent errors consistently.
-    - Add public leaderboard opt-in.
+    - Add public leaderboard visibility controls.
     - Add device revocation.
     - Add delete-all data flow and clear user-facing copy.
 

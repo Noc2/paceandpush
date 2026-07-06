@@ -26,7 +26,7 @@ export const users = pgTable(
     displayName: text("display_name").notNull(),
     avatarUrl: text("avatar_url"),
     bio: text("bio"),
-    publicLeaderboard: boolean("public_leaderboard").notNull().default(false),
+    publicLeaderboard: boolean("public_leaderboard").notNull().default(true),
     units: text("units").notNull().default("metric"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
