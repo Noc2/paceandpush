@@ -1,9 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import type {
+  DeviceExchangeRequest,
   DeviceExchangeResponse,
   DistanceDayInput,
   Platform,
   MobileDeviceSummary,
+  PairingCodeResponse,
   SyncRunRequest,
   SyncRunResponse,
 } from "@paceandpush/api-contracts";
@@ -16,11 +18,15 @@ import {
   users,
 } from "@/server/db/schema";
 import {
+  assertPlatform,
   createDeviceExchange,
   decodeDeviceToken,
   hashMobileToken,
+  normalizeDeviceLabel,
 } from "@/server/mobile/tokens";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
+
+const manualPairingCodeTtlMs = 10 * 60 * 1000;
 
 export interface VerifiedMobileDevice {
   user: {
@@ -82,6 +88,27 @@ export async function createMobileAuthExchange({
   return code;
 }
 
+export async function createMobilePairingCode({
+  userId,
+  ttlMs = manualPairingCodeTtlMs,
+}: {
+  userId: string;
+  ttlMs?: number;
+}): Promise<PairingCodeResponse> {
+  const code = `pp_pair.${randomBytes(32).toString("base64url")}`;
+  const expiresAt = new Date(Date.now() + ttlMs);
+  await getDb().insert(mobileAuthExchanges).values({
+    userId,
+    codeHash: hashMobileAuthCode(code),
+    expiresAt,
+  });
+
+  return {
+    code,
+    expiresAt: expiresAt.toISOString(),
+  };
+}
+
 export async function exchangeMobileAuthCode({
   code,
 }: {
@@ -120,11 +147,69 @@ export async function exchangeMobileAuthCode({
   if (!user) {
     throw new Error("Mobile auth user does not exist.");
   }
+  if (!exchange.platform || !exchange.label) {
+    throw new Error("Mobile auth exchange is incomplete.");
+  }
 
   const deviceExchange = createDeviceExchange({
     user,
     platform: exchange.platform,
     label: exchange.label,
+  });
+  await persistMobileDevice({
+    deviceExchange,
+    githubId: user.githubId,
+  });
+  return deviceExchange;
+}
+
+export async function exchangeMobilePairingCode({
+  code,
+  label,
+  platform,
+}: DeviceExchangeRequest): Promise<DeviceExchangeResponse> {
+  const normalizedPlatform = assertPlatform(platform);
+  const normalizedLabel = normalizeDeviceLabel(label, normalizedPlatform);
+  const now = new Date();
+  const [exchange] = await getDb()
+    .update(mobileAuthExchanges)
+    .set({
+      consumedAt: now,
+      platform: normalizedPlatform,
+      label: normalizedLabel,
+    })
+    .where(
+      and(
+        eq(mobileAuthExchanges.codeHash, hashMobileAuthCode(code)),
+        isNull(mobileAuthExchanges.consumedAt),
+        gt(mobileAuthExchanges.expiresAt, now),
+      ),
+    )
+    .returning({
+      userId: mobileAuthExchanges.userId,
+    });
+
+  if (!exchange) {
+    throw new Error("Pairing code is invalid or expired.");
+  }
+
+  const [user] = await getDb()
+    .select({
+      githubId: users.githubId,
+      login: users.login,
+    })
+    .from(users)
+    .where(eq(users.id, exchange.userId))
+    .limit(1);
+
+  if (!user) {
+    throw new Error("Pairing user does not exist.");
+  }
+
+  const deviceExchange = createDeviceExchange({
+    user,
+    platform: normalizedPlatform,
+    label: normalizedLabel,
   });
   await persistMobileDevice({
     deviceExchange,

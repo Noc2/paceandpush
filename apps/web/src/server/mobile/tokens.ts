@@ -1,27 +1,15 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type {
-  DeviceExchangeRequest,
   DeviceExchangeResponse,
   MobileDeviceSummary,
-  PairingCodeResponse,
   Platform,
 } from "@paceandpush/api-contracts";
 import type { SessionUser } from "@/server/auth/session";
 
-const pairingTokenPrefix = "pp_pair";
 const deviceTokenPrefix = "pp_dev";
 const mobileAuthStatePrefix = "pp_mob_state";
-const pairingTtlMs = 10 * 60 * 1000;
 const mobileAuthStateTtlMs = 10 * 60 * 1000;
 const deviceTtlMs = 365 * 24 * 60 * 60 * 1000;
-
-interface PairingTokenPayload {
-  kind: "pairing";
-  sub: string;
-  login: string;
-  displayName: string;
-  exp: number;
-}
 
 interface MobileAuthStatePayload {
   kind: "mobile-auth-state";
@@ -44,23 +32,6 @@ export interface DeviceTokenPayload {
 export interface DecodedDeviceToken {
   payload: DeviceTokenPayload;
   token: string;
-}
-
-export function createPairingCode(
-  user: SessionUser,
-  ttlMs = pairingTtlMs,
-): PairingCodeResponse {
-  const expiresAt = Date.now() + ttlMs;
-  return {
-    code: signToken(pairingTokenPrefix, {
-      kind: "pairing",
-      sub: user.githubId,
-      login: user.login,
-      displayName: user.displayName,
-      exp: expiresAt,
-    }),
-    expiresAt: new Date(expiresAt).toISOString(),
-  };
 }
 
 export function createMobileAuthState({
@@ -95,22 +66,6 @@ export function verifyMobileAuthState(state: string): MobileAuthStatePayload {
     label: normalizeDeviceLabel(payload.label, payload.platform),
     callbackScheme: normalizeCallbackScheme(payload.callbackScheme),
   };
-}
-
-export function exchangePairingCode(
-  request: DeviceExchangeRequest,
-): DeviceExchangeResponse {
-  const pairing = verifyPairingToken(request.code);
-  const platform = assertPlatform(request.platform);
-  const label = normalizeDeviceLabel(request.label, platform);
-  return createDeviceExchange({
-    user: {
-      githubId: pairing.sub,
-      login: pairing.login,
-    },
-    platform,
-    label,
-  });
 }
 
 export function createDeviceExchange({
@@ -163,14 +118,6 @@ export function hashMobileToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function verifyPairingToken(code: string): PairingTokenPayload {
-  const payload = verifySignedToken<PairingTokenPayload>(pairingTokenPrefix, code);
-  if (!payload || payload.kind !== "pairing" || payload.exp < Date.now()) {
-    throw new Error("Pairing code is invalid or expired.");
-  }
-  return payload;
-}
-
 function signToken(prefix: string, payload: object): string {
   const encodedPayload = Buffer.from(JSON.stringify(payload), "utf8").toString(
     "base64url",
@@ -219,12 +166,12 @@ function getMobileTokenSecret(): string {
   return process.env.SESSION_SECRET || "paceandpush-local-dev-mobile-secret";
 }
 
-function assertPlatform(platform: unknown): Platform {
+export function assertPlatform(platform: unknown): Platform {
   if (platform === "ios" || platform === "android") return platform;
   throw new Error("Device platform must be ios or android.");
 }
 
-function normalizeDeviceLabel(label: string, platform: Platform): string {
+export function normalizeDeviceLabel(label: string, platform: Platform): string {
   const trimmed = label.trim();
   if (trimmed.length > 0) return trimmed.slice(0, 64);
   return platform === "ios" ? "iPhone" : "Android";

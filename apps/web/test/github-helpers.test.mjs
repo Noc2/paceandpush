@@ -217,11 +217,13 @@ test("mobile tokens require a dedicated production secret", () => {
   try {
     assert.throws(
       () =>
-        mobileTokens.createPairingCode({
-          githubId: "123",
-          login: "octocat",
-          displayName: "Octo Cat",
-          avatarUrl: null,
+        mobileTokens.createDeviceExchange({
+          user: {
+            githubId: "123",
+            login: "octocat",
+          },
+          platform: "ios",
+          label: "iPhone",
         }),
       /MOBILE_TOKEN_SECRET is required in production/,
     );
@@ -229,11 +231,13 @@ test("mobile tokens require a dedicated production secret", () => {
     process.env.MOBILE_TOKEN_SECRET = process.env.SESSION_SECRET;
     assert.throws(
       () =>
-        mobileTokens.createPairingCode({
-          githubId: "123",
-          login: "octocat",
-          displayName: "Octo Cat",
-          avatarUrl: null,
+        mobileTokens.createDeviceExchange({
+          user: {
+            githubId: "123",
+            login: "octocat",
+          },
+          platform: "ios",
+          label: "iPhone",
         }),
       /MOBILE_TOKEN_SECRET must be distinct from SESSION_SECRET in production/,
     );
@@ -439,6 +443,32 @@ test("settings exposes a logout control that clears the session cookie", async (
   assert.match(routeSource, /response\.cookies\.delete\(getSessionCookieName\(\)\)/);
   assert.match(pageSource, /<SignOutControl \/>/);
   assert.match(controlSource, /fetch\("\/api\/auth\/logout", \{ method: "POST" \}\)/);
+});
+
+test("manual mobile pairing codes are database backed and single use", async () => {
+  const pairingRoute = await readFile(
+    new URL("../src/app/api/mobile/pairing-codes/route.ts", import.meta.url),
+    "utf8",
+  );
+  const devicesRoute = await readFile(
+    new URL("../src/app/api/mobile/devices/route.ts", import.meta.url),
+    "utf8",
+  );
+  const mobileData = await readFile(
+    new URL("../src/server/data/mobile.ts", import.meta.url),
+    "utf8",
+  );
+  const tokenSource = await readFile(
+    new URL("../src/server/mobile/tokens.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(pairingRoute, /createMobilePairingCode/);
+  assert.match(devicesRoute, /exchangeMobilePairingCode/);
+  assert.match(mobileData, /code = `pp_pair\.\$\{randomBytes/);
+  assert.match(mobileData, /isNull\(mobileAuthExchanges\.consumedAt\)/);
+  assert.match(mobileData, /set\(\{[\s\S]*consumedAt: now/);
+  assert.doesNotMatch(tokenSource, /function verifyPairingToken/);
 });
 
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
