@@ -83,8 +83,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 }
 
 function AppHeader({ login }: { login: string }) {
-  const signedIn = login !== "guest";
-
   return (
     <header className="topbar">
       <Link href="/" className="brand-lockup" aria-label={brandName}>
@@ -101,15 +99,11 @@ function AppHeader({ login }: { login: string }) {
         <Link className="button" href="/settings">
           Settings
         </Link>
-        {signedIn ? (
-          <Link className="button button-primary" href="/settings">
-            @{login}
-          </Link>
-        ) : (
+        {login === "guest" ? (
           <a className="button button-primary" href="/api/github/oauth/start">
             Connect GitHub
           </a>
-        )}
+        ) : null}
       </nav>
     </header>
   );
