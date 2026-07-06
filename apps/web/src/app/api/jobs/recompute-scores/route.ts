@@ -1,5 +1,6 @@
 import {
   currentPeriod,
+  parsePeriod,
   recomputeScoreSnapshots,
   refreshPublicGitHubCommits,
 } from "@/server/data/scores";
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const period = request.nextUrl.searchParams.get("period") || currentPeriod();
+  const period = parsePeriod(request.nextUrl.searchParams.get("period") || currentPeriod());
   const github = await refreshPublicGitHubCommits(period);
   const scores = await recomputeScoreSnapshots(period);
 

@@ -11,7 +11,7 @@ and Health Connect data ingestion.
 
 - Show a balanced Pace & Push score based on GitHub commits and running
   kilometers.
-- Show monthly leaderboards for:
+- Show week, month, and year leaderboards for:
   - Balanced score
   - Commits
   - Run kilometers
@@ -86,7 +86,7 @@ Initial tables:
 
 ## Scoring
 
-For the PoC, score each monthly period by normalizing commits and kilometers
+For the PoC, score each selected period by normalizing commits and kilometers
 inside the visible cohort, then combining them with a geometric mean:
 
 ```txt
@@ -109,7 +109,7 @@ Guardrails:
 
 Both native apps should ship these screens in the PoC:
 
-- Today: current monthly score, commits, kilometers, rank, and last sync time.
+- Today: current period score, commits, kilometers, rank, and last sync time.
 - Leaderboard: tabs for Balanced, Commits, and Run kilometers.
 - Profile: own profile chart plus public profile view for other users.
 - Sync: health permission state, synced date range, sync now button, recent sync
@@ -122,7 +122,7 @@ Both native apps should ship these screens in the PoC:
 Initial endpoints:
 
 - `GET /api/me`: current account, settings, score summary.
-- `GET /api/leaderboard?period=YYYY-MM&board=balanced|commits|distance`
+- `GET /api/leaderboard?period=YYYY|YYYY-MM|YYYY-Www&board=balanced|commits|distance`
 - `GET /api/users/:login`: public profile and history.
 - `GET /api/mobile/auth/github/start`: start backend-mediated native GitHub
   OAuth and redirect to GitHub.

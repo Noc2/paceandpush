@@ -5,7 +5,7 @@ export const jsonSchemas = {
     type: "object",
     required: ["period", "score", "rank", "commits", "kilometers", "lastSyncAt"],
     properties: {
-      period: { type: "string", pattern: "^\\d{4}-\\d{2}$" },
+      period: { type: "string", pattern: "^(?:\\d{4}|\\d{4}-(?:0[1-9]|1[0-2])|\\d{4}-W(?:0[1-9]|[1-4]\\d|5[0-3]))$" },
       score: { type: "number" },
       rank: { type: ["number", "null"] },
       commits: { type: "number" },

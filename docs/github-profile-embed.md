@@ -12,10 +12,10 @@ so it works in Markdown image embeds and stays small enough for profile pages.
 
 The chart includes:
 
-- current monthly score
+- current period score
 - commit total
 - kilometer total
-- monthly score trend
+- period score trend
 - daily commit bars
 
 The public endpoint uses short CDN cache headers so profile READMEs stay quick

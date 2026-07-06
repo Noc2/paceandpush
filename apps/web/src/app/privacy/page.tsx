@@ -129,9 +129,9 @@ export default function PrivacyPage() {
           <section className="legal-section">
             <h2>Scoring and Ranking</h2>
             <p>
-              {brandName} calculates a monthly score from daily public commit
+              {brandName} calculates period scores from daily public commit
               counts and daily aggregate distance totals. The score is used to
-              rank opted-in users on the leaderboard. This ranking is for the
+              rank public users on the leaderboard. This ranking is for the
               product experience only and does not produce legal or similarly
               significant effects.
             </p>

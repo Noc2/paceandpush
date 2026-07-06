@@ -11,12 +11,23 @@ import { getAccountUser } from "@/server/data/accounts";
 import { listMobileDevices } from "@/server/data/mobile";
 import {
   currentPeriod,
+  periodBounds,
   recomputeScoreSnapshots,
   refreshPublicGitHubCommitsForUser,
 } from "@/server/data/scores";
 import { getDb, isDatabaseConfigured } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/server/db/schema";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+
+type LeaderboardSnapshotRow = {
+  rank: number | null;
+  login: string;
+  displayName: string;
+  score: string;
+  commits: number;
+  distanceMeters: number;
+  userId: string;
+};
 
 export async function getLeaderboard(
   board: Board = "balanced",
@@ -30,7 +41,38 @@ export async function getLeaderboard(
     };
   }
 
-  const rows = await getDb()
+  let rows = await getLeaderboardSnapshotRows(board, period);
+  if (rows.length === 0) {
+    try {
+      await recomputeScoreSnapshots(period);
+      rows = await getLeaderboardSnapshotRows(board, period);
+    } catch (error) {
+      console.error("[scores] leaderboard snapshot refresh failed", error);
+    }
+  }
+
+  return {
+    period,
+    board,
+    rows: await Promise.all(
+      rows.map(async (row, index) => ({
+        rank: row.rank ?? index + 1,
+        login: row.login,
+        displayName: row.displayName,
+        score: Number(row.score),
+        commits: row.commits,
+        kilometers: Math.round((row.distanceMeters / 1000) * 10) / 10,
+        streakDays: await getStreakDays(row.userId, period),
+      })),
+    ),
+  };
+}
+
+async function getLeaderboardSnapshotRows(
+  board: Board,
+  period: string,
+): Promise<LeaderboardSnapshotRow[]> {
+  return getDb()
     .select({
       rank: scoreSnapshots.rank,
       login: users.login,
@@ -50,22 +92,6 @@ export async function getLeaderboard(
       ),
     )
     .orderBy(scoreSnapshots.rank);
-
-  return {
-    period,
-    board,
-    rows: await Promise.all(
-      rows.map(async (row, index) => ({
-        rank: row.rank ?? index + 1,
-        login: row.login,
-        displayName: row.displayName,
-        score: Number(row.score),
-        commits: row.commits,
-        kilometers: Math.round((row.distanceMeters / 1000) * 10) / 10,
-        streakDays: await getStreakDays(row.userId, period),
-      })),
-    ),
-  };
 }
 
 export async function getPublicProfile(
@@ -164,12 +190,7 @@ export function parseBoard(value: string | null): Board {
   return "balanced";
 }
 
-export function parsePeriod(value: string | null): string {
-  if (value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value)) {
-    return value;
-  }
-  return currentPeriod();
-}
+export { parsePeriod } from "@/server/data/scores";
 
 async function getScoreSummary(userId: string, period: string): Promise<ScoreSummary> {
   const [snapshot] = await getDb()
@@ -261,7 +282,7 @@ async function getProfileHistory(
   period: string,
   latestScore: number,
 ): Promise<ProfileHistoryPoint[]> {
-  const { start, end } = getPeriodBounds(period);
+  const { start, end } = periodBounds(period);
   const [commits, distances] = await Promise.all([
     getDb()
       .select({
@@ -317,7 +338,7 @@ async function getProfileHistory(
 }
 
 async function getStreakDays(userId: string, period: string): Promise<number> {
-  const { start, end } = getPeriodBounds(period);
+  const { start, end } = periodBounds(period);
   const [commits, distances] = await Promise.all([
     getDb()
       .select({ day: commitDays.day })
@@ -367,13 +388,5 @@ function emptyScore(period: string): ScoreSummary {
     commits: 0,
     kilometers: 0,
     lastSyncAt: null,
-  };
-}
-
-function getPeriodBounds(period: string): { start: string; end: string } {
-  const [year, month] = period.split("-").map(Number);
-  return {
-    start: new Date(Date.UTC(year, month - 1, 1)).toISOString().slice(0, 10),
-    end: new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10),
   };
 }
