@@ -33,3 +33,11 @@ test("OpenAPI lists the production route surface", () => {
     assert.ok(api.paths[path], `${path} is documented`);
   }
 });
+
+test("OpenAPI documents period selection for mobile profile history", () => {
+  const parameters = api.paths["/api/mobile/me/profile"].get.parameters ?? [];
+  assert.ok(
+    parameters.some((parameter) => parameter.name === "period" && parameter.in === "query"),
+    "mobile profile supports period query parameter",
+  );
+});

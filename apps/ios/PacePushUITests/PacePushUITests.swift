@@ -25,12 +25,31 @@ final class PacePushUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.descendants(matching: .any)["today-screen"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Your 2026-07 score"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["period-selector"].exists)
+        XCTAssertTrue(
+            app.staticTexts
+                .containing(NSPredicate(format: "label CONTAINS[c] %@", "July 2026 score"))
+                .firstMatch
+                .exists
+        )
 
         app.tabBars.buttons["Settings"].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.textFields["api-base-url-field"].exists)
         XCTAssertTrue(app.switches["settings-public-leaderboard-toggle"].exists)
+    }
+
+    func testSeededProfileShowsPeriodSelectorAndChart() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingSeeded"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["today-screen"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Profile"].tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["period-selector"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["profile-chart"].exists)
     }
 }

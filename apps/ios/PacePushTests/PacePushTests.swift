@@ -30,6 +30,23 @@ final class PacePushTests: XCTestCase {
         )
     }
 
+    func testScorePeriodSupportsDayRangesMonthsAndYears() {
+        let date = date("2026-07-06T12:00:00.000Z")
+        let week = ScorePeriod(kind: .week, date: date)
+        let month = ScorePeriod(kind: .month, date: date)
+        let year = ScorePeriod(kind: .year, date: date)
+
+        XCTAssertEqual(week.rawValue, "2026-W28")
+        XCTAssertEqual(week.kind, .week)
+        XCTAssertEqual(week.shifted(by: -1).rawValue, "2026-W27")
+        XCTAssertEqual(month.rawValue, "2026-07")
+        XCTAssertEqual(month.label, "July 2026")
+        XCTAssertEqual(month.shifted(by: 1).rawValue, "2026-08")
+        XCTAssertEqual(year.rawValue, "2026")
+        XCTAssertEqual(year.shifted(by: -1).rawValue, "2025")
+        XCTAssertNil(ScorePeriod("2026-W54"))
+    }
+
     func testPairingPayloadParserAcceptsCodesCustomSchemeAndWebURLs() throws {
         let productionURL = try XCTUnwrap(URL(string: "https://paceandpush.com"))
         let localURL = try XCTUnwrap(URL(string: "http://localhost:3000"))
@@ -82,10 +99,11 @@ final class PacePushTests: XCTestCase {
         let loader = RecordingDataLoader(json: Self.meJSON)
         let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: "token-123", dataLoader: loader)
 
-        let me = try await client.fetchMe()
+        let me = try await client.fetchMe(period: "2026-W27")
 
         XCTAssertEqual(me.login, "noc2")
         XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/me")
+        XCTAssertEqual(queryValue("period", in: loader.requests.first?.url), "2026-W27")
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "accept"), "application/json")
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
     }
@@ -95,7 +113,7 @@ final class PacePushTests: XCTestCase {
         let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: "token-123", dataLoader: loader)
 
         do {
-            let _: MeResponse = try await client.fetchMe()
+            let _: MeResponse = try await client.fetchMe(period: "2026-07")
             XCTFail("Expected unauthorized error")
         } catch PacePushAPIError.unauthorized {
             XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/me")
@@ -107,13 +125,41 @@ final class PacePushTests: XCTestCase {
         let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: nil, dataLoader: loader)
 
         do {
-            let _: LeaderboardResponse = try await client.fetchLeaderboard(board: .distance)
+            let _: LeaderboardResponse = try await client.fetchLeaderboard(board: .distance, period: "2026")
             XCTFail("Expected server error")
         } catch PacePushAPIError.server(let message) {
             XCTAssertEqual(message, "server said no")
             XCTAssertEqual(loader.requests.first?.url?.path, "/api/leaderboard")
             XCTAssertEqual(queryValue("board", in: loader.requests.first?.url), "distance")
+            XCTAssertEqual(queryValue("period", in: loader.requests.first?.url), "2026")
         }
+    }
+
+    func testAPIClientAddsPeriodToMobileProfileRequest() async throws {
+        let loader = RecordingDataLoader(json: """
+        {
+          "login": "noc2",
+          "displayName": "David",
+          "bio": null,
+          "score": {
+            "period": "2026-07",
+            "score": 42.5,
+            "rank": 1,
+            "commits": 100,
+            "kilometers": 25.5,
+            "lastSyncAt": null
+          },
+          "history": []
+        }
+        """)
+        let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: "token-123", dataLoader: loader)
+
+        let profile = try await client.fetchProfile(period: "2026-07")
+
+        XCTAssertEqual(profile.login, "noc2")
+        XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/me/profile")
+        XCTAssertEqual(queryValue("period", in: loader.requests.first?.url), "2026-07")
+        XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
     }
 
     @MainActor
@@ -161,6 +207,33 @@ final class PacePushTests: XCTestCase {
         XCTAssertNotNil(store.firstSyncAt)
         XCTAssertNil(store.lastError)
         XCTAssertEqual(store.lastSuccess, "Setup complete. Running data synced.")
+    }
+
+    @MainActor
+    func testStoreRefreshesSelectedPeriodAcrossScoreSurfaces() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let client = FakePacePushClient()
+        client.leaderboardResponse = LeaderboardResponse(period: "2026", board: .distance, rows: [])
+        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.profileResponse = Self.profileResponse()
+
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [:]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.setActivePeriod(ScorePeriod(kind: .year, date: date("2026-07-06T12:00:00.000Z")), board: .distance)
+
+        XCTAssertEqual(store.activePeriod.rawValue, "2026")
+        XCTAssertEqual(client.leaderboardPeriods, ["2026"])
+        XCTAssertEqual(client.mePeriods, ["2026"])
+        XCTAssertEqual(client.profilePeriods, ["2026"])
     }
 
     private static let meJSON = """
@@ -310,6 +383,9 @@ private final class FakePacePushClient: PacePushClienting {
     var exchangedPairingLabels: [String] = []
     var uploadedDistanceDays: [[HealthKitDistanceDay]] = []
     var recordedSyncRuns: [SyncRunRequest] = []
+    var leaderboardPeriods: [String] = []
+    var mePeriods: [String] = []
+    var profilePeriods: [String] = []
 
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL {
         URL(string: "https://example.test/start?platform=\(platform)&callbackScheme=\(callbackScheme)")!
@@ -325,16 +401,19 @@ private final class FakePacePushClient: PacePushClienting {
         return deviceExchangeResponse
     }
 
-    func fetchLeaderboard(board: Board) async throws -> LeaderboardResponse {
-        leaderboardResponse
+    func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse {
+        leaderboardPeriods.append(period)
+        return leaderboardResponse
     }
 
-    func fetchMe() async throws -> MeResponse {
-        meResponse
+    func fetchMe(period: String) async throws -> MeResponse {
+        mePeriods.append(period)
+        return meResponse
     }
 
-    func fetchProfile() async throws -> PublicProfileResponse {
-        profileResponse
+    func fetchProfile(period: String) async throws -> PublicProfileResponse {
+        profilePeriods.append(period)
+        return profileResponse
     }
 
     func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse {

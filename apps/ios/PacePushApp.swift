@@ -242,9 +242,12 @@ struct TodayView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     HeaderView()
+                    ScorePeriodSelector(activePeriod: store.activePeriod) { period in
+                        Task { await store.setActivePeriod(period) }
+                    }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Your \(store.me.score.period) score")
+                        Text("Your \(store.activePeriod.label) score")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(Brand.muted)
                             .textCase(.uppercase)
@@ -253,7 +256,7 @@ struct TodayView: View {
                             .font(.system(size: 72, weight: .black, design: .rounded))
                             .foregroundStyle(Brand.ink)
 
-                        Text(store.me.score.rank.map { "Rank #\($0) this month." } ?? "No public rank yet.")
+                        Text(store.me.score.rank.map { "Rank #\($0) for \(store.activePeriod.shortLabel)." } ?? "No public rank yet.")
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(Brand.muted)
                     }
@@ -322,6 +325,9 @@ struct LeaderboardView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     HeaderView()
+                    ScorePeriodSelector(activePeriod: store.activePeriod) { period in
+                        Task { await store.setActivePeriod(period, board: board) }
+                    }
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Leaderboard")
@@ -379,6 +385,9 @@ struct ProfileView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     HeaderView()
+                    ScorePeriodSelector(activePeriod: store.activePeriod) { period in
+                        Task { await store.setActivePeriod(period) }
+                    }
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("@\(store.profile.login)")
@@ -386,27 +395,57 @@ struct ProfileView: View {
                         Text(store.profile.bio ?? "Healthy body, shipped code.")
                             .foregroundStyle(Brand.muted)
 
+                        HStack(spacing: 12) {
+                            MetricTile(
+                                title: "Score",
+                                value: store.profile.score.score.formatted(.number.precision(.fractionLength(1))),
+                                color: Brand.blue
+                            )
+                            MetricTile(title: "Commits", value: "\(store.profile.score.commits)", color: Brand.green)
+                        }
+
+                        HStack(spacing: 12) {
+                            MetricTile(
+                                title: store.units.title,
+                                value: store.formatDistance(store.profile.score.kilometers),
+                                color: Brand.red
+                            )
+                            MetricTile(
+                                title: "Rank",
+                                value: store.profile.score.rank.map { "#\($0)" } ?? "-",
+                                color: Brand.ink
+                            )
+                        }
+
+                        ProfileChartView(history: store.profile.history, units: store.units)
+
                         if store.profile.history.isEmpty {
                             Text("Sync running data to build your profile history.")
                                 .foregroundStyle(Brand.muted)
-                        }
+                        } else {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("\(store.activePeriod.shortLabel) history")
+                                    .font(.headline.weight(.black))
+                                    .padding(.top, 4)
 
-                        ForEach(store.profile.history) { point in
-                            HStack {
-                                Text(point.date)
-                                    .font(.system(.body, design: .monospaced))
-                                Spacer()
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    Text(point.score.formatted(.number.precision(.fractionLength(1))))
-                                        .foregroundStyle(Brand.blue)
-                                        .fontWeight(.bold)
-                                    Text(store.formatDistance(point.kilometers, includeUnit: true))
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Brand.muted)
+                                ForEach(store.profile.history) { point in
+                                    HStack {
+                                        Text(point.date)
+                                            .font(.system(.body, design: .monospaced))
+                                        Spacer()
+                                        VStack(alignment: .trailing, spacing: 2) {
+                                            Text(point.score.formatted(.number.precision(.fractionLength(1))))
+                                                .foregroundStyle(Brand.blue)
+                                                .fontWeight(.bold)
+                                            Text(store.formatDistance(point.kilometers, includeUnit: true))
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(Brand.muted)
+                                        }
+                                    }
+                                    .padding(.vertical, 8)
+                                    .borderedRow()
                                 }
                             }
-                            .padding(.vertical, 6)
-                            .borderedRow()
                         }
                     }
                     .panelStyle()
@@ -577,6 +616,207 @@ struct MetricTile: View {
     }
 }
 
+struct ScorePeriodSelector: View {
+    let activePeriod: ScorePeriod
+    let onSelect: (ScorePeriod) -> Void
+
+    private var now: Date { Date() }
+    private var previousPeriod: ScorePeriod { activePeriod.shifted(by: -1) }
+    private var nextPeriod: ScorePeriod { activePeriod.shifted(by: 1) }
+    private var options: [ScorePeriodOption] {
+        ScorePeriodOption.options(for: activePeriod, now: now)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Picker(
+                "Period type",
+                selection: Binding(
+                    get: { activePeriod.kind },
+                    set: { kind in
+                        onSelect(ScorePeriod(kind: kind, date: activePeriod.referenceDate(now: now)))
+                    },
+                ),
+            ) {
+                ForEach(ScorePeriodKind.allCases) { kind in
+                    Text(kind.title).tag(kind)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("period-kind-picker")
+
+            HStack(spacing: 10) {
+                Button {
+                    onSelect(previousPeriod)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.headline.weight(.black))
+                        .frame(width: 42, height: 42)
+                }
+                .buttonStyle(.plain)
+                .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
+                .accessibilityIdentifier("period-previous-button")
+
+                Menu {
+                    ForEach(options) { option in
+                        Button {
+                            onSelect(option.period)
+                        } label: {
+                            Text(option.menuLabel)
+                        }
+                        .disabled(option.disabled)
+                    }
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(activePeriod.kind.singularTitle)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Brand.muted)
+                                .textCase(.uppercase)
+                            Text(activePeriod.label)
+                                .font(.headline.weight(.black))
+                                .foregroundStyle(Brand.ink)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.black))
+                            .foregroundStyle(Brand.ink)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 42)
+                    .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
+                }
+                .accessibilityIdentifier("period-menu")
+
+                Button {
+                    onSelect(nextPeriod)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.headline.weight(.black))
+                        .frame(width: 42, height: 42)
+                }
+                .buttonStyle(.plain)
+                .overlay(Rectangle().stroke(nextPeriod.isFuture(comparedTo: now) ? Brand.muted : Brand.ink, lineWidth: 1))
+                .disabled(nextPeriod.isFuture(comparedTo: now))
+                .accessibilityIdentifier("period-next-button")
+            }
+        }
+        .padding(12)
+        .background(Brand.paper)
+        .overlay(Rectangle().stroke(Brand.ink.opacity(0.32), lineWidth: 1))
+        .accessibilityIdentifier("period-selector")
+    }
+}
+
+struct ProfileChartView: View {
+    let history: [ProfileHistoryPoint]
+    let units: DistanceUnits
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Profile chart")
+                    .font(.headline.weight(.black))
+                Spacer()
+                Text(historyLabel)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Brand.muted)
+                    .textCase(.uppercase)
+            }
+
+            if history.isEmpty {
+                Text("No chart data yet.")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(Brand.muted)
+                    .frame(maxWidth: .infinity, minHeight: 176, alignment: .center)
+                    .overlay(Rectangle().stroke(Brand.ink.opacity(0.22), lineWidth: 1))
+            } else {
+                GeometryReader { geometry in
+                    ZStack {
+                        chartGrid(in: geometry.size)
+                            .stroke(Brand.ink.opacity(0.14), lineWidth: 1)
+
+                        ForEach(ProfileChartSeries.allCases) { series in
+                            linePath(for: series, in: geometry.size)
+                                .stroke(
+                                    series.color,
+                                    style: StrokeStyle(
+                                        lineWidth: series.lineWidth,
+                                        lineCap: .round,
+                                        lineJoin: .round,
+                                        dash: series.dash,
+                                    ),
+                                )
+                        }
+                    }
+                }
+                .frame(height: 176)
+                .padding(10)
+                .overlay(Rectangle().stroke(Brand.ink.opacity(0.22), lineWidth: 1))
+
+                HStack(spacing: 14) {
+                    ForEach(ProfileChartSeries.allCases) { series in
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(series.color)
+                                .frame(width: 8, height: 8)
+                            Text(series.legendTitle(units: units))
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Brand.muted)
+                        }
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("profile-chart")
+    }
+
+    private var historyLabel: String {
+        guard let first = history.first?.date, let last = history.last?.date else {
+            return "No points"
+        }
+        if first == last {
+            return first
+        }
+        return "\(first) to \(last)"
+    }
+
+    private func chartGrid(in size: CGSize) -> Path {
+        var path = Path()
+        let rows = 4
+        for row in 0...rows {
+            let y = size.height * CGFloat(row) / CGFloat(rows)
+            path.move(to: CGPoint(x: 0, y: y))
+            path.addLine(to: CGPoint(x: size.width, y: y))
+        }
+        return path
+    }
+
+    private func linePath(for series: ProfileChartSeries, in size: CGSize) -> Path {
+        let values = history.map { series.value(from: $0) }
+        guard let maxValue = values.max(), maxValue > 0 else { return Path() }
+
+        var path = Path()
+        let usableWidth = max(size.width, 1)
+        let usableHeight = max(size.height, 1)
+        let count = max(values.count - 1, 1)
+
+        for (index, value) in values.enumerated() {
+            let x = values.count == 1 ? usableWidth : usableWidth * CGFloat(index) / CGFloat(count)
+            let y = usableHeight - (usableHeight * CGFloat(value / maxValue))
+            let point = CGPoint(x: x, y: y)
+
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+
+        return path
+    }
+}
+
 struct LeaderboardSearchField: View {
     @Binding var searchText: String
 
@@ -703,9 +943,9 @@ protocol PacePushClienting {
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL
     func exchangeMobileAuthCode(_ code: String) async throws -> DeviceExchangeResponse
     func exchangeDevicePairing(code: String, platform: String, label: String) async throws -> DeviceExchangeResponse
-    func fetchLeaderboard(board: Board) async throws -> LeaderboardResponse
-    func fetchMe() async throws -> MeResponse
-    func fetchProfile() async throws -> PublicProfileResponse
+    func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse
+    func fetchMe(period: String) async throws -> MeResponse
+    func fetchProfile(period: String) async throws -> PublicProfileResponse
     func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse
     func uploadDistanceDays(_ days: [HealthKitDistanceDay]) async throws -> DistanceDaysResponse
     func recordSyncRun(_ run: SyncRunRequest) async throws
@@ -744,6 +984,7 @@ final class PacePushStore: ObservableObject {
     private let healthKey = "healthAuthorized"
     private let firstSyncKey = "firstSyncAt"
     private let unitsKey = "distanceUnits"
+    private let activePeriodKey = "activeScorePeriod"
     private let publicLeaderboardPreferenceKey = "publicLeaderboardPreference"
     private let publicLeaderboardPreferenceChosenKey = "publicLeaderboardPreferenceChosen"
     private let keychain: KeychainStoring
@@ -764,6 +1005,11 @@ final class PacePushStore: ObservableObject {
     @Published var firstSyncAt: String?
     @Published var publicLeaderboardPreference: Bool
     @Published var publicLeaderboardPreferenceChosen: Bool
+    @Published var activePeriod: ScorePeriod {
+        didSet {
+            preferences.set(activePeriod.rawValue, forKey: activePeriodKey)
+        }
+    }
     @Published var lastError: String?
     @Published var lastSuccess: String?
     @Published var busy = false
@@ -812,6 +1058,9 @@ final class PacePushStore: ObservableObject {
         firstSyncAt = preferences.string(forKey: firstSyncKey)
         publicLeaderboardPreference = preferences.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? true
         publicLeaderboardPreferenceChosen = preferences.bool(forKey: publicLeaderboardPreferenceChosenKey)
+        activePeriod = preferences.string(forKey: activePeriodKey)
+            .flatMap { ScorePeriod($0) }
+            ?? ScorePeriod(kind: .month, date: now())
         deviceToken = try? keychain.readString(account: tokenKey)
     }
 
@@ -1018,10 +1267,10 @@ final class PacePushStore: ObservableObject {
 
         do {
             let client = apiClientFactory(baseURL, deviceToken)
-            async let leaderboardResponse = client.fetchLeaderboard(board: board)
+            async let leaderboardResponse = client.fetchLeaderboard(board: board, period: activePeriod.rawValue)
             if deviceToken != nil {
-                async let meResponse = client.fetchMe()
-                async let profileResponse = client.fetchProfile()
+                async let meResponse = client.fetchMe(period: activePeriod.rawValue)
+                async let profileResponse = client.fetchProfile(period: activePeriod.rawValue)
                 leaderboard = try await leaderboardResponse
                 me = try await meResponse
                 publicLeaderboardPreference = me.publicLeaderboard
@@ -1048,7 +1297,7 @@ final class PacePushStore: ObservableObject {
 
         do {
             let client = apiClientFactory(baseURL, deviceToken)
-            leaderboard = try await client.fetchLeaderboard(board: board)
+            leaderboard = try await client.fetchLeaderboard(board: board, period: activePeriod.rawValue)
             lastError = nil
         } catch PacePushAPIError.unauthorized {
             signOut()
@@ -1058,6 +1307,12 @@ final class PacePushStore: ObservableObject {
             lastError = error.localizedDescription
             lastSuccess = nil
         }
+    }
+
+    func setActivePeriod(_ period: ScorePeriod, board: Board = .balanced) async {
+        guard period != activePeriod else { return }
+        activePeriod = period
+        await refresh(board: board)
     }
 
     func signOut() {
@@ -1289,9 +1544,9 @@ private final class UITestingPacePushClient: PacePushClienting {
         deviceExchangeResponse
     }
 
-    func fetchLeaderboard(board: Board) async throws -> LeaderboardResponse {
+    func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse {
         LeaderboardResponse(
-            period: "2026-07",
+            period: period,
             board: board,
             rows: [
                 LeaderboardRow(rank: 1, login: "noc2", displayName: "David", score: 94.2, commits: 312, kilometers: 86.4, streakDays: 11),
@@ -1299,24 +1554,29 @@ private final class UITestingPacePushClient: PacePushClienting {
         )
     }
 
-    func fetchMe() async throws -> MeResponse {
+    func fetchMe(period: String) async throws -> MeResponse {
         MeResponse(
             login: "noc2",
             displayName: "David",
             publicLeaderboard: true,
             units: "metric",
-            score: ScoreSummary(period: "2026-07", score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z"),
+            score: ScoreSummary(period: period, score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z"),
             devices: [deviceExchangeResponse.device]
         )
     }
 
-    func fetchProfile() async throws -> PublicProfileResponse {
+    func fetchProfile(period: String) async throws -> PublicProfileResponse {
         PublicProfileResponse(
             login: "noc2",
             displayName: "David",
             bio: nil,
-            score: ScoreSummary(period: "2026-07", score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z"),
+            score: ScoreSummary(period: period, score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z"),
             history: [
+                ProfileHistoryPoint(date: "2026-07-01", commits: 41, kilometers: 8.1, score: 42.8),
+                ProfileHistoryPoint(date: "2026-07-02", commits: 93, kilometers: 23.5, score: 68.4),
+                ProfileHistoryPoint(date: "2026-07-03", commits: 128, kilometers: 31.2, score: 75.6),
+                ProfileHistoryPoint(date: "2026-07-04", commits: 176, kilometers: 43.8, score: 80.9),
+                ProfileHistoryPoint(date: "2026-07-05", commits: 219, kilometers: 58.7, score: 86.3),
                 ProfileHistoryPoint(date: "2026-07-06", commits: 312, kilometers: 86.4, score: 94.2),
             ]
         )
@@ -1409,11 +1669,12 @@ final class PacePushAPIClient: PacePushClienting {
         return try JSONDecoder().decode(T.self, from: data)
     }
 
-    func fetchLeaderboard(board: Board) async throws -> LeaderboardResponse {
+    func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse {
         try await fetch(
             "/api/leaderboard",
             queryItems: [
                 URLQueryItem(name: "board", value: board.rawValue),
+                URLQueryItem(name: "period", value: period),
                 URLQueryItem(name: "_appRefresh", value: String(Int(Date().timeIntervalSince1970 * 1000))),
             ],
             authenticated: false,
@@ -1421,12 +1682,20 @@ final class PacePushAPIClient: PacePushClienting {
         )
     }
 
-    func fetchMe() async throws -> MeResponse {
-        try await fetch("/api/mobile/me", authenticated: true)
+    func fetchMe(period: String) async throws -> MeResponse {
+        try await fetch(
+            "/api/mobile/me",
+            queryItems: [URLQueryItem(name: "period", value: period)],
+            authenticated: true,
+        )
     }
 
-    func fetchProfile() async throws -> PublicProfileResponse {
-        try await fetch("/api/mobile/me/profile", authenticated: true)
+    func fetchProfile(period: String) async throws -> PublicProfileResponse {
+        try await fetch(
+            "/api/mobile/me/profile",
+            queryItems: [URLQueryItem(name: "period", value: period)],
+            authenticated: true,
+        )
     }
 
     func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse {
@@ -1628,6 +1897,396 @@ enum PacePushAPIError: LocalizedError {
             return message
         case .keychain(let status):
             return "Keychain failed with status \(status)."
+        }
+    }
+}
+
+enum ScorePeriodKind: String, CaseIterable, Identifiable {
+    case week
+    case month
+    case year
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .week:
+            return "Days"
+        case .month:
+            return "Months"
+        case .year:
+            return "Years"
+        }
+    }
+
+    var singularTitle: String {
+        switch self {
+        case .week:
+            return "Days"
+        case .month:
+            return "Month"
+        case .year:
+            return "Year"
+        }
+    }
+}
+
+struct ScorePeriodOption: Identifiable {
+    let period: ScorePeriod
+    let label: String
+    let meta: String?
+    let disabled: Bool
+
+    var id: String { period.rawValue }
+
+    var menuLabel: String {
+        guard let meta else { return label }
+        return "\(label) · \(meta)"
+    }
+
+    static func options(for activePeriod: ScorePeriod, now: Date = Date()) -> [ScorePeriodOption] {
+        switch activePeriod.kind {
+        case .week:
+            return weekOptions(for: activePeriod, now: now)
+        case .month:
+            return monthOptions(for: activePeriod, now: now)
+        case .year:
+            return yearOptions(for: activePeriod, now: now)
+        }
+    }
+
+    private static func yearOptions(for activePeriod: ScorePeriod, now: Date) -> [ScorePeriodOption] {
+        var periods = Set<ScorePeriod>()
+        let currentYear = ScorePeriod.gregorian.component(.year, from: now)
+
+        for offset in 0..<5 {
+            periods.insert(ScorePeriod(kind: .year, date: ScorePeriod.date(year: currentYear - offset, month: 1, day: 1)))
+        }
+        periods.insert(ScorePeriod(kind: .year, date: activePeriod.startDate))
+
+        return periods.sorted { $0.rawValue > $1.rawValue }.map { period in
+            ScorePeriodOption(
+                period: period,
+                label: period.label,
+                meta: nil,
+                disabled: period != activePeriod && period.isFuture(comparedTo: now)
+            )
+        }
+    }
+
+    private static func monthOptions(for activePeriod: ScorePeriod, now: Date) -> [ScorePeriodOption] {
+        var periods = Set<ScorePeriod>()
+        let referenceYear = ScorePeriod.gregorian.component(.year, from: activePeriod.referenceDate(now: now))
+
+        for month in 1...12 {
+            periods.insert(ScorePeriod(kind: .month, date: ScorePeriod.date(year: referenceYear, month: month, day: 1)))
+        }
+        if activePeriod.kind == .month {
+            periods.insert(activePeriod)
+        }
+
+        return periods.sorted { $0.rawValue < $1.rawValue }.map { period in
+            ScorePeriodOption(
+                period: period,
+                label: period.shortLabel,
+                meta: nil,
+                disabled: period != activePeriod && period.isFuture(comparedTo: now)
+            )
+        }
+    }
+
+    private static func weekOptions(for activePeriod: ScorePeriod, now: Date) -> [ScorePeriodOption] {
+        var periods = Set<ScorePeriod>()
+        let referenceDate = activePeriod.referenceDate(now: now)
+
+        for offset in -2..<10 {
+            let date = ScorePeriod.gregorian.date(byAdding: .day, value: -offset * 7, to: referenceDate) ?? referenceDate
+            periods.insert(ScorePeriod(kind: .week, date: date))
+        }
+        if activePeriod.kind == .week {
+            periods.insert(activePeriod)
+        }
+
+        return periods.sorted { $0.rawValue > $1.rawValue }.map { period in
+            ScorePeriodOption(
+                period: period,
+                label: period.weekRangeLabel,
+                meta: period.rawValue,
+                disabled: period != activePeriod && period.isFuture(comparedTo: now)
+            )
+        }
+    }
+}
+
+struct ScorePeriod: Hashable, Identifiable {
+    let rawValue: String
+
+    var id: String { rawValue }
+
+    init?(_ rawValue: String) {
+        if Self.isYear(rawValue) || Self.isMonth(rawValue) {
+            self.rawValue = rawValue
+            return
+        }
+
+        guard Self.isValidWeek(rawValue) else { return nil }
+        self.rawValue = rawValue
+    }
+
+    init(kind: ScorePeriodKind, date: Date) {
+        switch kind {
+        case .year:
+            rawValue = String(Self.gregorian.component(.year, from: date))
+        case .month:
+            let components = Self.gregorian.dateComponents([.year, .month], from: date)
+            rawValue = String(format: "%04d-%02d", components.year ?? 1970, components.month ?? 1)
+        case .week:
+            rawValue = Self.weekPeriodString(for: date)
+        }
+    }
+
+    var kind: ScorePeriodKind {
+        if Self.isYear(rawValue) { return .year }
+        if Self.isValidWeek(rawValue) { return .week }
+        return .month
+    }
+
+    var startDate: Date {
+        switch kind {
+        case .year:
+            return Self.date(year: Int(rawValue) ?? 1970, month: 1, day: 1)
+        case .month:
+            let parts = rawValue.split(separator: "-").compactMap { Int($0) }
+            return Self.date(year: parts.first ?? 1970, month: parts.dropFirst().first ?? 1, day: 1)
+        case .week:
+            return Self.weekStart(for: rawValue) ?? Self.date(year: 1970, month: 1, day: 5)
+        }
+    }
+
+    var endDate: Date {
+        switch kind {
+        case .year:
+            return Self.date(year: Self.gregorian.component(.year, from: startDate), month: 12, day: 31)
+        case .month:
+            let nextMonth = Self.gregorian.date(byAdding: .month, value: 1, to: startDate) ?? startDate
+            return Self.gregorian.date(byAdding: .day, value: -1, to: nextMonth) ?? startDate
+        case .week:
+            return Self.gregorian.date(byAdding: .day, value: 6, to: startDate) ?? startDate
+        }
+    }
+
+    var label: String {
+        switch kind {
+        case .year:
+            return rawValue
+        case .month:
+            return Self.monthFormatter.string(from: startDate)
+        case .week:
+            return "\(weekRangeLabel), \(rawValue.prefix(4))"
+        }
+    }
+
+    var shortLabel: String {
+        switch kind {
+        case .year:
+            return rawValue
+        case .month:
+            return Self.shortMonthFormatter.string(from: startDate)
+        case .week:
+            return weekRangeLabel
+        }
+    }
+
+    var weekRangeLabel: String {
+        if Self.gregorian.component(.year, from: startDate) == Self.gregorian.component(.year, from: endDate) {
+            return "\(Self.shortDayFormatter.string(from: startDate))-\(Self.shortDayFormatter.string(from: endDate))"
+        }
+
+        return "\(Self.fullDayFormatter.string(from: startDate))-\(Self.fullDayFormatter.string(from: endDate))"
+    }
+
+    func shifted(by offset: Int) -> ScorePeriod {
+        switch kind {
+        case .year:
+            let nextDate = Self.gregorian.date(byAdding: .year, value: offset, to: startDate) ?? startDate
+            return ScorePeriod(kind: .year, date: nextDate)
+        case .month:
+            let nextDate = Self.gregorian.date(byAdding: .month, value: offset, to: startDate) ?? startDate
+            return ScorePeriod(kind: .month, date: nextDate)
+        case .week:
+            let nextDate = Self.gregorian.date(byAdding: .day, value: offset * 7, to: startDate) ?? startDate
+            return ScorePeriod(kind: .week, date: nextDate)
+        }
+    }
+
+    func referenceDate(now: Date = Date()) -> Date {
+        switch kind {
+        case .year:
+            let year = Self.gregorian.component(.year, from: startDate)
+            let nowComponents = Self.gregorian.dateComponents([.month, .day], from: now)
+            let month = nowComponents.month ?? 1
+            let day = min(nowComponents.day ?? 1, Self.daysInMonth(year: year, month: month))
+            return Self.date(year: year, month: month, day: day)
+        case .month:
+            let active = Self.gregorian.dateComponents([.year, .month], from: startDate)
+            let current = Self.gregorian.dateComponents([.year, .month], from: now)
+            if active.year == current.year && active.month == current.month {
+                return now
+            }
+            return startDate
+        case .week:
+            return startDate
+        }
+    }
+
+    func isFuture(comparedTo date: Date = Date()) -> Bool {
+        startDate > ScorePeriod(kind: kind, date: date).startDate
+    }
+
+    static var gregorian: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = utc
+        return calendar
+    }
+
+    static func date(year: Int, month: Int, day: Int) -> Date {
+        gregorian.date(from: DateComponents(timeZone: utc, year: year, month: month, day: day)) ?? Date(timeIntervalSince1970: 0)
+    }
+
+    private static let utc = TimeZone(secondsFromGMT: 0)!
+
+    private static var iso8601: Calendar {
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.timeZone = utc
+        calendar.firstWeekday = 2
+        calendar.minimumDaysInFirstWeek = 4
+        return calendar
+    }
+
+    private static let monthFormatter = formatter("MMMM yyyy")
+    private static let shortMonthFormatter = formatter("MMM yyyy")
+    private static let shortDayFormatter = formatter("MMM d")
+    private static let fullDayFormatter = formatter("MMM d, yyyy")
+
+    private static func formatter(_ dateFormat: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = utc
+        formatter.dateFormat = dateFormat
+        return formatter
+    }
+
+    private static func isYear(_ value: String) -> Bool {
+        value.range(of: #"^\d{4}$"#, options: .regularExpression) != nil
+    }
+
+    private static func isMonth(_ value: String) -> Bool {
+        value.range(of: #"^\d{4}-(0[1-9]|1[0-2])$"#, options: .regularExpression) != nil
+    }
+
+    private static func isValidWeek(_ value: String) -> Bool {
+        guard value.range(of: #"^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$"#, options: .regularExpression) != nil,
+              let start = weekStart(for: value)
+        else {
+            return false
+        }
+        return weekPeriodString(for: start) == value
+    }
+
+    private static func weekStart(for period: String) -> Date? {
+        let parts = period.components(separatedBy: "-W")
+        guard parts.count == 2,
+              let year = Int(parts[0]),
+              let week = Int(parts[1])
+        else {
+            return nil
+        }
+
+        return iso8601.date(from: DateComponents(
+            calendar: iso8601,
+            timeZone: utc,
+            weekday: 2,
+            weekOfYear: week,
+            yearForWeekOfYear: year
+        ))
+    }
+
+    private static func weekPeriodString(for date: Date) -> String {
+        let components = iso8601.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+        return String(format: "%04d-W%02d", components.yearForWeekOfYear ?? 1970, components.weekOfYear ?? 1)
+    }
+
+    private static func daysInMonth(year: Int, month: Int) -> Int {
+        let nextMonth = gregorian.date(byAdding: .month, value: 1, to: date(year: year, month: month, day: 1)) ?? date(year: year, month: month, day: 28)
+        let lastDay = gregorian.date(byAdding: .day, value: -1, to: nextMonth) ?? nextMonth
+        return gregorian.component(.day, from: lastDay)
+    }
+}
+
+private enum ProfileChartSeries: CaseIterable, Identifiable {
+    case commits
+    case distance
+    case score
+
+    var id: String {
+        switch self {
+        case .commits:
+            return "commits"
+        case .distance:
+            return "distance"
+        case .score:
+            return "score"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .commits:
+            return Brand.green
+        case .distance:
+            return Brand.red
+        case .score:
+            return Brand.blue
+        }
+    }
+
+    var lineWidth: CGFloat {
+        switch self {
+        case .score:
+            return 3
+        case .commits, .distance:
+            return 4
+        }
+    }
+
+    var dash: [CGFloat] {
+        switch self {
+        case .score:
+            return [7, 6]
+        case .commits, .distance:
+            return []
+        }
+    }
+
+    func legendTitle(units: DistanceUnits) -> String {
+        switch self {
+        case .commits:
+            return "Commits"
+        case .distance:
+            return units.abbreviation
+        case .score:
+            return "Score"
+        }
+    }
+
+    func value(from point: ProfileHistoryPoint) -> Double {
+        switch self {
+        case .commits:
+            return Double(point.commits)
+        case .distance:
+            return point.kilometers
+        case .score:
+            return point.score
         }
     }
 }
