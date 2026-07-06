@@ -189,28 +189,201 @@ a {
 }
 
 .period-selector {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto minmax(260px, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 18px 0 0;
 }
 
-.period-selector label {
+.period-selector-label {
   color: var(--muted);
   font-size: 13px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.period-selector select {
-  min-height: 38px;
+.period-mode-tabs,
+.period-navigator {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.period-mode-tabs {
   border: 1px solid var(--ink);
-  border-radius: 0;
-  background: var(--paper);
+}
+
+.period-mode-tabs a,
+.period-step,
+.period-menu summary,
+.period-option-grid a,
+.period-option-list a,
+.period-popover-tabs a {
+  min-height: 38px;
   color: var(--ink);
-  padding: 8px 36px 8px 12px;
-  font: inherit;
   font-weight: 800;
+}
+
+.period-mode-tabs a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  border-right: 1px solid var(--ink);
+  padding: 8px 12px;
+}
+
+.period-mode-tabs a:last-child {
+  border-right: 0;
+}
+
+.period-mode-tabs a.active,
+.period-option-grid a.active,
+.period-option-list a.active,
+.period-popover-tabs a.active {
+  background: var(--orange);
+}
+
+.period-navigator {
+  min-width: 0;
+}
+
+.period-step,
+.period-menu summary {
+  border: 1px solid var(--ink);
+  background: var(--paper);
+}
+
+.period-step {
+  width: 42px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.period-menu {
+  position: relative;
+  min-width: min(360px, 100%);
+}
+
+.period-menu summary {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin: 0 -1px;
+  padding: 8px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.period-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.period-menu summary small,
+.period-option-list small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.period-menu summary strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.period-menu-caret {
+  width: 0;
+  height: 0;
+  border-top: 6px solid var(--ink);
+  border-right: 5px solid transparent;
+  border-left: 5px solid transparent;
+}
+
+.period-menu[open] .period-menu-caret {
+  transform: rotate(180deg);
+}
+
+.period-popover {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(420px, calc(100vw - 64px));
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 8px 8px 0 rgba(31, 28, 23, 0.16);
+  padding: 12px;
+}
+
+.period-popover-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--ink);
+}
+
+.period-popover-tabs a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--ink);
+  padding: 8px;
+  text-align: center;
+}
+
+.period-popover-tabs a:last-child {
+  border-right: 0;
+}
+
+.period-option-grid,
+.period-option-list {
+  margin-top: 12px;
+}
+
+.period-option-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.period-option-grid a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 10px 8px;
+}
+
+.period-option-list {
+  display: grid;
+  max-height: 320px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+}
+
+.period-option-list a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 8px;
+}
+
+.period-option-list a span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mobile-connect-section h2 {
@@ -814,7 +987,21 @@ a {
 
   .period-selector {
     align-items: stretch;
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .period-mode-tabs,
+  .period-navigator,
+  .period-menu {
+    width: 100%;
+  }
+
+  .period-menu {
+    min-width: 0;
+  }
+
+  .period-popover {
+    width: min(100%, calc(100vw - 40px));
   }
 
   .mobile-connect-section {

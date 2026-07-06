@@ -63,6 +63,32 @@ export function periodKind(period: string): PeriodKind {
   return "month";
 }
 
+export function periodForKind(kind: PeriodKind, date: Date): string {
+  if (kind === "year") return String(date.getUTCFullYear());
+  if (kind === "week") return toIsoWeekPeriod(date);
+  return toMonthPeriod(date);
+}
+
+export function periodStartDate(period: string): Date {
+  const { start } = periodBounds(period);
+  return new Date(`${start}T00:00:00.000Z`);
+}
+
+export function shiftPeriod(period: string, offset: number): string {
+  const start = periodStartDate(period);
+  const kind = periodKind(period);
+
+  if (kind === "year") {
+    return String(start.getUTCFullYear() + offset);
+  }
+
+  if (kind === "week") {
+    return toIsoWeekPeriod(addDays(start, offset * 7));
+  }
+
+  return toMonthPeriod(new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + offset, 1)));
+}
+
 export function toMonthPeriod(date: Date): string {
   return date.toISOString().slice(0, 7);
 }
@@ -99,6 +125,27 @@ export function toIsoWeekPeriod(date: Date): string {
 
 export function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * dayMs);
+}
+
+export function formatWeekRange(period: string): string {
+  const { start, end } = periodBounds(period);
+  const startDate = new Date(`${start}T00:00:00.000Z`);
+  const endDate = new Date(`${end}T00:00:00.000Z`);
+  const sameYear = startDate.getUTCFullYear() === endDate.getUTCFullYear();
+  const sameMonth = sameYear && startDate.getUTCMonth() === endDate.getUTCMonth();
+  const startLabel = new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(startDate);
+  const endLabel = new Intl.DateTimeFormat("en", {
+    month: sameMonth ? undefined : "short",
+    day: "numeric",
+    year: sameYear ? undefined : "numeric",
+    timeZone: "UTC",
+  }).format(endDate);
+
+  return `${startLabel}-${endLabel}`;
 }
 
 function isoWeekStart(year: number, week: number): Date {
