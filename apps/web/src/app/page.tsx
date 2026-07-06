@@ -97,9 +97,6 @@ function AppHeader({ login }: { login: string }) {
       </Link>
 
       <nav className="top-actions" aria-label="Primary navigation">
-        <Link className="button" href="/settings#mobile-apps">
-          Mobile apps
-        </Link>
         <Link className="button" href="/settings">
           Settings
         </Link>
