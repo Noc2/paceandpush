@@ -11,6 +11,7 @@ const contributions = await loadTypeScriptModule("../src/server/github/contribut
 const mobileTokens = await loadTypeScriptModule("../src/server/mobile/tokens.ts");
 const oauth = await loadTypeScriptModule("../src/server/github/oauth.ts");
 const periods = await loadTypeScriptModule("../src/lib/periods.ts");
+const streaks = await loadTypeScriptModule("../src/lib/streaks.ts");
 const tokenCrypto = await loadTypeScriptModule("../src/server/github/token-crypto.ts");
 
 test("GitHub contribution windows cover each UTC date inclusively", () => {
@@ -265,6 +266,36 @@ test("public snapshot refreshes are limited to current and previous periods", ()
   assert.equal(periods.isCurrentOrPreviousPeriod("2026-W28", now), true);
   assert.equal(periods.isCurrentOrPreviousPeriod("2026-W27", now), true);
   assert.equal(periods.isCurrentOrPreviousPeriod("2026-W26", now), false);
+});
+
+test("streak calculation counts unique consecutive active days", () => {
+  assert.equal(streaks.calculateStreakDays([]), 0);
+  assert.equal(
+    streaks.calculateStreakDays([
+      "2026-07-05",
+      "2026-07-04",
+      "2026-07-04",
+      "2026-07-03",
+      "2026-07-01",
+    ]),
+    3,
+  );
+});
+
+test("leaderboard streaks are loaded in batched queries", async () => {
+  const source = await readFile(
+    new URL("../src/server/data/read-model.ts", import.meta.url),
+    "utf8",
+  );
+  const toRowsBlock = source.slice(
+    source.indexOf("async function toLeaderboardRows"),
+    source.indexOf("export async function getPublicProfile"),
+  );
+
+  assert.match(toRowsBlock, /getStreakDaysByUserId/);
+  assert.doesNotMatch(toRowsBlock, /rows\.map\(async/);
+  assert.match(source, /inArray\(commitDays\.userId, uniqueUserIds\)/);
+  assert.match(source, /inArray\(distanceDays\.userId, uniqueUserIds\)/);
 });
 
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {

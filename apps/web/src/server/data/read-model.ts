@@ -20,7 +20,8 @@ import {
 import { getDb, isDatabaseConfigured } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/server/db/schema";
 import { isCurrentOrPreviousPeriod } from "@/lib/periods";
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { calculateStreakDays } from "@/lib/streaks";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 
 type LeaderboardSnapshotRow = {
   rank: number | null;
@@ -171,17 +172,20 @@ async function toLeaderboardRows(
   rows: LeaderboardSnapshotRow[],
   period: string,
 ): Promise<LeaderboardRow[]> {
-  return Promise.all(
-    rows.map(async (row, index) => ({
-      rank: row.rank ?? index + 1,
-      login: row.login,
-      displayName: row.displayName,
-      score: Number(row.score),
-      commits: row.commits,
-      kilometers: Math.round((row.distanceMeters / 1000) * 10) / 10,
-      streakDays: await getStreakDays(row.userId, period),
-    })),
+  const streaksByUserId = await getStreakDaysByUserId(
+    rows.map((row) => row.userId),
+    period,
   );
+
+  return rows.map((row, index) => ({
+    rank: row.rank ?? index + 1,
+    login: row.login,
+    displayName: row.displayName,
+    score: Number(row.score),
+    commits: row.commits,
+    kilometers: Math.round((row.distanceMeters / 1000) * 10) / 10,
+    streakDays: streaksByUserId.get(row.userId) ?? 0,
+  }));
 }
 
 export async function getPublicProfile(
@@ -451,47 +455,55 @@ async function getProfileHistory(
   });
 }
 
-async function getStreakDays(userId: string, period: string): Promise<number> {
+async function getStreakDaysByUserId(
+  userIds: string[],
+  period: string,
+): Promise<Map<string, number>> {
+  const uniqueUserIds = [...new Set(userIds)];
+  const streaksByUserId = new Map(uniqueUserIds.map((userId) => [userId, 0]));
+  if (uniqueUserIds.length === 0) return streaksByUserId;
+
   const { start, end } = periodBounds(period);
   const [commits, distances] = await Promise.all([
     getDb()
-      .select({ day: commitDays.day })
+      .select({ day: commitDays.day, userId: commitDays.userId })
       .from(commitDays)
       .where(
         and(
-          eq(commitDays.userId, userId),
+          inArray(commitDays.userId, uniqueUserIds),
           gte(commitDays.day, start),
           lte(commitDays.day, end),
         ),
       ),
     getDb()
-      .select({ day: distanceDays.day })
+      .select({ day: distanceDays.day, userId: distanceDays.userId })
       .from(distanceDays)
       .where(
         and(
-          eq(distanceDays.userId, userId),
+          inArray(distanceDays.userId, uniqueUserIds),
           gte(distanceDays.day, start),
           lte(distanceDays.day, end),
           eq(distanceDays.flagged, false),
         ),
       ),
   ]);
-  const activeDays = new Set([...commits, ...distances].map((row) => row.day));
-  const sortedDays = [...activeDays].sort().reverse();
-  if (sortedDays.length === 0) return 0;
 
-  let streak = 1;
-  let previous = new Date(`${sortedDays[0]}T00:00:00.000Z`);
+  const activeDaysByUserId = new Map<string, Set<string>>();
 
-  for (const day of sortedDays.slice(1)) {
-    const current = new Date(`${day}T00:00:00.000Z`);
-    const diffDays = (previous.getTime() - current.getTime()) / (24 * 60 * 60 * 1000);
-    if (diffDays !== 1) break;
-    streak += 1;
-    previous = current;
+  for (const row of [...commits, ...distances]) {
+    let activeDays = activeDaysByUserId.get(row.userId);
+    if (!activeDays) {
+      activeDays = new Set();
+      activeDaysByUserId.set(row.userId, activeDays);
+    }
+    activeDays.add(row.day);
   }
 
-  return streak;
+  for (const [userId, activeDays] of activeDaysByUserId) {
+    streaksByUserId.set(userId, calculateStreakDays(activeDays));
+  }
+
+  return streaksByUserId;
 }
 
 function emptyScore(period: string): ScoreSummary {
