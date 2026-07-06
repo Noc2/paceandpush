@@ -328,6 +328,18 @@ test("score recompute cron reports hard failures to monitoring", async () => {
   assert.match(source, /status: 500/);
 });
 
+test("health endpoint checks database availability", async () => {
+  const source = await readFile(
+    new URL("../src/app/api/health/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /select 1/);
+  assert.match(source, /isDatabaseConfigured/);
+  assert.match(source, /cache-control": "no-store"/);
+  assert.match(source, /503/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");
