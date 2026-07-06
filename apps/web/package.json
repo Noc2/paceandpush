@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:migrations:check": "node scripts/check-migrations.mjs",
     "start": "next start",
     "lint": "tsc --noEmit",
     "test": "node --test test/*.test.mjs",

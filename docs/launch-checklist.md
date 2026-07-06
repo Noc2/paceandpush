@@ -26,8 +26,8 @@ with native iOS and Android companion app betas.
 
 ## Data
 
-- Apply all SQL files in `apps/web/drizzle/` to the production database in
-  filename order.
+- Run `npm run db:migrations:check`, then run `npm run db:migrate` with
+  production `DATABASE_URL` before deploying application traffic.
 - Confirm leaderboard, profile, settings, privacy export, device revoke, sync
   run, and running distance upload routes read/write production database rows.
 - Confirm the web homepage lists the iOS and Android companion apps.
@@ -43,6 +43,7 @@ with native iOS and Android companion app betas.
 
 - GitHub Actions `CI` is green on `main`.
 - `npm ci`
+- `npm run db:migrations:check`
 - `npm run typecheck`
 - `npm run lint`
 - `npm test`

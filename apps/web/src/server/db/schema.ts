@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const platformEnum = pgEnum("platform", ["ios", "android"]);
 export const syncStatusEnum = pgEnum("sync_status", ["success", "warning", "error"]);
@@ -34,6 +35,7 @@ export const users = pgTable(
   (table) => ({
     githubIdIdx: uniqueIndex("users_github_id_idx").on(table.githubId),
     loginIdx: uniqueIndex("users_login_idx").on(table.login),
+    loginLowerIdx: index("users_login_lower_idx").on(sql`lower(${table.login})`),
   }),
 );
 
@@ -107,6 +109,7 @@ export const commitDays = pgTable(
   },
   (table) => ({
     userDayIdx: uniqueIndex("commit_days_user_day_idx").on(table.userId, table.day),
+    dayUserIdx: index("commit_days_day_user_idx").on(table.day, table.userId),
   }),
 );
 
@@ -130,6 +133,9 @@ export const distanceDays = pgTable(
       table.userId,
       table.sourceHash,
     ),
+    dayUserUnflaggedIdx: index("distance_days_day_user_unflagged_idx")
+      .on(table.day, table.userId)
+      .where(sql`${table.flagged} = false`),
   }),
 );
 
@@ -149,6 +155,9 @@ export const scoreSnapshots = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
+    periodBoardRankIdx: index("score_snapshots_period_board_rank_idx")
+      .on(table.period, table.board, table.rank)
+      .where(sql`${table.rank} IS NOT NULL`),
     userPeriodBoardIdx: uniqueIndex("score_snapshots_user_period_board_idx").on(
       table.userId,
       table.period,
@@ -157,15 +166,24 @@ export const scoreSnapshots = pgTable(
   }),
 );
 
-export const syncRuns = pgTable("sync_runs", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id").notNull().references(() => users.id),
-  deviceId: uuid("device_id").references(() => mobileDevices.id),
-  platform: platformEnum("platform").notNull(),
-  status: syncStatusEnum("status").notNull(),
-  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
-  finishedAt: timestamp("finished_at", { withTimezone: true }),
-  counters: jsonb("counters").notNull().default({}),
-  errorSummary: text("error_summary"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const syncRuns = pgTable(
+  "sync_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    deviceId: uuid("device_id").references(() => mobileDevices.id),
+    platform: platformEnum("platform").notNull(),
+    status: syncStatusEnum("status").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    counters: jsonb("counters").notNull().default({}),
+    errorSummary: text("error_summary"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userStartedAtIdx: index("sync_runs_user_started_at_idx").on(
+      table.userId,
+      sql`${table.startedAt} DESC`,
+    ),
+  }),
+);

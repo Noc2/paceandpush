@@ -1,8 +1,25 @@
-CREATE TYPE platform AS ENUM ('ios', 'android');
-CREATE TYPE sync_status AS ENUM ('success', 'warning', 'error');
-CREATE TYPE board AS ENUM ('balanced', 'commits', 'distance');
+DO $$
+BEGIN
+  CREATE TYPE platform AS ENUM ('ios', 'android');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE users (
+DO $$
+BEGIN
+  CREATE TYPE sync_status AS ENUM ('success', 'warning', 'error');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  CREATE TYPE board AS ENUM ('balanced', 'commits', 'distance');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   github_id text NOT NULL,
   login text NOT NULL,
@@ -15,10 +32,10 @@ CREATE TABLE users (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX users_github_id_idx ON users (github_id);
-CREATE UNIQUE INDEX users_login_idx ON users (login);
+CREATE UNIQUE INDEX IF NOT EXISTS users_github_id_idx ON users (github_id);
+CREATE UNIQUE INDEX IF NOT EXISTS users_login_idx ON users (login);
 
-CREATE TABLE github_accounts (
+CREATE TABLE IF NOT EXISTS github_accounts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users (id),
   github_id text NOT NULL,
@@ -29,10 +46,10 @@ CREATE TABLE github_accounts (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX github_accounts_user_id_idx ON github_accounts (user_id);
-CREATE UNIQUE INDEX github_accounts_github_id_idx ON github_accounts (github_id);
+CREATE UNIQUE INDEX IF NOT EXISTS github_accounts_user_id_idx ON github_accounts (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS github_accounts_github_id_idx ON github_accounts (github_id);
 
-CREATE TABLE mobile_devices (
+CREATE TABLE IF NOT EXISTS mobile_devices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users (id),
   platform platform NOT NULL,
@@ -43,10 +60,10 @@ CREATE TABLE mobile_devices (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX mobile_devices_token_hash_idx ON mobile_devices (token_hash);
-CREATE INDEX mobile_devices_user_id_idx ON mobile_devices (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS mobile_devices_token_hash_idx ON mobile_devices (token_hash);
+CREATE INDEX IF NOT EXISTS mobile_devices_user_id_idx ON mobile_devices (user_id);
 
-CREATE TABLE commit_days (
+CREATE TABLE IF NOT EXISTS commit_days (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users (id),
   day date NOT NULL,
@@ -56,9 +73,9 @@ CREATE TABLE commit_days (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX commit_days_user_day_idx ON commit_days (user_id, day);
+CREATE UNIQUE INDEX IF NOT EXISTS commit_days_user_day_idx ON commit_days (user_id, day);
 
-CREATE TABLE distance_days (
+CREATE TABLE IF NOT EXISTS distance_days (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users (id),
   device_id uuid REFERENCES mobile_devices (id),
@@ -71,10 +88,11 @@ CREATE TABLE distance_days (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX distance_days_user_day_idx ON distance_days (user_id, day);
-CREATE UNIQUE INDEX distance_days_user_source_hash_idx ON distance_days (user_id, source_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS distance_days_user_day_idx ON distance_days (user_id, day);
+CREATE UNIQUE INDEX IF NOT EXISTS distance_days_user_source_hash_idx
+  ON distance_days (user_id, source_hash);
 
-CREATE TABLE score_snapshots (
+CREATE TABLE IF NOT EXISTS score_snapshots (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users (id),
   period text NOT NULL,
@@ -88,10 +106,10 @@ CREATE TABLE score_snapshots (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX score_snapshots_user_period_board_idx
+CREATE UNIQUE INDEX IF NOT EXISTS score_snapshots_user_period_board_idx
   ON score_snapshots (user_id, period, board);
 
-CREATE TABLE sync_runs (
+CREATE TABLE IF NOT EXISTS sync_runs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users (id),
   device_id uuid REFERENCES mobile_devices (id),

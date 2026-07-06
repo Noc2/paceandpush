@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "npm run dev -w @paceandpush/web",
     "build": "npm run build -w @paceandpush/web",
+    "db:migrate": "npm run db:migrate -w @paceandpush/web",
+    "db:migrations:check": "npm run db:migrations:check -w @paceandpush/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
