@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 
 type PeriodOption = {
+  disabled?: boolean;
   label: string;
   meta?: string;
   value: string;
@@ -41,6 +42,7 @@ export function PeriodSelector({
   const weeks = getWeekOptions(referenceDate, activePeriod);
   const previousPeriod = shiftPeriod(activePeriod, -1);
   const nextPeriod = shiftPeriod(activePeriod, 1);
+  const canGoNext = !isFuturePeriod(nextPeriod);
   const modeTabs: Array<{ kind: PeriodKind; label: string }> = [
     { kind: "week", label: "Week" },
     { kind: "month", label: "Month" },
@@ -125,13 +127,24 @@ export function PeriodSelector({
             ) : null}
           </div>
         </details>
-        <Link
-          className="period-step"
-          href={periodHref(action, hiddenParams, nextPeriod)}
-          aria-label={`Next ${activeKind}`}
-        >
-          ›
-        </Link>
+        {canGoNext ? (
+          <Link
+            className="period-step"
+            href={periodHref(action, hiddenParams, nextPeriod)}
+            aria-label={`Next ${activeKind}`}
+          >
+            ›
+          </Link>
+        ) : (
+          <span
+            className="period-step disabled"
+            role="link"
+            aria-disabled="true"
+            aria-label={`Next ${activeKind}`}
+          >
+            ›
+          </span>
+        )}
       </div>
     </section>
   );
@@ -150,16 +163,22 @@ function PeriodOptionGrid({
 }) {
   return (
     <div className="period-option-grid">
-      {options.map((option) => (
-        <Link
-          key={option.value}
-          className={option.value === activePeriod ? "active" : ""}
-          href={periodHref(action, hiddenParams, option.value)}
-          aria-current={option.value === activePeriod ? "page" : undefined}
-        >
-          {option.label}
-        </Link>
-      ))}
+      {options.map((option) =>
+        option.disabled ? (
+          <span key={option.value} className="disabled" aria-disabled="true">
+            {option.label}
+          </span>
+        ) : (
+          <Link
+            key={option.value}
+            className={option.value === activePeriod ? "active" : ""}
+            href={periodHref(action, hiddenParams, option.value)}
+            aria-current={option.value === activePeriod ? "page" : undefined}
+          >
+            {option.label}
+          </Link>
+        ),
+      )}
     </div>
   );
 }
@@ -177,23 +196,49 @@ function PeriodOptionList({
 }) {
   return (
     <div className="period-option-list">
-      {options.map((option) => (
-        <Link
-          key={option.value}
-          className={option.value === activePeriod ? "active" : ""}
-          href={periodHref(action, hiddenParams, option.value)}
-          aria-current={option.value === activePeriod ? "page" : undefined}
-        >
-          <span>{option.label}</span>
-          {option.meta ? <small>{option.meta}</small> : null}
-        </Link>
-      ))}
+      {options.map((option) =>
+        option.disabled ? (
+          <span key={option.value} className="disabled" aria-disabled="true">
+            <span>{option.label}</span>
+            {option.meta ? <small>{option.meta}</small> : null}
+          </span>
+        ) : (
+          <Link
+            key={option.value}
+            className={option.value === activePeriod ? "active" : ""}
+            href={periodHref(action, hiddenParams, option.value)}
+            aria-current={option.value === activePeriod ? "page" : undefined}
+          >
+            <span>{option.label}</span>
+            {option.meta ? <small>{option.meta}</small> : null}
+          </Link>
+        ),
+      )}
     </div>
   );
 }
 
 function getReferenceDate(activePeriod: string): Date {
-  return periodStartDate(activePeriod);
+  const activeStart = periodStartDate(activePeriod);
+  const now = new Date();
+
+  if (periodKind(activePeriod) === "year") {
+    const year = activeStart.getUTCFullYear();
+    const month = now.getUTCMonth();
+    const day = Math.min(now.getUTCDate(), daysInMonth(year, month));
+
+    return new Date(Date.UTC(year, month, day));
+  }
+
+  if (
+    periodKind(activePeriod) === "month" &&
+    activeStart.getUTCFullYear() === now.getUTCFullYear() &&
+    activeStart.getUTCMonth() === now.getUTCMonth()
+  ) {
+    return now;
+  }
+
+  return activeStart;
 }
 
 function getYearOptions(activePeriod: string): PeriodOption[] {
@@ -206,6 +251,7 @@ function getYearOptions(activePeriod: string): PeriodOption[] {
   years.add(String(periodStartDate(activePeriod).getUTCFullYear()));
 
   return [...years].sort().reverse().map((period) => ({
+    disabled: period !== activePeriod && isFuturePeriod(period),
     label: period,
     value: period,
   }));
@@ -221,6 +267,7 @@ function getMonthOptions(referenceDate: Date, activePeriod: string): PeriodOptio
   if (periodKind(activePeriod) === "month") months.add(activePeriod);
 
   return [...months].sort().map((period) => ({
+    disabled: period !== activePeriod && isFuturePeriod(period),
     label: new Intl.DateTimeFormat("en", {
       month: "short",
       timeZone: "UTC",
@@ -238,6 +285,7 @@ function getWeekOptions(referenceDate: Date, activePeriod: string): PeriodOption
   if (periodKind(activePeriod) === "week") weeks.add(activePeriod);
 
   return [...weeks].sort().reverse().map((period) => ({
+    disabled: period !== activePeriod && isFuturePeriod(period),
     label: formatWeekRange(period),
     meta: formatPeriodLabel(period),
     value: period,
@@ -266,4 +314,11 @@ function summaryLabel(period: string): string {
   return formatPeriodLabel(period);
 }
 
-export { formatPeriodLabel } from "@/lib/periods";
+function isFuturePeriod(period: string): boolean {
+  const currentPeriod = periodForKind(periodKind(period), new Date());
+  return periodStartDate(period).getTime() > periodStartDate(currentPeriod).getTime();
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+}

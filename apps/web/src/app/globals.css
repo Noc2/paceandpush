@@ -217,7 +217,9 @@ a {
 .period-step,
 .period-menu summary,
 .period-option-grid a,
+.period-option-grid span,
 .period-option-list a,
+.period-option-list > span,
 .period-popover-tabs a {
   min-height: 38px;
   color: var(--ink);
@@ -261,6 +263,14 @@ a {
   flex: 0 0 auto;
   font-size: 24px;
   line-height: 1;
+}
+
+.period-step.disabled,
+.period-option-grid span.disabled,
+.period-option-list > span.disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.56;
 }
 
 .period-menu {
@@ -364,6 +374,15 @@ a {
   padding: 10px 8px;
 }
 
+.period-option-grid span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 10px 8px;
+}
+
 .period-option-list {
   display: grid;
   max-height: 320px;
@@ -371,7 +390,8 @@ a {
   border-top: 1px solid var(--line);
 }
 
-.period-option-list a {
+.period-option-list a,
+.period-option-list > span {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
@@ -381,6 +401,12 @@ a {
 }
 
 .period-option-list a span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.period-option-list > span span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
