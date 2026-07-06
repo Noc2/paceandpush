@@ -44,10 +44,11 @@ The iOS test targets live in `apps/ios/PacePushTests` and
 Run the full simulator suite:
 
 ```sh
+SIMULATOR_UDID="$(node scripts/select-ios-simulator.mjs)"
 xcodebuild \
   -project apps/ios/PacePush.xcodeproj \
   -scheme PacePush \
-  -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+  -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
   -derivedDataPath .build/ios \
   -resultBundlePath .build/ios/PacePushTests.xcresult \
   test \

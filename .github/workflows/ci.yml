@@ -39,12 +39,19 @@ jobs:
           xcodebuild -showsdks
           xcrun simctl list devices available
 
+      - name: Select iOS simulator
+        id: ios-simulator
+        run: |
+          SIMULATOR_UDID="$(node scripts/select-ios-simulator.mjs)"
+          echo "Selected simulator ${SIMULATOR_UDID}"
+          echo "udid=${SIMULATOR_UDID}" >> "$GITHUB_OUTPUT"
+
       - name: Run iOS tests
         run: |
           xcodebuild \
             -project apps/ios/PacePush.xcodeproj \
             -scheme PacePush \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination 'platform=iOS Simulator,id=${{ steps.ios-simulator.outputs.udid }}' \
             -derivedDataPath .build/ios \
             -resultBundlePath .build/ios/PacePushTests.xcresult \
             test \
