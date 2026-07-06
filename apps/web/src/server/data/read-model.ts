@@ -117,9 +117,10 @@ export async function getAccountProfile({
   };
 }
 
-export async function getMe(sessionUser: SessionUser | null): Promise<MeResponse> {
-  const period = currentPeriod();
-
+export async function getMe(
+  sessionUser: SessionUser | null,
+  period = currentPeriod(),
+): Promise<MeResponse> {
   if (!isDatabaseConfigured()) {
     return {
       login: sessionUser?.login ?? "guest",
@@ -161,6 +162,13 @@ export function parseBoard(value: string | null): Board {
     return value;
   }
   return "balanced";
+}
+
+export function parsePeriod(value: string | null): string {
+  if (value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value)) {
+    return value;
+  }
+  return currentPeriod();
 }
 
 async function getScoreSummary(userId: string, period: string): Promise<ScoreSummary> {

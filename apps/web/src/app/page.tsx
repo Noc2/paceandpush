@@ -1,5 +1,5 @@
 import { getSessionUser } from "@/server/auth/session";
-import { getLeaderboard, getMe, parseBoard } from "@/server/data/read-model";
+import { getLeaderboard, getMe, parseBoard, parsePeriod } from "@/server/data/read-model";
 import type { Board, LeaderboardRow } from "@paceandpush/api-contracts";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
@@ -21,9 +21,10 @@ type HomePageProps = {
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = searchParams ? await searchParams : {};
   const board = parseBoard(params.board ?? null);
+  const period = parsePeriod(params.period ?? null);
   const [leaderboard, me] = await Promise.all([
-    getLeaderboard(board, params.period),
-    getMe(await getSessionUser()),
+    getLeaderboard(board, period),
+    getMe(await getSessionUser(), period),
   ]);
 
   return (
@@ -41,7 +42,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <Stat label={runningDistanceLabel(me.units)} value={formatDistance(me.score.kilometers, me.units)} />
         </section>
 
-        <BoardTabs active={leaderboard.board} units={me.units} />
+        <PeriodSelector activePeriod={leaderboard.period} board={leaderboard.board} />
+        <BoardTabs active={leaderboard.board} period={leaderboard.period} units={me.units} />
         <LeaderboardTable rows={leaderboard.rows} units={me.units} />
       </section>
     </main>
@@ -81,7 +83,36 @@ function AppHeader({ login }: { login: string }) {
   );
 }
 
-function BoardTabs({ active, units }: { active: Board; units: UnitPreference }) {
+function PeriodSelector({ activePeriod, board }: { activePeriod: string; board: Board }) {
+  const options = getPeriodOptions(activePeriod);
+
+  return (
+    <form className="period-selector" action="/" method="get" aria-label="Score period">
+      <input type="hidden" name="board" value={board} />
+      <label htmlFor="period">Period</label>
+      <select id="period" name="period" defaultValue={activePeriod}>
+        {options.map((period) => (
+          <option key={period} value={period}>
+            {formatPeriodLabel(period)}
+          </option>
+        ))}
+      </select>
+      <button className="button" type="submit">
+        Apply
+      </button>
+    </form>
+  );
+}
+
+function BoardTabs({
+  active,
+  period,
+  units,
+}: {
+  active: Board;
+  period: string;
+  units: UnitPreference;
+}) {
   const boards: Array<{ id: Board; label: string }> = [
     { id: "balanced", label: "Balanced" },
     { id: "commits", label: "Commits" },
@@ -94,7 +125,7 @@ function BoardTabs({ active, units }: { active: Board; units: UnitPreference }) 
         <Link
           key={board.id}
           className={board.id === active ? "active" : ""}
-          href={`/?board=${board.id}`}
+          href={`/?board=${board.id}&period=${period}`}
         >
           {board.label}
         </Link>
@@ -149,4 +180,29 @@ function Stat({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function getPeriodOptions(activePeriod: string): string[] {
+  const now = new Date();
+  const periods = new Set<string>();
+
+  for (let offset = 0; offset < 12; offset += 1) {
+    periods.add(toPeriod(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1))));
+  }
+
+  periods.add(activePeriod);
+  return [...periods].sort().reverse();
+}
+
+function toPeriod(date: Date): string {
+  return date.toISOString().slice(0, 7);
+}
+
+function formatPeriodLabel(period: string): string {
+  const [year, month] = period.split("-").map(Number);
+  return new Intl.DateTimeFormat("en", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
 }

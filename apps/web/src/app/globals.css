@@ -188,6 +188,31 @@ a {
   line-height: 1;
 }
 
+.period-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 0 0;
+}
+
+.period-selector label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.period-selector select {
+  min-height: 38px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 8px 36px 8px 12px;
+  font: inherit;
+  font-weight: 800;
+}
+
 .mobile-connect-section h2 {
   margin: 0 0 10px;
   font-size: 30px;
@@ -767,6 +792,11 @@ a {
   .mobile-connect-section,
   .chart-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .period-selector {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .mobile-connect-section {
