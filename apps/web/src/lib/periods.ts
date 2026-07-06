@@ -89,6 +89,11 @@ export function shiftPeriod(period: string, offset: number): string {
   return toMonthPeriod(new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + offset, 1)));
 }
 
+export function isCurrentOrPreviousPeriod(period: string, date = new Date()): boolean {
+  const activePeriod = periodForKind(periodKind(period), date);
+  return period === activePeriod || period === shiftPeriod(activePeriod, -1);
+}
+
 export function toMonthPeriod(date: Date): string {
   return date.toISOString().slice(0, 7);
 }

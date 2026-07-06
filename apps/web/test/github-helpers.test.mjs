@@ -10,6 +10,7 @@ const require = createRequire(import.meta.url);
 const contributions = await loadTypeScriptModule("../src/server/github/contributions.ts");
 const mobileTokens = await loadTypeScriptModule("../src/server/mobile/tokens.ts");
 const oauth = await loadTypeScriptModule("../src/server/github/oauth.ts");
+const periods = await loadTypeScriptModule("../src/lib/periods.ts");
 const tokenCrypto = await loadTypeScriptModule("../src/server/github/token-crypto.ts");
 
 test("GitHub contribution windows cover each UTC date inclusively", () => {
@@ -250,6 +251,20 @@ test("embed svg route has a sandboxed content security policy", async () => {
   assert.match(source, /default-src 'none'/);
   assert.match(source, /sandbox/);
   assert.match(source, /x-content-type-options/);
+});
+
+test("public snapshot refreshes are limited to current and previous periods", () => {
+  const now = new Date("2026-07-06T12:00:00.000Z");
+
+  assert.equal(periods.isCurrentOrPreviousPeriod("2026-07", now), true);
+  assert.equal(periods.isCurrentOrPreviousPeriod("2026-06", now), true);
+  assert.equal(periods.isCurrentOrPreviousPeriod("2026-05", now), false);
+  assert.equal(periods.isCurrentOrPreviousPeriod("2026", now), true);
+  assert.equal(periods.isCurrentOrPreviousPeriod("2025", now), true);
+  assert.equal(periods.isCurrentOrPreviousPeriod("2024", now), false);
+  assert.equal(periods.isCurrentOrPreviousPeriod("2026-W28", now), true);
+  assert.equal(periods.isCurrentOrPreviousPeriod("2026-W27", now), true);
+  assert.equal(periods.isCurrentOrPreviousPeriod("2026-W26", now), false);
 });
 
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {

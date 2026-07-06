@@ -19,6 +19,7 @@ import {
 } from "@/server/data/scores";
 import { getDb, isDatabaseConfigured } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/server/db/schema";
+import { isCurrentOrPreviousPeriod } from "@/lib/periods";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 type LeaderboardSnapshotRow = {
@@ -50,7 +51,7 @@ export async function getLeaderboard(
   }
 
   let rows = await getLeaderboardSnapshotRows(board, period);
-  if (rows.length === 0) {
+  if (rows.length === 0 && isCurrentOrPreviousPeriod(period)) {
     try {
       await recomputeScoreSnapshots(period);
       rows = await getLeaderboardSnapshotRows(board, period);
@@ -197,7 +198,7 @@ export async function getPublicProfile(
 
   if (!user) return null;
 
-  if (!(await hasScoreSnapshot(user.id, period))) {
+  if (!(await hasScoreSnapshot(user.id, period)) && isCurrentOrPreviousPeriod(period)) {
     try {
       await recomputeScoreSnapshots(period);
     } catch (error) {
