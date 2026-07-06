@@ -33,8 +33,6 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.healthcare-fitness</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Pace &amp; Push uses the camera to scan website pairing QR codes.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Pace &amp; Push reads running workouts from HealthKit to calculate daily running distance.</string>
 	<key>NSHealthUpdateUsageDescription</key>

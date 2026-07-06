@@ -3,8 +3,6 @@ import Foundation
 import Security
 import SwiftUI
 import UIKit
-import Vision
-import VisionKit
 
 @main
 struct PacePushApp: App {
@@ -62,7 +60,6 @@ struct MainTabsView: View {
 
 struct OnboardingView: View {
     @EnvironmentObject private var store: PacePushStore
-    @State private var showingPairingScanner = false
 
     var body: some View {
         NavigationStack {
@@ -86,25 +83,14 @@ struct OnboardingView: View {
                         detail: store.isGitHubConnected ? "@\(store.me.login) connected" : "Used for commit counts and account identity.",
                         complete: store.isGitHubConnected,
                     ) {
-                        VStack(spacing: 10) {
-                            Button {
-                                showingPairingScanner = true
-                            } label: {
-                                Label("Scan QR", systemImage: "qrcode.viewfinder")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .disabled(store.busy)
-
-                            Button {
-                                Task { await store.connectGitHub() }
-                            } label: {
-                                Label("Connect GitHub", systemImage: "chevron.right.square")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .disabled(store.busy)
+                        Button {
+                            Task { await store.connectGitHub() }
+                        } label: {
+                            Label("Connect GitHub", systemImage: "chevron.right.square")
+                                .frame(maxWidth: .infinity)
                         }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(store.busy)
                     }
 
                     OnboardingStep(
@@ -168,11 +154,6 @@ struct OnboardingView: View {
             }
             .background(Brand.paper)
         }
-        .sheet(isPresented: $showingPairingScanner) {
-            PairingScannerSheet { payload in
-                Task { await store.exchangePairingPayload(payload) }
-            }
-        }
     }
 }
 
@@ -206,146 +187,6 @@ struct OnboardingStep<Actions: View>: View {
             }
         }
         .panelStyle()
-    }
-}
-
-struct PairingScannerSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var scannerError: String?
-
-    let onPayload: (String) -> Void
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if #available(iOS 16.0, *), DataScannerViewController.isSupported, DataScannerViewController.isAvailable {
-                    QRCodeScannerView(
-                        onPayload: { payload in
-                            onPayload(payload)
-                            dismiss()
-                        },
-                        onError: { message in
-                            scannerError = message
-                        },
-                    )
-                    .ignoresSafeArea(edges: .bottom)
-                    .overlay(alignment: .bottom) {
-                        if let scannerError {
-                            Text(scannerError)
-                                .font(.callout.weight(.semibold))
-                                .foregroundStyle(Brand.red)
-                                .padding(12)
-                                .frame(maxWidth: .infinity)
-                                .background(Brand.paper)
-                                .overlay(Rectangle().stroke(Brand.ink, lineWidth: 2))
-                                .padding()
-                        }
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Label("QR scanning is unavailable on this device.", systemImage: "camera.fill")
-                            .font(.title3.bold())
-                        Text("Use Connect GitHub to pair this iPhone instead.")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(Brand.ink.opacity(0.68))
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .padding(20)
-                    .background(Brand.paper)
-                }
-            }
-            .navigationTitle("Scan Pairing QR")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-
-@available(iOS 16.0, *)
-struct QRCodeScannerView: UIViewControllerRepresentable {
-    let onPayload: (String) -> Void
-    let onError: (String) -> Void
-
-    func makeUIViewController(context: Context) -> DataScannerViewController {
-        let controller = DataScannerViewController(
-            recognizedDataTypes: [.barcode(symbologies: [.qr])],
-            qualityLevel: .balanced,
-            recognizesMultipleItems: false,
-            isHighFrameRateTrackingEnabled: false,
-            isHighlightingEnabled: true,
-        )
-        controller.delegate = context.coordinator
-        return controller
-    }
-
-    func updateUIViewController(_ uiViewController: DataScannerViewController, context: Context) {
-        guard !context.coordinator.startedScanning else { return }
-        context.coordinator.startedScanning = true
-
-        do {
-            try uiViewController.startScanning()
-        } catch {
-            onError(error.localizedDescription)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onPayload: onPayload, onError: onError)
-    }
-
-    final class Coordinator: NSObject, DataScannerViewControllerDelegate {
-        var startedScanning = false
-        private var handledPayload = false
-        private let onPayload: (String) -> Void
-        private let onError: (String) -> Void
-
-        init(onPayload: @escaping (String) -> Void, onError: @escaping (String) -> Void) {
-            self.onPayload = onPayload
-            self.onError = onError
-        }
-
-        func dataScanner(
-            _ dataScanner: DataScannerViewController,
-            didAdd addedItems: [RecognizedItem],
-            allItems: [RecognizedItem],
-        ) {
-            handle(items: addedItems)
-        }
-
-        func dataScanner(
-            _ dataScanner: DataScannerViewController,
-            didTapOn item: RecognizedItem,
-        ) {
-            handle(items: [item])
-        }
-
-        func dataScanner(
-            _ dataScanner: DataScannerViewController,
-            becameUnavailableWithError error: DataScannerViewController.ScanningUnavailable,
-        ) {
-            onError(error.localizedDescription)
-        }
-
-        private func handle(items: [RecognizedItem]) {
-            guard !handledPayload else { return }
-
-            for item in items {
-                guard case .barcode(let barcode) = item,
-                      let payload = barcode.payloadStringValue,
-                      !payload.isEmpty
-                else { continue }
-
-                handledPayload = true
-                onPayload(payload)
-                return
-            }
-        }
     }
 }
 
