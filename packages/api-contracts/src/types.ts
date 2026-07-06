@@ -56,7 +56,14 @@ export interface MeResponse {
   publicLeaderboard: boolean;
   units: "metric" | "imperial";
   score: ScoreSummary;
+  github: GitHubConnectionSummary;
   devices: MobileDeviceSummary[];
+}
+
+export interface GitHubConnectionSummary {
+  connected: boolean;
+  needsReconnect: boolean;
+  updatedAt: string | null;
 }
 
 export interface MobileDeviceSummary {

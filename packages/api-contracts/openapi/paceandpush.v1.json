@@ -35,6 +35,35 @@
         }
       }
     },
+    "/api/me/github/refresh": {
+      "post": {
+        "summary": "Refresh current user's GitHub contribution data",
+        "responses": {
+          "200": {
+            "description": "GitHub contribution data refreshed"
+          },
+          "401": {
+            "description": "GitHub sign-in required"
+          },
+          "409": {
+            "description": "GitHub reconnect required or refresh failed"
+          }
+        }
+      }
+    },
+    "/api/me/github/disconnect": {
+      "delete": {
+        "summary": "Disconnect current user's stored GitHub refresh credential",
+        "responses": {
+          "200": {
+            "description": "GitHub refresh credential disconnected"
+          },
+          "401": {
+            "description": "GitHub sign-in required"
+          }
+        }
+      }
+    },
     "/api/me/privacy-export": {
       "get": {
         "summary": "Export current user's stored account data",

@@ -3,6 +3,7 @@ import { getMe } from "@/server/data/read-model";
 import { distanceUnitLabel } from "@/lib/distance-units";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
+import { GitHubConnectionControl } from "./GitHubConnectionControl";
 import { LeaderboardVisibilityControl } from "./LeaderboardVisibilityControl";
 import { MobileConnectPanel } from "./MobileConnectPanel";
 import { UnitPreferenceControl } from "./UnitPreferenceControl";
@@ -66,7 +67,9 @@ export default async function SettingsPage() {
             <Link className="button button-primary settings-cta" href="/api/github/oauth/start">
               Connect GitHub
             </Link>
-          ) : null}
+          ) : (
+            <GitHubConnectionControl initialGithub={me.github} />
+          )}
           {me.login === "guest" ? (
             <SettingsRow label="Leaderboard" value="Private" />
           ) : (

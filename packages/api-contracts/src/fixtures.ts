@@ -69,6 +69,11 @@ export const seedMe: MeResponse = {
     kilometers: 86.4,
     lastSyncAt: "2026-07-03T13:45:00.000Z",
   },
+  github: {
+    connected: true,
+    needsReconnect: false,
+    updatedAt: "2026-07-03T13:45:00.000Z",
+  },
   devices: [],
 };
 

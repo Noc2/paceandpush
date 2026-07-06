@@ -17,6 +17,12 @@ import {
 } from "@/server/github/token-crypto";
 import { eq } from "drizzle-orm";
 
+export interface GitHubConnectionSummary {
+  connected: boolean;
+  needsReconnect: boolean;
+  updatedAt: string | null;
+}
+
 export interface AccountUser extends SessionUser {
   id: string;
   bio: string | null;
@@ -101,6 +107,32 @@ export async function getGitHubAccessToken(userId: string): Promise<string | nul
   return decryptGitHubAccessToken(account.accessTokenEncrypted);
 }
 
+export async function getGitHubConnectionSummary(
+  userId: string,
+): Promise<GitHubConnectionSummary> {
+  const [account] = await getDb()
+    .select({
+      accessTokenEncrypted: githubAccounts.accessTokenEncrypted,
+      accessTokenHash: githubAccounts.accessTokenHash,
+      accessTokenEncryptedAt: githubAccounts.accessTokenEncryptedAt,
+      updatedAt: githubAccounts.updatedAt,
+    })
+    .from(githubAccounts)
+    .where(eq(githubAccounts.userId, userId))
+    .limit(1);
+
+  const connected = Boolean(account?.accessTokenEncrypted);
+
+  return {
+    connected,
+    needsReconnect: Boolean(account && !connected && account.accessTokenHash),
+    updatedAt:
+      account?.accessTokenEncryptedAt?.toISOString() ??
+      account?.updatedAt?.toISOString() ??
+      null,
+  };
+}
+
 export async function listGitHubAccountsForScoreRefresh(): Promise<
   Array<{ userId: string; login: string; accessToken: string | null }>
 > {
@@ -175,6 +207,23 @@ export async function updateAccountSettings({
     publicLeaderboard: updatedUser.publicLeaderboard,
     units: updatedUser.units === "imperial" ? "imperial" : "metric",
   };
+}
+
+export async function disconnectGitHubAccount(userId: string): Promise<void> {
+  const db = getDb();
+  await db
+    .update(githubAccounts)
+    .set({
+      accessTokenHash: null,
+      accessTokenEncrypted: null,
+      accessTokenEncryptionKeyId: null,
+      accessTokenEncryptedAt: null,
+      scopes: [],
+      updatedAt: new Date(),
+    })
+    .where(eq(githubAccounts.userId, userId));
+  await db.delete(commitDays).where(eq(commitDays.userId, userId));
+  await db.delete(scoreSnapshots).where(eq(scoreSnapshots.userId, userId));
 }
 
 export async function exportAccountData(userId: string) {

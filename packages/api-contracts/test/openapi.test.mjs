@@ -10,6 +10,8 @@ test("OpenAPI lists the production route surface", () => {
   for (const path of [
     "/api/me",
     "/api/me/settings",
+    "/api/me/github/refresh",
+    "/api/me/github/disconnect",
     "/api/me/privacy-export",
     "/api/me/delete",
     "/api/leaderboard",

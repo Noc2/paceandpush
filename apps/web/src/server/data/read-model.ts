@@ -9,7 +9,7 @@ import type {
   UserSearchResponse,
 } from "@paceandpush/api-contracts";
 import type { SessionUser } from "@/server/auth/session";
-import { getAccountUser } from "@/server/data/accounts";
+import { getAccountUser, getGitHubConnectionSummary } from "@/server/data/accounts";
 import { listMobileDevices } from "@/server/data/mobile";
 import {
   currentPeriod,
@@ -251,6 +251,7 @@ export async function getMe(
       publicLeaderboard: false,
       units: "metric",
       score: emptyScore(period),
+      github: emptyGitHubConnection(),
       devices: [],
     };
   }
@@ -264,6 +265,7 @@ export async function getMe(
       publicLeaderboard: false,
       units: "metric",
       score: emptyScore(period),
+      github: emptyGitHubConnection(),
       devices: [],
     };
   }
@@ -276,6 +278,7 @@ export async function getMe(
     publicLeaderboard: account.publicLeaderboard,
     units: account.units,
     score,
+    github: await getGitHubConnectionSummary(account.id),
     devices: await listMobileDevices(account.id),
   };
 }
@@ -498,5 +501,13 @@ function emptyScore(period: string): ScoreSummary {
     commits: 0,
     kilometers: 0,
     lastSyncAt: null,
+  };
+}
+
+function emptyGitHubConnection() {
+  return {
+    connected: false,
+    needsReconnect: false,
+    updatedAt: null,
   };
 }
