@@ -1,15 +1,3 @@
-:root {
-  --paper: #fbf8ef;
-  --ink: #1f1c17;
-  --muted: #766f63;
-  --line: #ded6c8;
-  --green: #2f9e44;
-  --coral: #f15a3a;
-  --orange: #f97316;
-  --blue: #3277b8;
-  --yellow: #f6c85f;
-}
-
 * {
   box-sizing: border-box;
 }

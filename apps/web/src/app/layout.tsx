@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cssVariables } from "@paceandpush/brand";
 import { SiteFooter } from "./SiteFooter";
 import "./globals.css";
 
@@ -14,6 +15,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <style
+          id="pace-push-brand-tokens"
+          dangerouslySetInnerHTML={{ __html: cssVariables }}
+        />
+      </head>
       <body>
         <div className="site-root">
           {children}

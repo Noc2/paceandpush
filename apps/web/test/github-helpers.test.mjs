@@ -544,6 +544,18 @@ test("production builds validate required environment variables", async () => {
   assert.match(envExample, /POSTGRES_URL=/);
 });
 
+test("web layout consumes shared brand CSS variables", async () => {
+  const layoutSource = await readFile(
+    new URL("../src/app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  const globalCss = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
+
+  assert.match(layoutSource, /import \{ cssVariables \} from "@paceandpush\/brand"/);
+  assert.match(layoutSource, /dangerouslySetInnerHTML=\{\{ __html: cssVariables \}\}/);
+  assert.doesNotMatch(globalCss, /^:root \{/m);
+});
+
 test("sync run validation accepts omitted finishedAt and null errorSummary", async () => {
   const routeSource = await readFile(
     new URL("../src/app/api/mobile/sync-runs/route.ts", import.meta.url),
