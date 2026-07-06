@@ -401,16 +401,34 @@ struct TodayView: View {
 struct LeaderboardView: View {
     @EnvironmentObject private var store: PacePushStore
     @State private var board = Board.balanced
+    @State private var searchText = ""
 
     var rows: [LeaderboardRow] {
+        let filteredRows = filteredLeaderboardRows
         switch board {
         case .balanced:
-            return store.leaderboard.rows.sorted { $0.score > $1.score }
+            return filteredRows.sorted { $0.score > $1.score }
         case .commits:
-            return store.leaderboard.rows.sorted { $0.commits > $1.commits }
+            return filteredRows.sorted { $0.commits > $1.commits }
         case .distance:
-            return store.leaderboard.rows.sorted { $0.kilometers > $1.kilometers }
+            return filteredRows.sorted { $0.kilometers > $1.kilometers }
         }
+    }
+
+    var filteredLeaderboardRows: [LeaderboardRow] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return store.leaderboard.rows }
+
+        return store.leaderboard.rows.filter { row in
+            row.login.localizedCaseInsensitiveContains(query) ||
+            row.displayName.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    var emptyMessage: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "No public scores yet."
+            : "No matching public developers."
     }
 
     var body: some View {
@@ -425,7 +443,7 @@ struct LeaderboardView: View {
                 .listRowBackground(Brand.paper)
 
                 if rows.isEmpty {
-                    Text("No public scores yet.")
+                    Text(emptyMessage)
                         .foregroundStyle(Brand.ink.opacity(0.66))
                         .listRowBackground(Brand.paper)
                 }
@@ -438,6 +456,7 @@ struct LeaderboardView: View {
             .scrollContentBackground(.hidden)
             .background(Brand.paper)
             .navigationTitle("Leaderboard")
+            .searchable(text: $searchText, prompt: "Developer")
             .toolbar {
                 Button {
                     Task { await store.refresh() }
