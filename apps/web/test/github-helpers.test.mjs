@@ -491,6 +491,20 @@ test("GitHub login lookup allows username recycling", async () => {
   assert.match(readModelSource, /orderBy\(desc\(users\.updatedAt\)\)/);
 });
 
+test("production builds validate required environment variables", async () => {
+  const nextConfig = await readFile(
+    new URL("../next.config.ts", import.meta.url),
+    "utf8",
+  );
+  const envExample = await readFile(new URL("../../../.env.example", import.meta.url), "utf8");
+
+  assert.match(nextConfig, /process\.env\.VERCEL_ENV !== "production"/);
+  assert.match(nextConfig, /NEXT_PUBLIC_APP_URL/);
+  assert.match(nextConfig, /DATABASE_URL && !process\.env\.POSTGRES_URL/);
+  assert.match(nextConfig, /MOBILE_TOKEN_SECRET must be distinct/);
+  assert.match(envExample, /POSTGRES_URL=/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");
