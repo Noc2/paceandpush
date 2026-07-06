@@ -1,13 +1,11 @@
-import { getSessionUser } from "@/server/auth/session";
-import { getLeaderboard, getMe, parsePeriod, searchPublicUsers } from "@/server/data/read-model";
+import { AppDownloadActions } from "@/app/AppDownloadActions";
+import { getLeaderboard, parsePeriod, searchPublicUsers } from "@/server/data/read-model";
 import type { LeaderboardRow } from "@paceandpush/api-contracts";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
 import { PeriodSelector } from "@/app/PeriodSelector";
 import {
-  distanceUnitAbbreviation,
   formatDistance,
-  runningDistanceLabel,
   runningDistanceShortLabel,
   type UnitPreference,
 } from "@/lib/distance-units";
@@ -31,12 +29,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const sort = parseLeaderboardSort(params.sort) ?? parseLeaderboardSort(params.board) ?? "score";
   const direction = parseSortDirection(params.dir, sort);
   const searchQuery = parseSearchQuery(params.q);
-  const [leaderboardResult, me] = await Promise.all([
-    searchQuery
-      ? searchPublicUsers({ period, query: searchQuery })
-      : getLeaderboard("balanced", period),
-    getMe(await getSessionUser(), period),
-  ]);
+  const leaderboardResult = searchQuery
+    ? await searchPublicUsers({ period, query: searchQuery })
+    : await getLeaderboard("balanced", period);
   const hiddenParams = [
     { name: "sort", value: sort },
     { name: "dir", value: direction },
@@ -46,18 +41,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   return (
     <main className="app-shell">
       <section className="app-frame" aria-label="Pace and Push leaderboard">
-        <AppHeader login={me.login} />
+        <AppHeader />
         <h1 className="sr-only">Pace & Push leaderboard</h1>
-
-        <section className="summary-bar" aria-label="Current score">
-          <div>
-            <span>{me.login === "guest" ? "Connect GitHub to start" : "Your score"}</span>
-            <strong>{me.score.score.toFixed(1)}</strong>
-          </div>
-          <Stat label="Rank" value={me.score.rank ? `#${me.score.rank}` : "-"} />
-          <Stat label="Commits" value={String(me.score.commits)} />
-          <Stat label={runningDistanceLabel(me.units)} value={formatDistance(me.score.kilometers, me.units)} />
-        </section>
 
         <PeriodSelector
           activePeriod={leaderboardResult.period}
@@ -76,14 +61,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           query={searchQuery}
           sort={sort}
           direction={direction}
-          units={me.units}
+          units="metric"
         />
       </section>
     </main>
   );
 }
 
-function AppHeader({ login }: { login: string }) {
+function AppHeader() {
   return (
     <header className="topbar">
       <Link href="/" className="brand-lockup" aria-label={brandName}>
@@ -96,16 +81,7 @@ function AppHeader({ login }: { login: string }) {
         </span>
       </Link>
 
-      <nav className="top-actions" aria-label="Primary navigation">
-        <Link className="button" href="/settings">
-          Settings
-        </Link>
-        {login === "guest" ? (
-          <a className="button button-primary" href="/api/github/oauth/start">
-            Connect GitHub
-          </a>
-        ) : null}
-      </nav>
+      <AppDownloadActions />
     </header>
   );
 }
@@ -292,15 +268,6 @@ function getEmptyState(query: string): { description: string; title: string } {
     title: "No public scores yet",
     description: "The leaderboard will fill in after activity is synced and the score job runs.",
   };
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
 }
 
 function parseSearchQuery(value: string | null | undefined): string {

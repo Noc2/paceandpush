@@ -1,12 +1,10 @@
+import { AppDownloadActions } from "@/app/AppDownloadActions";
 import {
   distanceUnitAbbreviation,
   formatDistance,
-  parseUnitPreference,
   runningDistanceLabel,
   runningDistanceShortLabel,
 } from "@/lib/distance-units";
-import { getSessionUser } from "@/server/auth/session";
-import { getAccountUser } from "@/server/data/accounts";
 import { getLeaderboard, getPublicProfile, parsePeriod } from "@/server/data/read-model";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
@@ -27,14 +25,10 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   const { login } = await params;
   const query = searchParams ? await searchParams : {};
   const period = parsePeriod(query.period ?? null);
-  const sessionUser = await getSessionUser();
-  const [profile, viewer] = await Promise.all([
-    getPublicProfile(decodeURIComponent(login), period),
-    getAccountUser(sessionUser),
-  ]);
+  const profile = await getPublicProfile(decodeURIComponent(login), period);
   if (!profile) notFound();
 
-  const units = parseUnitPreference(viewer?.units);
+  const units = "metric";
   const leaderboard = await getLeaderboard("balanced", period);
   const row = leaderboard.rows.find(
     (leader) => leader.login.toLowerCase() === profile.login.toLowerCase(),
@@ -57,9 +51,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
               <small>{brandTagline}</small>
             </span>
           </Link>
-          <Link className="button" href={`/?period=${profile.score.period}`}>
-            Leaderboard
-          </Link>
+          <AppDownloadActions />
         </header>
 
         <section className="profile-hero">

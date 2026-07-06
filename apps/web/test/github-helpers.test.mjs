@@ -637,6 +637,8 @@ test("production runtime validates required environment variables", async () => 
   assert.match(mobileTokens, /MOBILE_TOKEN_SECRET must be distinct/);
   assert.match(cronJob, /process\.env\.CRON_SECRET/);
   assert.match(envExample, /NEXT_PUBLIC_APP_URL=/);
+  assert.match(envExample, /NEXT_PUBLIC_IOS_APP_URL=/);
+  assert.match(envExample, /NEXT_PUBLIC_ANDROID_APP_URL=/);
   assert.match(envExample, /POSTGRES_URL=/);
   assert.match(envExample, /CRON_SECRET=/);
 });
@@ -668,15 +670,24 @@ test("web layout consumes shared brand CSS variables", async () => {
   assert.doesNotMatch(globalCss, /^:root \{/m);
 });
 
-test("homepage has accessible heading cells and settings link", async () => {
+test("homepage has accessible heading cells and app download actions", async () => {
   const pageSource = await readFile(new URL("../src/app/page.tsx", import.meta.url), "utf8");
+  const downloadActionsSource = await readFile(
+    new URL("../src/app/AppDownloadActions.tsx", import.meta.url),
+    "utf8",
+  );
   const globalCss = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
 
   assert.match(pageSource, /<h1 className="sr-only">Pace & Push leaderboard<\/h1>/);
-  assert.match(pageSource, /href="\/settings"/);
+  assert.match(pageSource, /<AppDownloadActions \/>/);
+  assert.doesNotMatch(pageSource, /href="\/settings"/);
   assert.doesNotMatch(pageSource, /Mobile apps/);
+  assert.match(downloadActionsSource, /NEXT_PUBLIC_IOS_APP_URL/);
+  assert.match(downloadActionsSource, /NEXT_PUBLIC_ANDROID_APP_URL/);
+  assert.match(downloadActionsSource, /QRCode\.toDataURL/);
   assert.match(pageSource, /role="cell"/);
   assert.match(globalCss, /\.sr-only/);
+  assert.match(globalCss, /\.download-modal/);
 });
 
 test("sync run validation accepts omitted finishedAt and null errorSummary", async () => {
