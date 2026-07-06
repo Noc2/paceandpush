@@ -7,7 +7,7 @@ import { getDb } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, users } from "@/server/db/schema";
 import { fetchGitHubContributionDays } from "@/server/github/contributions";
 import { currentPeriod, periodBounds } from "@/lib/periods";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, lte, notInArray, sql } from "drizzle-orm";
 
 interface ScoreTotals {
   userId: string;
@@ -80,38 +80,47 @@ export async function refreshGitHubCommitsForUser({
   });
   const activeDays = dayCounts.filter((day) => day.totalCount > 0);
 
+  if (activeDays.length > 0) {
+    await getDb()
+      .insert(commitDays)
+      .values(
+        activeDays.map((day) => ({
+          userId,
+          day: day.day,
+          commitCount: day.totalCount,
+          sourceMetadata: {
+            source: "github_graphql_contributions_collection",
+            publicCommitCount: day.publicCommits,
+            restrictedContributionCount: day.restrictedContributions,
+            fields: ["totalCommitContributions", "restrictedContributionsCount"],
+            note:
+              "restrictedContributionsCount is GitHub's private/restricted contribution aggregate visible to this token.",
+          },
+          updatedAt: new Date(),
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [commitDays.userId, commitDays.day],
+        set: {
+          commitCount: sql`excluded.commit_count`,
+          sourceMetadata: sql`excluded.source_metadata`,
+          updatedAt: new Date(),
+        },
+      });
+  }
+
   await getDb()
     .delete(commitDays)
-    .where(and(eq(commitDays.userId, userId), gte(commitDays.day, start), lte(commitDays.day, end)));
-
-  if (activeDays.length === 0) return { updatedDays: 0 };
-
-  await getDb()
-    .insert(commitDays)
-    .values(
-      activeDays.map((day) => ({
-        userId,
-        day: day.day,
-        commitCount: day.totalCount,
-        sourceMetadata: {
-          source: "github_graphql_contributions_collection",
-          publicCommitCount: day.publicCommits,
-          restrictedContributionCount: day.restrictedContributions,
-          fields: ["totalCommitContributions", "restrictedContributionsCount"],
-          note:
-            "restrictedContributionsCount is GitHub's private/restricted contribution aggregate visible to this token.",
-        },
-        updatedAt: new Date(),
-      })),
-    )
-    .onConflictDoUpdate({
-      target: [commitDays.userId, commitDays.day],
-      set: {
-        commitCount: sql`excluded.commit_count`,
-        sourceMetadata: sql`excluded.source_metadata`,
-        updatedAt: new Date(),
-      },
-    });
+    .where(
+      and(
+        eq(commitDays.userId, userId),
+        gte(commitDays.day, start),
+        lte(commitDays.day, end),
+        activeDays.length > 0
+          ? notInArray(commitDays.day, activeDays.map((day) => day.day))
+          : undefined,
+      ),
+    );
 
   return { updatedDays: activeDays.length };
 }

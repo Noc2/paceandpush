@@ -298,6 +298,24 @@ test("leaderboard streaks are loaded in batched queries", async () => {
   assert.match(source, /inArray\(distanceDays\.userId, uniqueUserIds\)/);
 });
 
+test("GitHub commit refresh upserts before deleting stale days", async () => {
+  const source = await readFile(
+    new URL("../src/server/data/scores.ts", import.meta.url),
+    "utf8",
+  );
+  const refreshBlock = source.slice(
+    source.indexOf("export async function refreshGitHubCommitsForUser"),
+    source.indexOf("export async function recomputeScoreSnapshots"),
+  );
+
+  const insertIndex = refreshBlock.indexOf(".insert(commitDays)");
+  const deleteIndex = refreshBlock.indexOf(".delete(commitDays)");
+  assert.notEqual(insertIndex, -1);
+  assert.notEqual(deleteIndex, -1);
+  assert.ok(insertIndex < deleteIndex);
+  assert.match(refreshBlock, /notInArray\(commitDays\.day/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");
