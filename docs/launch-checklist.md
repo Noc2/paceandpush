@@ -3,6 +3,9 @@
 Pace & Push PoC launch target: Vercel-hosted web app at `paceandpush.com`,
 with native iOS and Android companion app betas.
 
+Owner-only production setup is tracked in
+`docs/production-owner-actions.md`.
+
 ## Vercel
 
 - Create a Vercel project from this repository with the repository root as the
