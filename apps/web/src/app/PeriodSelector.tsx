@@ -1,3 +1,10 @@
+import {
+  addDays,
+  formatPeriodLabel,
+  toIsoWeekPeriod,
+  toMonthPeriod,
+} from "@/lib/periods";
+
 type PeriodOption = {
   label: string;
   value: string;
@@ -101,42 +108,4 @@ function getPeriodOptionGroups(activePeriod: string): PeriodOptionGroup[] {
   ];
 }
 
-function toMonthPeriod(date: Date): string {
-  return date.toISOString().slice(0, 7);
-}
-
-export function formatPeriodLabel(period: string): string {
-  if (/^\d{4}$/.test(period)) {
-    return period;
-  }
-
-  const weekMatch = /^(\d{4})-W(\d{2})$/.exec(period);
-  if (weekMatch) {
-    return `Week ${Number(weekMatch[2])}, ${weekMatch[1]}`;
-  }
-
-  const [year, month] = period.split("-").map(Number);
-  return new Intl.DateTimeFormat("en", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, month - 1, 1)));
-}
-
-function toIsoWeekPeriod(date: Date): string {
-  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const day = target.getUTCDay() || 7;
-  target.setUTCDate(target.getUTCDate() + 4 - day);
-
-  const isoYear = target.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
-  const week = Math.ceil(
-    (((target.getTime() - yearStart.getTime()) / (24 * 60 * 60 * 1000)) + 1) / 7,
-  );
-
-  return `${isoYear}-W${String(week).padStart(2, "0")}`;
-}
-
-function addDays(date: Date, days: number): Date {
-  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
-}
+export { formatPeriodLabel } from "@/lib/periods";

@@ -11,7 +11,8 @@ import { getLeaderboard, getPublicProfile, parsePeriod } from "@/server/data/rea
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PeriodSelector, formatPeriodLabel } from "@/app/PeriodSelector";
+import { PeriodSelector } from "@/app/PeriodSelector";
+import { formatPeriodLabel } from "@/lib/periods";
 
 type UserPageProps = {
   params: Promise<{
