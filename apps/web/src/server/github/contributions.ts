@@ -1,5 +1,7 @@
 const githubGraphqlUrl = "https://api.github.com/graphql";
 const githubContributionBatchSize = 14;
+const githubContributionMaxAttempts = 3;
+const githubContributionRetryDelayMs = 250;
 const loginPattern = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/;
 
 export interface GitHubContributionDay {
@@ -59,12 +61,14 @@ export async function fetchGitHubContributionDays({
   end,
   fetchImpl = fetch,
   login,
+  retryDelayMs = githubContributionRetryDelayMs,
   start,
 }: {
   accessToken: string;
   end: string;
   fetchImpl?: FetchLike;
   login: string;
+  retryDelayMs?: number;
   start: string;
 }): Promise<GitHubContributionDay[]> {
   const windows = githubContributionDayWindows(start, end);
@@ -81,6 +85,7 @@ export async function fetchGitHubContributionDays({
       batch,
       fetchImpl,
       login,
+      retryDelayMs,
     })),
   );
 
@@ -101,6 +106,38 @@ function parseDateOnly(value: string): Date {
 }
 
 async function fetchContributionBatch({
+  accessToken,
+  batch,
+  fetchImpl,
+  login,
+  retryDelayMs,
+}: {
+  accessToken: string;
+  batch: GitHubContributionDayWindow[];
+  fetchImpl: FetchLike;
+  login: string;
+  retryDelayMs: number;
+}): Promise<GitHubContributionDay[]> {
+  for (let attempt = 1; attempt <= githubContributionMaxAttempts; attempt += 1) {
+    try {
+      return await fetchContributionBatchOnce({
+        accessToken,
+        batch,
+        fetchImpl,
+        login,
+      });
+    } catch (error) {
+      if (attempt >= githubContributionMaxAttempts || !isRetryableGitHubError(error)) {
+        throw error;
+      }
+      await delay(retryDelayMs * 2 ** (attempt - 1));
+    }
+  }
+
+  throw new Error("GitHub contribution fetch failed.");
+}
+
+async function fetchContributionBatchOnce({
   accessToken,
   batch,
   fetchImpl,
@@ -143,7 +180,7 @@ async function fetchContributionBatch({
   }
 
   if (!response.ok) {
-    throw new Error(`GitHub GraphQL returned ${response.status}.`);
+    throw new GitHubGraphqlHttpError(response.status);
   }
 
   const payload = (await response.json()) as GitHubContributionPayload;
@@ -166,6 +203,24 @@ async function fetchContributionBatch({
       totalCount: publicCommits + restrictedContributions,
     };
   });
+}
+
+class GitHubGraphqlHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`GitHub GraphQL returned ${status}.`);
+  }
+}
+
+function isRetryableGitHubError(error: unknown): boolean {
+  return (
+    error instanceof GitHubGraphqlHttpError &&
+    (error.status === 408 || error.status === 429 || error.status >= 500)
+  );
+}
+
+async function delay(milliseconds: number): Promise<void> {
+  if (milliseconds <= 0) return;
+  await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function normalizeGitHubLogin(login: string): string {

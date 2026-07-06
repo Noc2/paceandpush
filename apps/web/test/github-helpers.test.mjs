@@ -99,6 +99,53 @@ test("GitHub contribution fetch uses GraphQL day batches and includes restricted
   });
 });
 
+test("GitHub contribution fetch retries transient GraphQL HTTP failures", async () => {
+  let calls = 0;
+  const days = await contributions.fetchGitHubContributionDays({
+    accessToken: "token",
+    end: "2026-07-01",
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) {
+        return {
+          ok: false,
+          status: 502,
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            data: {
+              user: {
+                d0: {
+                  totalCommitContributions: 3,
+                  restrictedContributionsCount: 2,
+                },
+              },
+            },
+          };
+        },
+      };
+    },
+    login: "Noc2",
+    retryDelayMs: 0,
+    start: "2026-07-01",
+  });
+
+  assert.equal(calls, 2);
+  assert.deepEqual(plain(days), [
+    {
+      day: "2026-07-01",
+      publicCommits: 3,
+      restrictedContributions: 2,
+      totalCount: 5,
+    },
+  ]);
+});
+
 test("GitHub access tokens round-trip through encrypted storage format", () => {
   const previousKey = process.env.GITHUB_TOKEN_ENCRYPTION_KEY;
   process.env.GITHUB_TOKEN_ENCRYPTION_KEY = "test-secret-with-at-least-thirty-two-characters";
