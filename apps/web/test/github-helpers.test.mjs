@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 
 const contributions = await loadTypeScriptModule("../src/server/github/contributions.ts");
 const mobileTokens = await loadTypeScriptModule("../src/server/mobile/tokens.ts");
+const callbackErrors = await loadTypeScriptModule("../src/server/mobile/callback-errors.ts");
 const oauth = await loadTypeScriptModule("../src/server/github/oauth.ts");
 const periods = await loadTypeScriptModule("../src/lib/periods.ts");
 const streaks = await loadTypeScriptModule("../src/lib/streaks.ts");
@@ -259,6 +260,33 @@ test("account deletion removes mobile auth exchanges before users", async () => 
   assert.notEqual(mobileExchangeDelete, -1);
   assert.notEqual(userDelete, -1);
   assert.ok(mobileExchangeDelete < userDelete);
+});
+
+test("mobile GitHub callback exposes safe error codes", async () => {
+  assert.equal(
+    callbackErrors.mobileGitHubCallbackErrorCode(new Error("Invalid GitHub OAuth callback.")),
+    "github_callback_invalid",
+  );
+  assert.equal(
+    callbackErrors.mobileGitHubCallbackErrorCode(new Error("Mobile auth state is invalid or expired.")),
+    "github_connection_expired",
+  );
+  assert.equal(
+    callbackErrors.mobileGitHubCallbackErrorCode(
+      new Error('Failed query: insert into "mobile_auth_exchanges" params: secret'),
+    ),
+    "github_connection_failed",
+  );
+  assert.equal(
+    callbackErrors.mobileAuthExchangeErrorMessage(
+      new Error('Failed query: insert into "mobile_devices" params: secret'),
+    ),
+    "Could not finish GitHub device setup. Please try connecting GitHub again.",
+  );
+  assert.equal(
+    callbackErrors.mobileAuthExchangeErrorMessage(new Error("Mobile auth code is invalid or expired.")),
+    "GitHub sign-in expired. Please start GitHub connection again.",
+  );
 });
 
 test("privacy export omits internal token and source hashes", async () => {
@@ -576,12 +604,13 @@ test("web layout consumes shared brand CSS variables", async () => {
   assert.doesNotMatch(globalCss, /^:root \{/m);
 });
 
-test("homepage has accessible heading cells and companion app link", async () => {
+test("homepage has accessible heading cells and settings link", async () => {
   const pageSource = await readFile(new URL("../src/app/page.tsx", import.meta.url), "utf8");
   const globalCss = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
 
   assert.match(pageSource, /<h1 className="sr-only">Pace & Push leaderboard<\/h1>/);
-  assert.match(pageSource, /href="\/settings#mobile-apps"/);
+  assert.match(pageSource, /href="\/settings"/);
+  assert.doesNotMatch(pageSource, /Mobile apps/);
   assert.match(pageSource, /role="cell"/);
   assert.match(globalCss, /\.sr-only/);
 });

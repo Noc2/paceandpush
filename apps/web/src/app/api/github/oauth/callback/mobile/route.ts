@@ -8,6 +8,7 @@ import {
   exchangeGitHubCode,
   fetchGitHubUser,
 } from "@/server/github/oauth";
+import { mobileGitHubCallbackErrorCode } from "@/server/mobile/callback-errors";
 import { verifyMobileAuthState } from "@/server/mobile/tokens";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
   const redirectUri = new URL("/api/github/oauth/callback/mobile", appUrl).toString();
+  let fallbackScheme = "pacepush";
 
   try {
     if (!code || !state) {
@@ -23,6 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     const mobileState = verifyMobileAuthState(state);
+    fallbackScheme = mobileState.callbackScheme;
     const token = await exchangeGitHubCode(code, { redirectUri });
     const user = await upsertGitHubAccount({
       user: await fetchGitHubUser(token.accessToken),
@@ -52,11 +55,14 @@ export async function GET(request: NextRequest) {
     );
     return NextResponse.redirect(callbackUrl);
   } catch (error) {
-    const fallback = new URL("pacepush://auth/callback");
-    fallback.searchParams.set(
-      "error",
-      error instanceof Error ? error.message : "Invalid mobile auth callback.",
-    );
+    const errorCode = mobileGitHubCallbackErrorCode(error);
+    console.error("[mobile-github-oauth] callback failed", {
+      error,
+      errorCode,
+    });
+
+    const fallback = new URL(`${fallbackScheme}://auth/callback`);
+    fallback.searchParams.set("error", errorCode);
     return NextResponse.redirect(fallback);
   }
 }

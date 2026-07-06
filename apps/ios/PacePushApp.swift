@@ -100,7 +100,8 @@ struct OnboardingView: View {
                         index: 2,
                         title: "Choose leaderboard visibility",
                         detail: store.publicLeaderboardPreference ? "Your score can appear on public boards." : "Your score stays private.",
-                        complete: store.isGitHubConnected,
+                        complete: store.publicLeaderboardPreferenceChosen,
+                        showsActionsWhenComplete: true,
                     ) {
                         Toggle(
                             "Public leaderboard",
@@ -111,7 +112,7 @@ struct OnboardingView: View {
                                 },
                             ),
                         )
-                        .disabled(store.busy || !store.isGitHubConnected)
+                        .disabled(store.busy)
                     }
 
                     OnboardingStep(
@@ -151,6 +152,11 @@ struct OnboardingView: View {
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(Brand.red)
                             .panelStyle()
+                    } else if let success = store.lastSuccess {
+                        Text(success)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(Brand.green)
+                            .panelStyle()
                     }
                 }
                 .padding(20)
@@ -165,7 +171,24 @@ struct OnboardingStep<Actions: View>: View {
     let title: String
     let detail: String
     let complete: Bool
+    let showsActionsWhenComplete: Bool
     @ViewBuilder let actions: () -> Actions
+
+    init(
+        index: Int,
+        title: String,
+        detail: String,
+        complete: Bool,
+        showsActionsWhenComplete: Bool = false,
+        @ViewBuilder actions: @escaping () -> Actions,
+    ) {
+        self.index = index
+        self.title = title
+        self.detail = detail
+        self.complete = complete
+        self.showsActionsWhenComplete = showsActionsWhenComplete
+        self.actions = actions
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -185,7 +208,7 @@ struct OnboardingStep<Actions: View>: View {
                 }
             }
 
-            if !complete {
+            if showsActionsWhenComplete || !complete {
                 actions()
             }
         }
@@ -444,7 +467,7 @@ struct SettingsView: View {
                             },
                         ),
                     )
-                    .disabled(store.busy || !store.isGitHubConnected)
+                    .disabled(store.busy)
                     Text("Running distance summaries are synced by day. Raw workouts and routes are not uploaded.")
                         .foregroundStyle(Brand.muted)
                 }
@@ -555,6 +578,7 @@ final class PacePushStore: ObservableObject {
     private let firstSyncKey = "firstSyncAt"
     private let unitsKey = "distanceUnits"
     private let publicLeaderboardPreferenceKey = "publicLeaderboardPreference"
+    private let publicLeaderboardPreferenceChosenKey = "publicLeaderboardPreferenceChosen"
     private let keychain = KeychainStore(service: "com.paceandpush.app")
     private let healthSync = HealthKitDistanceSync()
     private let authSession = GitHubAuthSession()
@@ -567,7 +591,9 @@ final class PacePushStore: ObservableObject {
     @Published var healthAuthorized: Bool
     @Published var firstSyncAt: String?
     @Published var publicLeaderboardPreference: Bool
+    @Published var publicLeaderboardPreferenceChosen: Bool
     @Published var lastError: String?
+    @Published var lastSuccess: String?
     @Published var busy = false
     @Published var units: DistanceUnits {
         didSet {
@@ -589,6 +615,7 @@ final class PacePushStore: ObservableObject {
         healthAuthorized = UserDefaults.standard.bool(forKey: healthKey)
         firstSyncAt = UserDefaults.standard.string(forKey: firstSyncKey)
         publicLeaderboardPreference = UserDefaults.standard.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? true
+        publicLeaderboardPreferenceChosen = UserDefaults.standard.bool(forKey: publicLeaderboardPreferenceChosenKey)
         deviceToken = try? keychain.readString(account: tokenKey)
     }
 
@@ -600,11 +627,13 @@ final class PacePushStore: ObservableObject {
     func connectGitHub() async {
         guard let baseURL = URL(string: apiBaseURL) else {
             lastError = "API base URL is invalid."
+            lastSuccess = nil
             return
         }
 
         busy = true
         lastError = nil
+        lastSuccess = nil
         defer { busy = false }
 
         do {
@@ -619,7 +648,8 @@ final class PacePushStore: ObservableObject {
             )
             try await finishGitHubCallback(callback)
         } catch {
-            lastError = error.localizedDescription
+            lastError = userFacingGitHubConnectionError(error)
+            lastSuccess = nil
         }
     }
 
@@ -636,7 +666,8 @@ final class PacePushStore: ObservableObject {
         do {
             try await finishGitHubCallback(url)
         } catch {
-            lastError = error.localizedDescription
+            lastError = userFacingGitHubConnectionError(error)
+            lastSuccess = nil
         }
     }
 
@@ -649,28 +680,33 @@ final class PacePushStore: ObservableObject {
             callbackScheme: callbackScheme,
         ) else {
             lastError = PacePushAPIError.invalidPairingCode.localizedDescription
+            lastSuccess = nil
             return
         }
 
         guard let baseURL = pairing.baseURL ?? currentBaseURL else {
             lastError = "API base URL is invalid."
+            lastSuccess = nil
             return
         }
 
         busy = true
         lastError = nil
+        lastSuccess = nil
         defer { busy = false }
 
         do {
             try await finishPairing(pairing, baseURL: baseURL)
         } catch {
             lastError = error.localizedDescription
+            lastSuccess = nil
         }
     }
 
     func requestHealthAccess() async {
         busy = true
         lastError = nil
+        lastSuccess = nil
         defer { busy = false }
 
         do {
@@ -679,17 +715,21 @@ final class PacePushStore: ObservableObject {
             UserDefaults.standard.set(true, forKey: healthKey)
         } catch {
             lastError = "Apple Health is unavailable or permission was not granted."
+            lastSuccess = nil
         }
     }
 
     func setPublicLeaderboardPreference(_ isPublic: Bool) async {
         publicLeaderboardPreference = isPublic
+        publicLeaderboardPreferenceChosen = true
         UserDefaults.standard.set(isPublic, forKey: publicLeaderboardPreferenceKey)
+        UserDefaults.standard.set(true, forKey: publicLeaderboardPreferenceChosenKey)
 
         guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else { return }
 
         busy = true
         lastError = nil
+        lastSuccess = nil
         defer { busy = false }
 
         do {
@@ -702,17 +742,20 @@ final class PacePushStore: ObservableObject {
             publicLeaderboardPreference = me.publicLeaderboard
             UserDefaults.standard.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
             lastError = error.localizedDescription
+            lastSuccess = nil
         }
     }
 
     func syncRunningDistance() async {
         guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else {
             lastError = "Connect GitHub before syncing."
+            lastSuccess = nil
             return
         }
 
         busy = true
         lastError = nil
+        lastSuccess = nil
         let startedAt = Date()
 
         do {
@@ -754,6 +797,7 @@ final class PacePushStore: ObservableObject {
                 )
             }
             lastError = error.localizedDescription
+            lastSuccess = nil
         }
 
         busy = false
@@ -771,7 +815,9 @@ final class PacePushStore: ObservableObject {
                 leaderboard = try await leaderboardResponse
                 me = try await meResponse
                 publicLeaderboardPreference = me.publicLeaderboard
+                publicLeaderboardPreferenceChosen = true
                 UserDefaults.standard.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
+                UserDefaults.standard.set(true, forKey: publicLeaderboardPreferenceChosenKey)
                 profile = try await profileResponse
             } else {
                 leaderboard = try await leaderboardResponse
@@ -780,8 +826,10 @@ final class PacePushStore: ObservableObject {
         } catch PacePushAPIError.unauthorized {
             signOut()
             lastError = "This device was revoked. Connect GitHub again."
+            lastSuccess = nil
         } catch {
             lastError = error.localizedDescription
+            lastSuccess = nil
         }
     }
 
@@ -792,6 +840,7 @@ final class PacePushStore: ObservableObject {
         UserDefaults.standard.removeObject(forKey: firstSyncKey)
         me = .seed
         profile = .seed
+        lastSuccess = nil
     }
 
     private func savePublicLeaderboardPreference(_ isPublic: Bool, baseURL: URL, token: String) async throws {
@@ -802,7 +851,9 @@ final class PacePushStore: ObservableObject {
             authenticated: true,
         )
         publicLeaderboardPreference = settings.publicLeaderboard
+        publicLeaderboardPreferenceChosen = true
         UserDefaults.standard.set(settings.publicLeaderboard, forKey: publicLeaderboardPreferenceKey)
+        UserDefaults.standard.set(true, forKey: publicLeaderboardPreferenceChosenKey)
     }
 
     func formatDistance(_ kilometers: Double, includeUnit: Bool = false) -> String {
@@ -813,8 +864,8 @@ final class PacePushStore: ObservableObject {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             throw PacePushAPIError.invalidCallback
         }
-        if let message = components.queryItems?.first(where: { $0.name == "error" })?.value {
-            throw PacePushAPIError.server(message)
+        if let code = components.queryItems?.first(where: { $0.name == "error" })?.value {
+            throw PacePushAPIError.server(mobileGitHubCallbackErrorMessage(code))
         }
         guard let code = components.queryItems?.first(where: { $0.name == "code" })?.value,
               let baseURL = URL(string: apiBaseURL)
@@ -822,6 +873,8 @@ final class PacePushStore: ObservableObject {
             throw PacePushAPIError.invalidCallback
         }
 
+        let preferredPublicLeaderboard = publicLeaderboardPreference
+        let shouldSyncPublicLeaderboardPreference = publicLeaderboardPreferenceChosen
         let client = PacePushAPIClient(baseURL: baseURL, token: nil)
         let exchange: DeviceExchangeResponse = try await client.post(
             "/api/mobile/auth/exchange",
@@ -830,10 +883,48 @@ final class PacePushStore: ObservableObject {
         )
         try keychain.saveString(exchange.token, account: tokenKey)
         deviceToken = exchange.token
+        if shouldSyncPublicLeaderboardPreference {
+            try? await savePublicLeaderboardPreference(
+                preferredPublicLeaderboard,
+                baseURL: baseURL,
+                token: exchange.token,
+            )
+        }
         await refresh()
+        if lastError == nil {
+            lastSuccess = "GitHub connected. Next, enable Apple Health."
+        }
+    }
+
+    private func userFacingGitHubConnectionError(_ error: Error) -> String {
+        if let apiError = error as? PacePushAPIError,
+           case .server(let message) = apiError {
+            return mobileGitHubCallbackErrorMessage(message)
+        }
+
+        return error.localizedDescription
+    }
+
+    private func mobileGitHubCallbackErrorMessage(_ code: String) -> String {
+        switch code {
+        case "github_callback_invalid":
+            return "GitHub sign-in did not return a valid callback. Please try again."
+        case "github_connection_expired":
+            return "GitHub sign-in expired. Please start GitHub connection again."
+        case "github_connection_failed":
+            return "GitHub sign-in worked, but Pace & Push could not finish device setup. Please try again."
+        default:
+            if code.localizedCaseInsensitiveContains("failed query") ||
+                code.localizedCaseInsensitiveContains("mobile_auth_exchanges") {
+                return "GitHub sign-in worked, but Pace & Push could not finish device setup. Please try again."
+            }
+            return code
+        }
     }
 
     private func finishPairing(_ pairing: PairingPayload, baseURL: URL) async throws {
+        let preferredPublicLeaderboard = publicLeaderboardPreference
+        let shouldSyncPublicLeaderboardPreference = publicLeaderboardPreferenceChosen
         let client = PacePushAPIClient(baseURL: baseURL, token: nil)
         let exchange = try await client.exchangeDevicePairing(
             code: pairing.code,
@@ -847,6 +938,13 @@ final class PacePushStore: ObservableObject {
             apiBaseURL = baseURL.absoluteString.trimmedTrailingSlash
         }
 
+        if shouldSyncPublicLeaderboardPreference {
+            try? await savePublicLeaderboardPreference(
+                preferredPublicLeaderboard,
+                baseURL: baseURL,
+                token: exchange.token,
+            )
+        }
         await refresh()
     }
 }
