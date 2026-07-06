@@ -235,30 +235,10 @@ a {
   text-transform: uppercase;
 }
 
-.tabs {
-  display: flex;
-  gap: 8px;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--line);
-  overflow-x: auto;
-}
-
-.tabs a {
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  color: var(--muted);
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.tabs a.active {
-  background: rgba(249, 115, 22, 0.08);
-  border-color: var(--orange);
-  color: var(--ink);
-}
-
 .leaderboard {
   width: 100%;
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
 }
 
 .leaderboard-head,
@@ -277,6 +257,44 @@ a {
   font-weight: 900;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.leaderboard-head > span {
+  min-width: 0;
+}
+
+.leaderboard-sort-link {
+  width: fit-content;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: inherit;
+}
+
+.leaderboard-sort-link:hover,
+.leaderboard-sort-link.active {
+  color: var(--ink);
+}
+
+.leaderboard-sort-link.active > span:first-child {
+  text-decoration: underline;
+  text-decoration-color: var(--orange);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.sort-icon {
+  width: 0;
+  height: 0;
+  flex: 0 0 auto;
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  border-top: 6px solid var(--orange);
+}
+
+.sort-icon.asc {
+  transform: rotate(180deg);
 }
 
 .leaderboard-row {

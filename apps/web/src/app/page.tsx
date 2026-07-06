@@ -1,6 +1,6 @@
 import { getSessionUser } from "@/server/auth/session";
-import { getLeaderboard, getMe, parseBoard, parsePeriod } from "@/server/data/read-model";
-import type { Board, LeaderboardRow } from "@paceandpush/api-contracts";
+import { getLeaderboard, getMe, parsePeriod } from "@/server/data/read-model";
+import type { LeaderboardRow } from "@paceandpush/api-contracts";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
 import { PeriodSelector } from "@/app/PeriodSelector";
@@ -15,16 +15,22 @@ import {
 type HomePageProps = {
   searchParams?: Promise<{
     board?: string;
+    dir?: string;
     period?: string;
+    sort?: string;
   }>;
 };
 
+type LeaderboardSort = "developer" | "score" | "commits" | "distance" | "streak";
+type SortDirection = "asc" | "desc";
+
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = searchParams ? await searchParams : {};
-  const board = parseBoard(params.board ?? null);
   const period = parsePeriod(params.period ?? null);
+  const sort = parseLeaderboardSort(params.sort) ?? parseLeaderboardSort(params.board) ?? "score";
+  const direction = parseSortDirection(params.dir, sort);
   const [leaderboard, me] = await Promise.all([
-    getLeaderboard(board, period),
+    getLeaderboard("balanced", period),
     getMe(await getSessionUser(), period),
   ]);
 
@@ -46,10 +52,18 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <PeriodSelector
           activePeriod={leaderboard.period}
           action="/"
-          hiddenParams={[{ name: "board", value: leaderboard.board }]}
+          hiddenParams={[
+            { name: "sort", value: sort },
+            { name: "dir", value: direction },
+          ]}
         />
-        <BoardTabs active={leaderboard.board} period={leaderboard.period} units={me.units} />
-        <LeaderboardTable rows={leaderboard.rows} period={leaderboard.period} units={me.units} />
+        <LeaderboardTable
+          rows={leaderboard.rows}
+          period={leaderboard.period}
+          sort={sort}
+          direction={direction}
+          units={me.units}
+        />
       </section>
     </main>
   );
@@ -88,54 +102,60 @@ function AppHeader({ login }: { login: string }) {
   );
 }
 
-function BoardTabs({
-  active,
-  period,
-  units,
-}: {
-  active: Board;
-  period: string;
-  units: UnitPreference;
-}) {
-  const boards: Array<{ id: Board; label: string }> = [
-    { id: "balanced", label: "Balanced" },
-    { id: "commits", label: "Commits" },
-    { id: "distance", label: runningDistanceShortLabel(units) },
-  ];
-
-  return (
-    <nav className="tabs" aria-label="Leaderboard boards">
-      {boards.map((board) => (
-        <Link
-          key={board.id}
-          className={board.id === active ? "active" : ""}
-          href={`/?board=${board.id}&period=${period}`}
-        >
-          {board.label}
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
 function LeaderboardTable({
   rows,
   period,
+  sort,
+  direction,
   units,
 }: {
   rows: LeaderboardRow[];
   period: string;
+  sort: LeaderboardSort;
+  direction: SortDirection;
   units: UnitPreference;
 }) {
+  const sortedRows = sortLeaderboardRows(rows, sort, direction);
+
   return (
     <div className="leaderboard" role="table" aria-label="Leaderboard">
       <div className="leaderboard-head" role="row">
-        <span>#</span>
-        <span>Developer</span>
-        <span>Score</span>
-        <span>Commits</span>
-        <span>{runningDistanceShortLabel(units)}</span>
-        <span>Streak</span>
+        <span role="columnheader">#</span>
+        <SortHeader
+          column="developer"
+          direction={direction}
+          label="Developer"
+          period={period}
+          sort={sort}
+        />
+        <SortHeader
+          column="score"
+          direction={direction}
+          label="Score"
+          period={period}
+          sort={sort}
+        />
+        <SortHeader
+          column="commits"
+          direction={direction}
+          label="Commits"
+          period={period}
+          sort={sort}
+        />
+        <SortHeader
+          column="distance"
+          direction={direction}
+          label={runningDistanceShortLabel(units)}
+          period={period}
+          sort={sort}
+        />
+        <SortHeader
+          column="streak"
+          direction={direction}
+          label="Streak"
+          period={period}
+          sort={sort}
+        />
       </div>
       {rows.length === 0 ? (
         <div className="empty-state">
@@ -143,14 +163,14 @@ function LeaderboardTable({
           <span>The leaderboard will fill in after activity is synced and the score job runs.</span>
         </div>
       ) : null}
-      {rows.map((row) => (
+      {sortedRows.map((row, index) => (
         <Link
           href={`/users/${encodeURIComponent(row.login)}?period=${period}`}
           className="leaderboard-row"
           role="row"
           key={row.login}
         >
-          <span>{String(row.rank).padStart(2, "0")}</span>
+          <span>{String(index + 1).padStart(2, "0")}</span>
           <span className="developer">
             <strong>{row.login}</strong>
             <small>{row.displayName}</small>
@@ -165,6 +185,37 @@ function LeaderboardTable({
   );
 }
 
+function SortHeader({
+  column,
+  direction,
+  label,
+  period,
+  sort,
+}: {
+  column: LeaderboardSort;
+  direction: SortDirection;
+  label: string;
+  period: string;
+  sort: LeaderboardSort;
+}) {
+  const isActive = column === sort;
+  const nextDirection = isActive ? toggleSortDirection(direction) : defaultSortDirection(column);
+  const ariaSort = isActive ? (direction === "asc" ? "ascending" : "descending") : "none";
+
+  return (
+    <span role="columnheader" aria-sort={ariaSort}>
+      <Link
+        className={isActive ? "leaderboard-sort-link active" : "leaderboard-sort-link"}
+        href={leaderboardSortHref(period, column, nextDirection)}
+        aria-label={`Sort by ${label} ${nextDirection === "asc" ? "ascending" : "descending"}`}
+      >
+        <span>{label}</span>
+        {isActive ? <span className={`sort-icon ${direction}`} aria-hidden="true" /> : null}
+      </Link>
+    </span>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="stat">
@@ -172,4 +223,89 @@ function Stat({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function parseLeaderboardSort(value: string | null | undefined): LeaderboardSort | null {
+  if (
+    value === "developer" ||
+    value === "score" ||
+    value === "commits" ||
+    value === "distance" ||
+    value === "streak"
+  ) {
+    return value;
+  }
+
+  if (value === "balanced") return "score";
+  return null;
+}
+
+function parseSortDirection(
+  value: string | null | undefined,
+  sort: LeaderboardSort,
+): SortDirection {
+  if (value === "asc" || value === "desc") return value;
+  return defaultSortDirection(sort);
+}
+
+function defaultSortDirection(sort: LeaderboardSort): SortDirection {
+  return sort === "developer" ? "asc" : "desc";
+}
+
+function toggleSortDirection(direction: SortDirection): SortDirection {
+  return direction === "asc" ? "desc" : "asc";
+}
+
+function leaderboardSortHref(
+  period: string,
+  sort: LeaderboardSort,
+  direction: SortDirection,
+): string {
+  const params = new URLSearchParams({
+    period,
+    sort,
+    dir: direction,
+  });
+
+  return `/?${params.toString()}`;
+}
+
+function sortLeaderboardRows(
+  rows: LeaderboardRow[],
+  sort: LeaderboardSort,
+  direction: SortDirection,
+): LeaderboardRow[] {
+  return [...rows].sort((left, right) => {
+    const primary = compareLeaderboardRows(left, right, sort);
+    if (primary !== 0) return direction === "asc" ? primary : -primary;
+
+    const scoreTieBreaker = right.score - left.score;
+    if (scoreTieBreaker !== 0) return scoreTieBreaker;
+
+    return left.login.localeCompare(right.login);
+  });
+}
+
+function compareLeaderboardRows(
+  left: LeaderboardRow,
+  right: LeaderboardRow,
+  sort: LeaderboardSort,
+): number {
+  if (sort === "developer") {
+    return left.login.localeCompare(right.login);
+  }
+
+  if (sort === "commits") {
+    return left.commits - right.commits;
+  }
+
+  if (sort === "distance") {
+    return left.kilometers - right.kilometers;
+  }
+
+  if (sort === "streak") {
+    return left.streakDays - right.streakDays;
+  }
+
+  return left.score - right.score;
 }
