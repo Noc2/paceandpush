@@ -198,6 +198,7 @@ export async function getPublicProfile(
     .select()
     .from(users)
     .where(and(eq(sql`lower(${users.login})`, login.toLowerCase()), eq(users.publicLeaderboard, true)))
+    .orderBy(desc(users.updatedAt))
     .limit(1);
 
   if (!user) return null;

@@ -471,6 +471,26 @@ test("manual mobile pairing codes are database backed and single use", async () 
   assert.doesNotMatch(tokenSource, /function verifyPairingToken/);
 });
 
+test("GitHub login lookup allows username recycling", async () => {
+  const schemaSource = await readFile(
+    new URL("../src/server/db/schema.ts", import.meta.url),
+    "utf8",
+  );
+  const migrationSource = await readFile(
+    new URL("../drizzle/0010_login_lookup_index.sql", import.meta.url),
+    "utf8",
+  );
+  const readModelSource = await readFile(
+    new URL("../src/server/data/read-model.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(schemaSource, /loginIdx: index\("users_login_idx"\)/);
+  assert.doesNotMatch(schemaSource, /loginIdx: uniqueIndex\("users_login_idx"\)/);
+  assert.match(migrationSource, /DROP INDEX IF EXISTS users_login_idx/);
+  assert.match(readModelSource, /orderBy\(desc\(users\.updatedAt\)\)/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");

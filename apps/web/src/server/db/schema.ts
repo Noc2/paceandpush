@@ -34,7 +34,7 @@ export const users = pgTable(
   },
   (table) => ({
     githubIdIdx: uniqueIndex("users_github_id_idx").on(table.githubId),
-    loginIdx: uniqueIndex("users_login_idx").on(table.login),
+    loginIdx: index("users_login_idx").on(table.login),
     loginLowerIdx: index("users_login_lower_idx").on(sql`lower(${table.login})`),
   }),
 );
