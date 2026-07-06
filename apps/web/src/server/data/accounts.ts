@@ -10,6 +10,11 @@ import {
   syncRuns,
   users,
 } from "@/server/db/schema";
+import {
+  decryptGitHubAccessToken,
+  encryptGitHubAccessToken,
+  githubTokenEncryptionKeyId,
+} from "@/server/github/token-crypto";
 import { eq } from "drizzle-orm";
 
 export interface AccountUser extends SessionUser {
@@ -30,6 +35,8 @@ export async function upsertGitHubAccount({
 }): Promise<AccountUser> {
   const db = getDb();
   const now = new Date();
+  const encryptedAccessToken = encryptGitHubAccessToken(accessToken);
+  const encryptionKeyId = githubTokenEncryptionKeyId();
 
   const [savedUser] = await db
     .insert(users)
@@ -58,6 +65,9 @@ export async function upsertGitHubAccount({
       githubId: savedUser.githubId,
       login: savedUser.login,
       accessTokenHash: hashSecret(accessToken),
+      accessTokenEncrypted: encryptedAccessToken,
+      accessTokenEncryptionKeyId: encryptionKeyId,
+      accessTokenEncryptedAt: now,
       scopes,
       updatedAt: now,
     })
@@ -67,12 +77,48 @@ export async function upsertGitHubAccount({
         githubId: savedUser.githubId,
         login: savedUser.login,
         accessTokenHash: hashSecret(accessToken),
+        accessTokenEncrypted: encryptedAccessToken,
+        accessTokenEncryptionKeyId: encryptionKeyId,
+        accessTokenEncryptedAt: now,
         scopes,
         updatedAt: now,
       },
     });
 
   return toAccountUser(savedUser);
+}
+
+export async function getGitHubAccessToken(userId: string): Promise<string | null> {
+  const [account] = await getDb()
+    .select({
+      accessTokenEncrypted: githubAccounts.accessTokenEncrypted,
+    })
+    .from(githubAccounts)
+    .where(eq(githubAccounts.userId, userId))
+    .limit(1);
+
+  if (!account?.accessTokenEncrypted) return null;
+  return decryptGitHubAccessToken(account.accessTokenEncrypted);
+}
+
+export async function listGitHubAccountsForScoreRefresh(): Promise<
+  Array<{ userId: string; login: string; accessToken: string | null }>
+> {
+  const rows = await getDb()
+    .select({
+      userId: githubAccounts.userId,
+      login: githubAccounts.login,
+      accessTokenEncrypted: githubAccounts.accessTokenEncrypted,
+    })
+    .from(githubAccounts);
+
+  return rows.map((row) => ({
+    userId: row.userId,
+    login: row.login,
+    accessToken: row.accessTokenEncrypted
+      ? decryptGitHubAccessToken(row.accessTokenEncrypted)
+      : null,
+  }));
 }
 
 export async function getAccountUser(
