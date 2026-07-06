@@ -71,9 +71,6 @@ struct OnboardingView: View {
                         Text("Set up Pace & Push")
                             .font(.system(size: 36, weight: .black, design: .rounded))
                             .foregroundStyle(Brand.ink)
-                        Text("Connect GitHub, enable Apple Health, and run one sync before the app shows your score.")
-                            .font(.headline)
-                            .foregroundStyle(Brand.ink.opacity(0.68))
                     }
                     .panelStyle()
 
