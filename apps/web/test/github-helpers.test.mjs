@@ -8,6 +8,7 @@ import ts from "typescript";
 const require = createRequire(import.meta.url);
 
 const contributions = await loadTypeScriptModule("../src/server/github/contributions.ts");
+const mobileTokens = await loadTypeScriptModule("../src/server/mobile/tokens.ts");
 const oauth = await loadTypeScriptModule("../src/server/github/oauth.ts");
 const tokenCrypto = await loadTypeScriptModule("../src/server/github/token-crypto.ts");
 
@@ -154,6 +155,44 @@ test("GitHub user fetch includes GitHub error details", async () => {
     () => oauthWithFetch.fetchGitHubUser("bad-token"),
     /GitHub user fetch failed with 401: Bad credentials/,
   );
+});
+
+test("mobile tokens require a dedicated production secret", () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousMobileSecret = process.env.MOBILE_TOKEN_SECRET;
+  const previousSessionSecret = process.env.SESSION_SECRET;
+  process.env.NODE_ENV = "production";
+  delete process.env.MOBILE_TOKEN_SECRET;
+  process.env.SESSION_SECRET = "session-secret-with-at-least-thirty-two-characters";
+
+  try {
+    assert.throws(
+      () =>
+        mobileTokens.createPairingCode({
+          githubId: "123",
+          login: "octocat",
+          displayName: "Octo Cat",
+          avatarUrl: null,
+        }),
+      /MOBILE_TOKEN_SECRET is required in production/,
+    );
+
+    process.env.MOBILE_TOKEN_SECRET = process.env.SESSION_SECRET;
+    assert.throws(
+      () =>
+        mobileTokens.createPairingCode({
+          githubId: "123",
+          login: "octocat",
+          displayName: "Octo Cat",
+          avatarUrl: null,
+        }),
+      /MOBILE_TOKEN_SECRET must be distinct from SESSION_SECRET in production/,
+    );
+  } finally {
+    restoreEnv("NODE_ENV", previousNodeEnv);
+    restoreEnv("MOBILE_TOKEN_SECRET", previousMobileSecret);
+    restoreEnv("SESSION_SECRET", previousSessionSecret);
+  }
 });
 
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {

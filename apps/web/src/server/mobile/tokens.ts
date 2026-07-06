@@ -203,11 +203,20 @@ function sign(payload: string): string {
 }
 
 function getMobileTokenSecret(): string {
-  return (
-    process.env.MOBILE_TOKEN_SECRET ||
-    process.env.SESSION_SECRET ||
-    "paceandpush-local-dev-mobile-secret"
-  );
+  const secret = process.env.MOBILE_TOKEN_SECRET;
+
+  if (secret) {
+    if (process.env.NODE_ENV === "production" && secret === process.env.SESSION_SECRET) {
+      throw new Error("MOBILE_TOKEN_SECRET must be distinct from SESSION_SECRET in production.");
+    }
+    return secret;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("MOBILE_TOKEN_SECRET is required in production.");
+  }
+
+  return process.env.SESSION_SECRET || "paceandpush-local-dev-mobile-secret";
 }
 
 function assertPlatform(platform: unknown): Platform {
