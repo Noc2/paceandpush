@@ -42,6 +42,7 @@ class MainActivity : Activity() {
 
     private var activeTab = Tab.Today
     private var board = Board.Balanced
+    private var boardSearchQuery = ""
     private var apiBaseUrl = DEFAULT_API_BASE_URL
     private var paired = false
     private var pairingInProgress = false
@@ -197,13 +198,15 @@ class MainActivity : Activity() {
     }
 
     private fun boardScreen(): View {
+        val filteredRows = rows.filter { matchesBoardSearch(it) }
         val sortedRows = when (board) {
-            Board.Balanced -> rows.sortedByDescending { it.score }
-            Board.Commits -> rows.sortedByDescending { it.commits }
-            Board.Distance -> rows.sortedByDescending { it.kilometers }
+            Board.Balanced -> filteredRows.sortedByDescending { it.score }
+            Board.Commits -> filteredRows.sortedByDescending { it.commits }
+            Board.Distance -> filteredRows.sortedByDescending { it.kilometers }
         }
 
         return column {
+            addView(leaderboardSearchControls())
             addView(
                 LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.HORIZONTAL
@@ -227,10 +230,84 @@ class MainActivity : Activity() {
                 },
             )
 
+            if (sortedRows.isEmpty()) {
+                addView(
+                    bodyText(
+                        if (boardSearchQuery.trim().isEmpty()) {
+                            "No public scores yet."
+                        } else {
+                            "No matching public developers."
+                        },
+                        16f,
+                    ).apply {
+                        setPadding(0, dp(16), 0, dp(12))
+                    },
+                )
+            }
+
             sortedRows.forEachIndexed { index, row ->
                 addView(leaderboardRow(index + 1, row))
             }
         }
+    }
+
+    private fun leaderboardSearchControls(): View {
+        val searchInput = EditText(this).apply {
+            setText(boardSearchQuery)
+            hint = "Developer"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setSingleLine(true)
+            setTextColor(ink)
+            setHintTextColor(ink)
+            setPadding(dp(10), 0, dp(10), 0)
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, dp(12))
+            addView(
+                searchInput,
+                LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                    rightMargin = dp(6)
+                },
+            )
+            addView(
+                Button(this@MainActivity).apply {
+                    text = "Search"
+                    isAllCaps = false
+                    setTextColor(ink)
+                    setOnClickListener {
+                        boardSearchQuery = searchInput.text.toString()
+                        render()
+                    }
+                },
+                LinearLayout.LayoutParams(-2, dp(48)).apply {
+                    rightMargin = if (boardSearchQuery.isBlank()) 0 else dp(6)
+                },
+            )
+            if (boardSearchQuery.isNotBlank()) {
+                addView(
+                    Button(this@MainActivity).apply {
+                        text = "Clear"
+                        isAllCaps = false
+                        setTextColor(ink)
+                        setOnClickListener {
+                            boardSearchQuery = ""
+                            render()
+                        }
+                    },
+                    LinearLayout.LayoutParams(-2, dp(48)),
+                )
+            }
+        }
+    }
+
+    private fun matchesBoardSearch(row: LeaderboardRow): Boolean {
+        val query = boardSearchQuery.trim()
+        if (query.isEmpty()) return true
+
+        return row.login.contains(query, ignoreCase = true) ||
+            row.displayName.contains(query, ignoreCase = true)
     }
 
     private fun profileScreen(): View {
