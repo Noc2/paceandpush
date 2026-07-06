@@ -1,7 +1,7 @@
 {
   "framework": "nextjs",
   "installCommand": "npm ci",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run vercel:build",
   "outputDirectory": "apps/web/.next",
   "devCommand": "npm run dev",
   "crons": [

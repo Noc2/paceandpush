@@ -592,6 +592,21 @@ test("production runtime validates required environment variables", async () => 
   assert.match(envExample, /CRON_SECRET=/);
 });
 
+test("production Vercel builds run database migrations before building", async () => {
+  const packageJson = await readFile(new URL("../../../package.json", import.meta.url), "utf8");
+  const vercelJson = await readFile(new URL("../../../vercel.json", import.meta.url), "utf8");
+  const buildScript = await readFile(
+    new URL("../../../scripts/vercel-build.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(packageJson, /"vercel:build": "node scripts\/vercel-build\.mjs"/);
+  assert.match(vercelJson, /"buildCommand": "npm run vercel:build"/);
+  assert.match(buildScript, /process\.env\.VERCEL_ENV === "production"/);
+  assert.ok(buildScript.indexOf("\"db:migrations:check\"") < buildScript.indexOf("\"db:migrate\""));
+  assert.ok(buildScript.indexOf("\"db:migrate\"") < buildScript.indexOf("\"build\""));
+});
+
 test("web layout consumes shared brand CSS variables", async () => {
   const layoutSource = await readFile(
     new URL("../src/app/layout.tsx", import.meta.url),
