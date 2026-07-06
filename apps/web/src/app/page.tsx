@@ -47,6 +47,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     <main className="app-shell">
       <section className="app-frame" aria-label="Pace and Push leaderboard">
         <AppHeader login={me.login} />
+        <h1 className="sr-only">Pace & Push leaderboard</h1>
 
         <section className="summary-bar" aria-label="Current score">
           <div>
@@ -96,6 +97,9 @@ function AppHeader({ login }: { login: string }) {
       </Link>
 
       <nav className="top-actions" aria-label="Primary navigation">
+        <Link className="button" href="/settings#mobile-apps">
+          Mobile apps
+        </Link>
         <Link className="button" href="/settings">
           Settings
         </Link>
@@ -185,15 +189,15 @@ function LeaderboardTable({
           role="row"
           key={row.login}
         >
-          <span>{String(index + 1).padStart(2, "0")}</span>
-          <span className="developer">
+          <span role="cell">{String(index + 1).padStart(2, "0")}</span>
+          <span className="developer" role="cell">
             <strong>{row.login}</strong>
             <small>{row.displayName}</small>
           </span>
-          <strong>{row.score.toFixed(1)}</strong>
-          <span>{row.commits}</span>
-          <span>{formatDistance(row.kilometers, units)}</span>
-          <span>{row.streakDays}d</span>
+          <strong role="cell">{row.score.toFixed(1)}</strong>
+          <span role="cell">{row.commits}</span>
+          <span role="cell">{formatDistance(row.kilometers, units)}</span>
+          <span role="cell">{row.streakDays}d</span>
         </Link>
       ))}
     </div>

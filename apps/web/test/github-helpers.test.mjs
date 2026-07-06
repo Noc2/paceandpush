@@ -556,6 +556,16 @@ test("web layout consumes shared brand CSS variables", async () => {
   assert.doesNotMatch(globalCss, /^:root \{/m);
 });
 
+test("homepage has accessible heading cells and companion app link", async () => {
+  const pageSource = await readFile(new URL("../src/app/page.tsx", import.meta.url), "utf8");
+  const globalCss = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
+
+  assert.match(pageSource, /<h1 className="sr-only">Pace & Push leaderboard<\/h1>/);
+  assert.match(pageSource, /href="\/settings#mobile-apps"/);
+  assert.match(pageSource, /role="cell"/);
+  assert.match(globalCss, /\.sr-only/);
+});
+
 test("sync run validation accepts omitted finishedAt and null errorSummary", async () => {
   const routeSource = await readFile(
     new URL("../src/app/api/mobile/sync-runs/route.ts", import.meta.url),
