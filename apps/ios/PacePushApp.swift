@@ -683,6 +683,43 @@ struct LeaderboardRowView: View {
     }
 }
 
+protocol PacePushClienting {
+    func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL
+    func exchangeMobileAuthCode(_ code: String) async throws -> DeviceExchangeResponse
+    func exchangeDevicePairing(code: String, platform: String, label: String) async throws -> DeviceExchangeResponse
+    func fetchLeaderboard(board: Board) async throws -> LeaderboardResponse
+    func fetchMe() async throws -> MeResponse
+    func fetchProfile() async throws -> PublicProfileResponse
+    func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse
+    func uploadDistanceDays(_ days: [HealthKitDistanceDay]) async throws -> DistanceDaysResponse
+    func recordSyncRun(_ run: SyncRunRequest) async throws
+}
+
+protocol KeychainStoring {
+    func saveString(_ value: String, account: String) throws
+    func readString(account: String) throws -> String?
+    func delete(account: String) throws
+}
+
+protocol PreferencesStoring {
+    func string(forKey defaultName: String) -> String?
+    func bool(forKey defaultName: String) -> Bool
+    func object(forKey defaultName: String) -> Any?
+    func set(_ value: Any?, forKey defaultName: String)
+    func removeObject(forKey defaultName: String)
+}
+
+protocol GitHubAuthenticating {
+    func authenticate(startURL: URL, callbackScheme: String) async throws -> URL
+}
+
+protocol URLSessionDataLoading {
+    func data(for request: URLRequest) async throws -> (Data, URLResponse)
+}
+
+extension UserDefaults: PreferencesStoring {}
+extension URLSession: URLSessionDataLoading {}
+
 @MainActor
 final class PacePushStore: ObservableObject {
     private let callbackScheme = "pacepush"
@@ -692,9 +729,14 @@ final class PacePushStore: ObservableObject {
     private let unitsKey = "distanceUnits"
     private let publicLeaderboardPreferenceKey = "publicLeaderboardPreference"
     private let publicLeaderboardPreferenceChosenKey = "publicLeaderboardPreferenceChosen"
-    private let keychain = KeychainStore(service: "com.paceandpush.app")
-    private let healthSync = HealthKitDistanceSync()
-    private let authSession = GitHubAuthSession()
+    private let keychain: KeychainStoring
+    private let healthSync: HealthDistanceSyncing
+    private let authSession: GitHubAuthenticating
+    private let preferences: PreferencesStoring
+    private let apiClientFactory: (URL, String?) -> PacePushClienting
+    private let deviceLabel: () -> String
+    private let now: () -> Date
+    private let bootstrapSyncEnabled: Bool
 
     @Published var leaderboard = LeaderboardResponse.seed
     @Published var me = MeResponse.seed
@@ -710,7 +752,7 @@ final class PacePushStore: ObservableObject {
     @Published var busy = false
     @Published var units: DistanceUnits {
         didSet {
-            UserDefaults.standard.set(units.rawValue, forKey: unitsKey)
+            preferences.set(units.rawValue, forKey: unitsKey)
         }
     }
 
@@ -726,13 +768,33 @@ final class PacePushStore: ObservableObject {
         setupReadyForFirstSync && !busy
     }
 
-    init() {
-        let savedUnits = UserDefaults.standard.string(forKey: unitsKey)
+    init(
+        keychain: KeychainStoring = KeychainStore(service: "com.paceandpush.app"),
+        healthSync: HealthDistanceSyncing = HealthKitDistanceSync(),
+        authSession: GitHubAuthenticating = GitHubAuthSession(),
+        preferences: PreferencesStoring = UserDefaults.standard,
+        apiClientFactory: @escaping (URL, String?) -> PacePushClienting = { baseURL, token in
+            PacePushAPIClient(baseURL: baseURL, token: token)
+        },
+        deviceLabel: @escaping () -> String = { UIDevice.current.name },
+        now: @escaping () -> Date = Date.init,
+        bootstrapSyncEnabled: Bool = true,
+    ) {
+        self.keychain = keychain
+        self.healthSync = healthSync
+        self.authSession = authSession
+        self.preferences = preferences
+        self.apiClientFactory = apiClientFactory
+        self.deviceLabel = deviceLabel
+        self.now = now
+        self.bootstrapSyncEnabled = bootstrapSyncEnabled
+
+        let savedUnits = preferences.string(forKey: unitsKey)
         units = DistanceUnits(rawValue: savedUnits ?? "") ?? .metric
-        healthAuthorized = UserDefaults.standard.bool(forKey: healthKey)
-        firstSyncAt = UserDefaults.standard.string(forKey: firstSyncKey)
-        publicLeaderboardPreference = UserDefaults.standard.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? true
-        publicLeaderboardPreferenceChosen = UserDefaults.standard.bool(forKey: publicLeaderboardPreferenceChosenKey)
+        healthAuthorized = preferences.bool(forKey: healthKey)
+        firstSyncAt = preferences.string(forKey: firstSyncKey)
+        publicLeaderboardPreference = preferences.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? true
+        publicLeaderboardPreferenceChosen = preferences.bool(forKey: publicLeaderboardPreferenceChosenKey)
         deviceToken = try? keychain.readString(account: tokenKey)
     }
 
@@ -755,11 +817,11 @@ final class PacePushStore: ObservableObject {
         defer { busy = false }
 
         do {
-            let client = PacePushAPIClient(baseURL: baseURL, token: nil)
+            let client = apiClientFactory(baseURL, nil)
             let callback = try await authSession.authenticate(
                 startURL: client.mobileGitHubStartURL(
                     platform: "ios",
-                    label: UIDevice.current.name,
+                    label: deviceLabel(),
                     callbackScheme: callbackScheme,
                 ),
                 callbackScheme: callbackScheme,
@@ -830,7 +892,7 @@ final class PacePushStore: ObservableObject {
         do {
             try await healthSync.requestAuthorization()
             healthAuthorized = true
-            UserDefaults.standard.set(true, forKey: healthKey)
+            preferences.set(true, forKey: healthKey)
             if isGitHubConnected {
                 await syncFirstRunIfReady()
             } else {
@@ -845,8 +907,8 @@ final class PacePushStore: ObservableObject {
     func setPublicLeaderboardPreference(_ isPublic: Bool) async {
         publicLeaderboardPreference = isPublic
         publicLeaderboardPreferenceChosen = true
-        UserDefaults.standard.set(isPublic, forKey: publicLeaderboardPreferenceKey)
-        UserDefaults.standard.set(true, forKey: publicLeaderboardPreferenceChosenKey)
+        preferences.set(isPublic, forKey: publicLeaderboardPreferenceKey)
+        preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
 
         guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else { return }
 
@@ -863,7 +925,7 @@ final class PacePushStore: ObservableObject {
             lastError = "This device was revoked. Connect GitHub again."
         } catch {
             publicLeaderboardPreference = me.publicLeaderboard
-            UserDefaults.standard.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
+            preferences.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
             lastError = error.localizedDescription
             lastSuccess = nil
         }
@@ -883,19 +945,20 @@ final class PacePushStore: ObservableObject {
         busy = true
         lastError = nil
         lastSuccess = nil
-        let startedAt = Date()
+        let startedAt = now()
 
         do {
-            let client = PacePushAPIClient(baseURL: baseURL, token: token)
-            let startDate = Calendar(identifier: .gregorian).date(byAdding: .day, value: -35, to: Date()) ?? Date()
-            let result = try await healthSync.collectDistanceDays(from: startDate)
+            let client = apiClientFactory(baseURL, token)
+            let syncEnd = now()
+            let startDate = Calendar(identifier: .gregorian).date(byAdding: .day, value: -35, to: syncEnd) ?? syncEnd
+            let result = try await healthSync.collectDistanceDays(from: startDate, through: syncEnd)
             let upload = try await client.uploadDistanceDays(result.days)
             try await client.recordSyncRun(
                 SyncRunRequest(
                     platform: "ios",
                     status: upload.flagged > 0 ? "warning" : "success",
                     startedAt: startedAt.isoString,
-                    finishedAt: Date().isoString,
+                    finishedAt: now().isoString,
                     counters: [
                         "days": result.days.count,
                         "accepted": upload.accepted,
@@ -904,8 +967,8 @@ final class PacePushStore: ObservableObject {
                     errorSummary: nil,
                 ),
             )
-            firstSyncAt = Date().isoString
-            UserDefaults.standard.set(firstSyncAt, forKey: firstSyncKey)
+            firstSyncAt = now().isoString
+            preferences.set(firstSyncAt, forKey: firstSyncKey)
             await refresh()
             if lastError == nil {
                 lastSuccess = successMessage
@@ -914,13 +977,13 @@ final class PacePushStore: ObservableObject {
             signOut()
             lastError = "This device was revoked. Connect GitHub again."
         } catch {
-            if let client = URL(string: apiBaseURL).map({ PacePushAPIClient(baseURL: $0, token: token) }) {
+            if let client = URL(string: apiBaseURL).map({ apiClientFactory($0, token) }) {
                 try? await client.recordSyncRun(
                     SyncRunRequest(
                         platform: "ios",
                         status: "error",
                         startedAt: startedAt.isoString,
-                        finishedAt: Date().isoString,
+                        finishedAt: now().isoString,
                         counters: [:],
                         errorSummary: error.localizedDescription,
                     ),
@@ -937,17 +1000,17 @@ final class PacePushStore: ObservableObject {
         guard let baseURL = URL(string: apiBaseURL) else { return }
 
         do {
-            let client = PacePushAPIClient(baseURL: baseURL, token: deviceToken)
+            let client = apiClientFactory(baseURL, deviceToken)
             async let leaderboardResponse = client.fetchLeaderboard(board: board)
             if deviceToken != nil {
-                async let meResponse: MeResponse = client.fetch("/api/mobile/me", authenticated: true)
-                async let profileResponse: PublicProfileResponse = client.fetch("/api/mobile/me/profile", authenticated: true)
+                async let meResponse = client.fetchMe()
+                async let profileResponse = client.fetchProfile()
                 leaderboard = try await leaderboardResponse
                 me = try await meResponse
                 publicLeaderboardPreference = me.publicLeaderboard
                 publicLeaderboardPreferenceChosen = true
-                UserDefaults.standard.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
-                UserDefaults.standard.set(true, forKey: publicLeaderboardPreferenceChosenKey)
+                preferences.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
+                preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
                 profile = try await profileResponse
             } else {
                 leaderboard = try await leaderboardResponse
@@ -967,7 +1030,7 @@ final class PacePushStore: ObservableObject {
         guard let baseURL = URL(string: apiBaseURL) else { return }
 
         do {
-            let client = PacePushAPIClient(baseURL: baseURL, token: deviceToken)
+            let client = apiClientFactory(baseURL, deviceToken)
             leaderboard = try await client.fetchLeaderboard(board: board)
             lastError = nil
         } catch PacePushAPIError.unauthorized {
@@ -984,23 +1047,19 @@ final class PacePushStore: ObservableObject {
         try? keychain.delete(account: tokenKey)
         deviceToken = nil
         firstSyncAt = nil
-        UserDefaults.standard.removeObject(forKey: firstSyncKey)
+        preferences.removeObject(forKey: firstSyncKey)
         me = .seed
         profile = .seed
         lastSuccess = nil
     }
 
     private func savePublicLeaderboardPreference(_ isPublic: Bool, baseURL: URL, token: String) async throws {
-        let client = PacePushAPIClient(baseURL: baseURL, token: token)
-        let settings: AccountSettingsResponse = try await client.patch(
-            "/api/mobile/me/settings",
-            body: AccountSettingsRequest(publicLeaderboard: isPublic, units: nil),
-            authenticated: true,
-        )
+        let client = apiClientFactory(baseURL, token)
+        let settings = try await client.updateSettings(publicLeaderboard: isPublic, units: nil)
         publicLeaderboardPreference = settings.publicLeaderboard
         publicLeaderboardPreferenceChosen = true
-        UserDefaults.standard.set(settings.publicLeaderboard, forKey: publicLeaderboardPreferenceKey)
-        UserDefaults.standard.set(true, forKey: publicLeaderboardPreferenceChosenKey)
+        preferences.set(settings.publicLeaderboard, forKey: publicLeaderboardPreferenceKey)
+        preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
     }
 
     func formatDistance(_ kilometers: Double, includeUnit: Bool = false) -> String {
@@ -1022,12 +1081,8 @@ final class PacePushStore: ObservableObject {
 
         let preferredPublicLeaderboard = publicLeaderboardPreference
         let shouldSyncPublicLeaderboardPreference = publicLeaderboardPreferenceChosen
-        let client = PacePushAPIClient(baseURL: baseURL, token: nil)
-        let exchange: DeviceExchangeResponse = try await client.post(
-            "/api/mobile/auth/exchange",
-            body: MobileAuthExchangeRequest(code: code),
-            authenticated: false,
-        )
+        let client = apiClientFactory(baseURL, nil)
+        let exchange = try await client.exchangeMobileAuthCode(code)
         try keychain.saveString(exchange.token, account: tokenKey)
         deviceToken = exchange.token
         if shouldSyncPublicLeaderboardPreference {
@@ -1076,11 +1131,11 @@ final class PacePushStore: ObservableObject {
     private func finishPairing(_ pairing: PairingPayload, baseURL: URL) async throws {
         let preferredPublicLeaderboard = publicLeaderboardPreference
         let shouldSyncPublicLeaderboardPreference = publicLeaderboardPreferenceChosen
-        let client = PacePushAPIClient(baseURL: baseURL, token: nil)
+        let client = apiClientFactory(baseURL, nil)
         let exchange = try await client.exchangeDevicePairing(
             code: pairing.code,
             platform: "ios",
-            label: UIDevice.current.name,
+            label: deviceLabel(),
         )
         try keychain.saveString(exchange.token, account: tokenKey)
         deviceToken = exchange.token
@@ -1105,18 +1160,20 @@ final class PacePushStore: ObservableObject {
     }
 
     private func syncFirstRunIfReady() async {
-        guard setupReadyForFirstSync else { return }
+        guard bootstrapSyncEnabled, setupReadyForFirstSync else { return }
         await syncRunningDistance(successMessage: "Setup complete. Running data synced.")
     }
 }
 
-final class PacePushAPIClient {
+final class PacePushAPIClient: PacePushClienting {
     let baseURL: URL
     let token: String?
+    private let dataLoader: URLSessionDataLoading
 
-    init(baseURL: URL, token: String?) {
+    init(baseURL: URL, token: String?, dataLoader: URLSessionDataLoading = URLSession.shared) {
         self.baseURL = baseURL
         self.token = token
+        self.dataLoader = dataLoader
     }
 
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL {
@@ -1138,6 +1195,14 @@ final class PacePushAPIClient {
         )
     }
 
+    func exchangeMobileAuthCode(_ code: String) async throws -> DeviceExchangeResponse {
+        try await post(
+            "/api/mobile/auth/exchange",
+            body: MobileAuthExchangeRequest(code: code),
+            authenticated: false,
+        )
+    }
+
     func fetch<T: Decodable>(
         _ path: String,
         queryItems: [URLQueryItem] = [],
@@ -1152,7 +1217,7 @@ final class PacePushAPIClient {
         if authenticated {
             try authorize(&request)
         }
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await dataLoader.data(for: request)
         try validate(response: response, data: data)
         return try JSONDecoder().decode(T.self, from: data)
     }
@@ -1169,6 +1234,22 @@ final class PacePushAPIClient {
         )
     }
 
+    func fetchMe() async throws -> MeResponse {
+        try await fetch("/api/mobile/me", authenticated: true)
+    }
+
+    func fetchProfile() async throws -> PublicProfileResponse {
+        try await fetch("/api/mobile/me/profile", authenticated: true)
+    }
+
+    func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse {
+        try await patch(
+            "/api/mobile/me/settings",
+            body: AccountSettingsRequest(publicLeaderboard: publicLeaderboard, units: units),
+            authenticated: true,
+        )
+    }
+
     func post<Body: Encodable, Response: Decodable>(
         _ path: String,
         body: Body,
@@ -1182,7 +1263,7 @@ final class PacePushAPIClient {
             try authorize(&request)
         }
         request.httpBody = try JSONEncoder().encode(body)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await dataLoader.data(for: request)
         try validate(response: response, data: data)
         return try JSONDecoder().decode(Response.self, from: data)
     }
@@ -1200,7 +1281,7 @@ final class PacePushAPIClient {
             try authorize(&request)
         }
         request.httpBody = try JSONEncoder().encode(body)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await dataLoader.data(for: request)
         try validate(response: response, data: data)
         return try JSONDecoder().decode(Response.self, from: data)
     }
@@ -1251,7 +1332,7 @@ final class PacePushAPIClient {
     }
 }
 
-final class GitHubAuthSession: NSObject, ASWebAuthenticationPresentationContextProviding {
+final class GitHubAuthSession: NSObject, GitHubAuthenticating, ASWebAuthenticationPresentationContextProviding {
     private var session: ASWebAuthenticationSession?
     private var continuation: CheckedContinuation<URL, Error>?
 
@@ -1292,7 +1373,7 @@ final class GitHubAuthSession: NSObject, ASWebAuthenticationPresentationContextP
     }
 }
 
-struct KeychainStore {
+struct KeychainStore: KeychainStoring {
     let service: String
 
     func saveString(_ value: String, account: String) throws {
