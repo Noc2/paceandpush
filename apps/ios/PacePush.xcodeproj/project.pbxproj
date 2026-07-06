@@ -10,7 +10,26 @@
 		1D60A2E92CB74C6500110A10 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1D60A2E82CB74C6500110A10 /* Assets.xcassets */; };
 		1D60A2D92CB74C6500110A10 /* PacePushApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60A2D82CB74C6500110A10 /* PacePushApp.swift */; };
 		1D60A2DB2CB74C6500110A10 /* HealthKitDistanceSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60A2DA2CB74C6500110A10 /* HealthKitDistanceSync.swift */; };
+		1D60B0102CB74C6500110A10 /* PacePushTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60B0042CB74C6500110A10 /* PacePushTests.swift */; };
+		1D60B0112CB74C6500110A10 /* PacePushUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60B0052CB74C6500110A10 /* PacePushUITests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1D60B0202CB74C6500110A10 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1D60A2CD2CB74C6500110A10 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1D60A2D42CB74C6500110A10;
+			remoteInfo = PacePush;
+		};
+		1D60B0212CB74C6500110A10 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1D60A2CD2CB74C6500110A10 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1D60A2D42CB74C6500110A10;
+			remoteInfo = PacePush;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		1D60A2D52CB74C6500110A10 /* PacePush.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PacePush.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -20,10 +39,28 @@
 		1D60A2E62CB74C6500110A10 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1D60A2E72CB74C6500110A10 /* PacePush.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PacePush.entitlements; sourceTree = "<group>"; };
 		1D60A2E82CB74C6500110A10 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1D60B0022CB74C6500110A10 /* PacePushTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PacePushTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D60B0032CB74C6500110A10 /* PacePushUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PacePushUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D60B0042CB74C6500110A10 /* PacePushTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacePushTests.swift; sourceTree = "<group>"; };
+		1D60B0052CB74C6500110A10 /* PacePushUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacePushUITests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		1D60A2D22CB74C6500110A10 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1D60B0302CB74C6500110A10 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1D60B0312CB74C6500110A10 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -42,6 +79,8 @@
 				1D60A2E62CB74C6500110A10 /* Info.plist */,
 				1D60A2E72CB74C6500110A10 /* PacePush.entitlements */,
 				1D60A2DC2CB74C6500110A10 /* README.md */,
+				1D60B0402CB74C6500110A10 /* PacePushTests */,
+				1D60B0412CB74C6500110A10 /* PacePushUITests */,
 				1D60A2D62CB74C6500110A10 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -50,8 +89,26 @@
 			isa = PBXGroup;
 			children = (
 				1D60A2D52CB74C6500110A10 /* PacePush.app */,
+				1D60B0022CB74C6500110A10 /* PacePushTests.xctest */,
+				1D60B0032CB74C6500110A10 /* PacePushUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		1D60B0402CB74C6500110A10 /* PacePushTests */ = {
+			isa = PBXGroup;
+			children = (
+				1D60B0042CB74C6500110A10 /* PacePushTests.swift */,
+			);
+			path = PacePushTests;
+			sourceTree = "<group>";
+		};
+		1D60B0412CB74C6500110A10 /* PacePushUITests */ = {
+			isa = PBXGroup;
+			children = (
+				1D60B0052CB74C6500110A10 /* PacePushUITests.swift */,
+			);
+			path = PacePushUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -74,6 +131,42 @@
 			productReference = 1D60A2D52CB74C6500110A10 /* PacePush.app */;
 			productType = "com.apple.product-type.application";
 		};
+		1D60B0502CB74C6500110A10 /* PacePushTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1D60B0802CB74C6500110A10 /* Build configuration list for PBXNativeTarget "PacePushTests" */;
+			buildPhases = (
+				1D60B0342CB74C6500110A10 /* Sources */,
+				1D60B0302CB74C6500110A10 /* Frameworks */,
+				1D60B0322CB74C6500110A10 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1D60B0602CB74C6500110A10 /* PBXTargetDependency */,
+			);
+			name = PacePushTests;
+			productName = PacePushTests;
+			productReference = 1D60B0022CB74C6500110A10 /* PacePushTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		1D60B0512CB74C6500110A10 /* PacePushUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1D60B0812CB74C6500110A10 /* Build configuration list for PBXNativeTarget "PacePushUITests" */;
+			buildPhases = (
+				1D60B0352CB74C6500110A10 /* Sources */,
+				1D60B0312CB74C6500110A10 /* Frameworks */,
+				1D60B0332CB74C6500110A10 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1D60B0612CB74C6500110A10 /* PBXTargetDependency */,
+			);
+			name = PacePushUITests;
+			productName = PacePushUITests;
+			productReference = 1D60B0032CB74C6500110A10 /* PacePushUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -92,6 +185,14 @@
 							};
 						};
 					};
+					1D60B0502CB74C6500110A10 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 1D60A2D42CB74C6500110A10;
+					};
+					1D60B0512CB74C6500110A10 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 1D60A2D42CB74C6500110A10;
+					};
 				};
 			};
 			buildConfigurationList = 1D60A2D02CB74C6500110A10 /* Build configuration list for PBXProject "PacePush" */;
@@ -108,6 +209,8 @@
 			projectRoot = "";
 			targets = (
 				1D60A2D42CB74C6500110A10 /* PacePush */,
+				1D60B0502CB74C6500110A10 /* PacePushTests */,
+				1D60B0512CB74C6500110A10 /* PacePushUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -118,6 +221,20 @@
 			buildActionMask = 2147483647;
 			files = (
 				1D60A2E92CB74C6500110A10 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1D60B0322CB74C6500110A10 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1D60B0332CB74C6500110A10 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -133,7 +250,36 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1D60B0342CB74C6500110A10 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D60B0102CB74C6500110A10 /* PacePushTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1D60B0352CB74C6500110A10 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D60B0112CB74C6500110A10 /* PacePushUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1D60B0602CB74C6500110A10 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1D60A2D42CB74C6500110A10 /* PacePush */;
+			targetProxy = 1D60B0202CB74C6500110A10 /* PBXContainerItemProxy */;
+		};
+		1D60B0612CB74C6500110A10 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1D60A2D42CB74C6500110A10 /* PacePush */;
+			targetProxy = 1D60B0212CB74C6500110A10 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1D60A2DD2CB74C6500110A10 /* Debug */ = {
@@ -311,6 +457,104 @@
 			};
 			name = Release;
 		};
+		1D60B0902CB74C6500110A10 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9UTU695C76;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.paceandpush.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PacePush.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PacePush";
+			};
+			name = Debug;
+		};
+		1D60B0912CB74C6500110A10 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9UTU695C76;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.paceandpush.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PacePush.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PacePush";
+			};
+			name = Release;
+		};
+		1D60B0922CB74C6500110A10 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9UTU695C76;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.paceandpush.app.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PacePush;
+			};
+			name = Debug;
+		};
+		1D60B0932CB74C6500110A10 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9UTU695C76;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.paceandpush.app.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PacePush;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -328,6 +572,24 @@
 			buildConfigurations = (
 				1D60A2E02CB74C6500110A10 /* Debug */,
 				1D60A2E12CB74C6500110A10 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1D60B0802CB74C6500110A10 /* Build configuration list for PBXNativeTarget "PacePushTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1D60B0902CB74C6500110A10 /* Debug */,
+				1D60B0912CB74C6500110A10 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1D60B0812CB74C6500110A10 /* Build configuration list for PBXNativeTarget "PacePushUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1D60B0922CB74C6500110A10 /* Debug */,
+				1D60B0932CB74C6500110A10 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
