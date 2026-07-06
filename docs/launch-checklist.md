@@ -56,6 +56,7 @@ Owner-only production setup is tracked in
 - `npm run lint`
 - `npm test`
 - `npm run build`
+- iOS `xcodebuild test` for the `PacePush` scheme.
 
 ## Native Apps
 
@@ -84,8 +85,9 @@ Owner-only production setup is tracked in
 - `npm run lint`
 - `npm test`
 - `npm run build`
-- iOS build in Xcode with HealthKit capability enabled.
+- iOS XCTest/XCUITest suite passes for the `PacePush` scheme.
 - Android build in Android Studio with Health Connect SDK resolved.
 - Manual GitHub OAuth login.
 - Manual mobile pairing exchange.
-- Manual running distance sync with one iOS and one Android test device.
+- Manual running distance sync with one iOS HealthKit device and one Android
+  Health Connect device.
