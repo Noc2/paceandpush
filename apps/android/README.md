@@ -15,5 +15,5 @@ totals to `/api/mobile/distance-days`. It records sync status through
 `/api/mobile/sync-runs`.
 
 Android should remain on Google Play internal testing until the physical-device
-checklist in `docs/launch/real-device-beta-checklist.md` is complete and a
-repeatable Gradle build path is available in CI.
+checklist in `docs/launch/real-device-beta-checklist.md` is complete and the
+Android CI build is green on `main`.

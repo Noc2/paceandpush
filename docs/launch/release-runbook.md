@@ -105,8 +105,8 @@ Final signed submission:
 ## Android Internal Testing
 
 Android remains internal-testing only until the real API, Health Connect
-permission/upload flow, launcher assets, and a repeatable Gradle build path are
-verified.
+permission/upload flow, launcher assets, CI debug build, and physical-device
+sync evidence are verified.
 
 Release requirements before Play internal testing:
 
@@ -114,19 +114,21 @@ Release requirements before Play internal testing:
   policy, and Play Console declaration.
 - Production builds pin `https://paceandpush.com`.
 - Signing keys and keystore passwords are stored outside the repository.
+- The GitHub Actions Android job passes `gradle -p apps/android :app:assembleDebug --no-daemon`.
 - At least one physical Android device has completed pairing, permission grant,
   sync upload, sync-run reporting, token revocation, and app data backup/restore
   checks.
 
-When a Gradle wrapper or pinned Gradle toolchain is added, use this command for
-release candidate verification:
+Use this command for local debug verification when Gradle is installed:
 
 ```sh
-./gradlew :app:assembleDebug :app:bundleRelease
+gradle -p apps/android :app:assembleDebug --no-daemon
 ```
 
-Record the exact command output, versionCode, versionName, signing mode, and
-Play track in the release note.
+For signed Play submissions, keep keystores and passwords outside the repo and
+run the release bundle task from the same pinned Gradle toolchain after signing
+configuration is provided. Record the exact command output, versionCode,
+versionName, signing mode, and Play track in the release note.
 
 ## Incident Procedures
 

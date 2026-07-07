@@ -61,6 +61,8 @@ Owner-only production setup is tracked in
 - `npm run test:e2e`
 - `npm run build`
 - iOS `xcodebuild test` for the `PacePush` scheme.
+- Android `gradle -p apps/android :app:assembleDebug --no-daemon` GitHub
+  Actions job is green.
 
 ## Native Apps
 
@@ -112,7 +114,7 @@ Owner-only production setup is tracked in
 - `npm run test:e2e`
 - `npm run build`
 - iOS XCTest/XCUITest suite passes for the `PacePush` scheme.
-- Android build in Android Studio with Health Connect SDK resolved.
+- Android debug build passes in GitHub Actions with Health Connect SDK resolved.
 - Manual GitHub OAuth login.
 - Manual mobile pairing exchange.
 - Manual running distance sync with one iOS HealthKit device, plus one Android

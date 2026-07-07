@@ -5,7 +5,9 @@
 
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
         android:label="Pace &amp; Push"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/AppTheme">
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"

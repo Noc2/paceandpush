@@ -1030,6 +1030,10 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
     new URL("../../android/app/src/main/java/com/paceandpush/MainActivity.kt", import.meta.url),
     "utf8",
   );
+  const androidManifest = await readFile(
+    new URL("../../android/app/src/main/AndroidManifest.xml", import.meta.url),
+    "utf8",
+  );
   const healthConnectSource = await readFile(
     new URL(
       "../../android/app/src/main/java/com/paceandpush/HealthConnectDistanceSync.kt",
@@ -1039,6 +1043,17 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   );
   const androidReadme = await readFile(
     new URL("../../android/README.md", import.meta.url),
+    "utf8",
+  );
+  const androidWorkflow = await readFile(
+    new URL("../../../.github/workflows/ci.yml", import.meta.url),
+    "utf8",
+  );
+  const launcherIcon = await readFile(
+    new URL(
+      "../../android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      import.meta.url,
+    ),
     "utf8",
   );
 
@@ -1053,6 +1068,11 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidSource, /\/api\/mobile\/me\/github\/disconnect/);
   assert.match(androidSource, /Authorization", "Bearer \$it"/);
 
+  assert.match(androidManifest, /android:icon="@mipmap\/ic_launcher"/);
+  assert.match(androidManifest, /android:roundIcon="@mipmap\/ic_launcher_round"/);
+  assert.match(launcherIcon, /<adaptive-icon/);
+  assert.match(launcherIcon, /@drawable\/ic_launcher_foreground/);
+
   assert.match(healthConnectSource, /ZoneOffset\.UTC/);
   assert.match(healthConnectSource, /MessageDigest\.getInstance\("SHA-256"\)/);
   assert.match(healthConnectSource, /session\.metadata\.id/);
@@ -1060,6 +1080,10 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidReadme, /internal-test client/);
   assert.match(androidReadme, /Health Connect permission UX/);
   assert.match(androidReadme, /\/api\/mobile\/sync-runs/);
+  assert.match(androidReadme, /Android CI build is green on `main`/);
+  assert.match(androidWorkflow, /android:/);
+  assert.match(androidWorkflow, /gradle-version: "8\.10"/);
+  assert.match(androidWorkflow, /gradle -p apps\/android :app:assembleDebug --no-daemon/);
 });
 
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
