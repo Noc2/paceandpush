@@ -24,10 +24,12 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(Board.distance.leaderboardMetricTitle(units: .metric), "Run km")
         XCTAssertEqual(Board.distance.leaderboardMetricTitle(units: .imperial), "Run mi")
         XCTAssertEqual(Board.commits.leaderboardMetric(for: row, units: .metric).value, "312")
+        XCTAssertNil(Board.commits.leaderboardMetric(for: row, units: .metric).detail)
         XCTAssertEqual(
             Board.distance.leaderboardMetric(for: row, units: .imperial).value,
             DistanceUnits.imperial.format(row.kilometers)
         )
+        XCTAssertNil(Board.distance.leaderboardMetric(for: row, units: .metric).detail)
     }
 
     func testScorePeriodSupportsDayRangesMonthsAndYears() {

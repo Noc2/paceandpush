@@ -928,9 +928,11 @@ struct LeaderboardRowView: View {
                 Text(metric.value)
                     .font(.headline.monospaced().weight(.bold))
                     .foregroundStyle(metric.color)
-                Text(metric.detail)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Brand.muted)
+                if let detail = metric.detail {
+                    Text(detail)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Brand.muted)
+                }
             }
             .frame(width: 108, alignment: .trailing)
         }
@@ -2464,13 +2466,13 @@ enum Board: String, CaseIterable, Decodable, Identifiable {
         case .commits:
             return LeaderboardMetric(
                 value: "\(row.commits)",
-                detail: "\(row.score.formatted(.number.precision(.fractionLength(1)))) score",
+                detail: nil,
                 color: Brand.green,
             )
         case .distance:
             return LeaderboardMetric(
                 value: units.format(row.kilometers),
-                detail: "\(row.commits) commits",
+                detail: nil,
                 color: Brand.red,
             )
         }
@@ -2479,7 +2481,7 @@ enum Board: String, CaseIterable, Decodable, Identifiable {
 
 struct LeaderboardMetric {
     let value: String
-    let detail: String
+    let detail: String?
     let color: Color
 }
 

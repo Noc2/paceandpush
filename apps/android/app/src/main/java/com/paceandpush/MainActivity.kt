@@ -517,10 +517,12 @@ class MainActivity : Activity() {
                             addView(scoreText(metric.value, 18f, metric.color).apply {
                                 gravity = Gravity.END
                             })
-                            addView(bodyText(metric.detail, 13f).apply {
-                                gravity = Gravity.END
-                                typeface = Typeface.DEFAULT_BOLD
-                            })
+                            metric.detail?.let { detail ->
+                                addView(bodyText(detail, 13f).apply {
+                                    gravity = Gravity.END
+                                    typeface = Typeface.DEFAULT_BOLD
+                                })
+                            }
                         },
                         LinearLayout.LayoutParams(dp(108), -2),
                     )
@@ -574,12 +576,12 @@ class MainActivity : Activity() {
             )
             Board.Commits -> LeaderboardMetric(
                 value = row.commits.toString(),
-                detail = "${row.score.toFixed(1)} score",
+                detail = null,
                 color = green,
             )
             Board.Distance -> LeaderboardMetric(
                 value = units.format(row.kilometers),
-                detail = "${row.commits} commits",
+                detail = null,
                 color = red,
             )
         }
@@ -1029,7 +1031,7 @@ private data class LeaderboardRow(
 
 private data class LeaderboardMetric(
     val value: String,
-    val detail: String,
+    val detail: String?,
     val color: Int,
 )
 
