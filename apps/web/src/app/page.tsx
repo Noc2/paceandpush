@@ -1,4 +1,5 @@
 import { AppDownloadActions } from "@/app/AppDownloadActions";
+import { ScoreExplainer } from "@/app/ScoreExplainer";
 import { getLeaderboard, parsePeriod, searchPublicUsers } from "@/server/data/read-model";
 import type { LeaderboardRow } from "@paceandpush/api-contracts";
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
@@ -55,6 +56,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           query={searchQuery}
           sort={sort}
         />
+        <ScoreExplainer />
         <LeaderboardTable
           rows={leaderboardResult.rows}
           period={leaderboardResult.period}

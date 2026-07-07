@@ -73,6 +73,7 @@ struct OnboardingView: View {
                         Text("Set up Pace & Push")
                             .font(.system(size: 36, weight: .black, design: .rounded))
                             .foregroundStyle(Brand.ink)
+                        ScoreExplanationDisclosure()
                     }
                     .panelStyle()
 
@@ -277,6 +278,9 @@ struct LeaderboardView: View {
 
                         LeaderboardSearchField(searchText: $searchText)
                         BoardSelector(board: $board)
+                        if board == .balanced {
+                            ScoreExplanationDisclosure()
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: 0) {
@@ -358,6 +362,7 @@ struct ProfileView: View {
                             )
                         }
 
+                        ScoreExplanationDisclosure()
                         ProfileChartView(history: store.profile.history, units: store.units)
 
                         if store.profile.history.isEmpty {
@@ -483,6 +488,7 @@ struct SettingsView: View {
                     )
                     .accessibilityIdentifier("settings-public-leaderboard-toggle")
                     .disabled(store.busy)
+                    ScoreExplanationText()
                     Text("Running distance summaries are synced by day. Raw workouts and routes are not uploaded.")
                         .foregroundStyle(Brand.muted)
                 }
@@ -549,6 +555,51 @@ struct MetricTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .panelStyle()
+    }
+}
+
+enum ScoreExplanation {
+    static let formula = "score = sqrt(commit ratio x running ratio) x 100"
+    static let body = "Balanced score compares your commits and running distance with the strongest totals in the selected period. Each side becomes a 0-1 ratio, then the two ratios are combined with a geometric mean."
+    static let note = "A zero on either side makes the score 0, so the balanced board rewards people who ship code and run."
+}
+
+struct ScoreExplanationDisclosure: View {
+    @State private var isExpanded = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            ScoreExplanationText()
+                .padding(.top, 4)
+        } label: {
+            Label("How score works", systemImage: "questionmark.circle")
+                .font(.callout.weight(.bold))
+                .foregroundStyle(Brand.ink)
+        }
+        .padding(12)
+        .background(Brand.paper)
+        .overlay(Rectangle().stroke(Brand.ink.opacity(0.26), lineWidth: 1))
+        .accessibilityIdentifier("score-explanation-disclosure")
+    }
+}
+
+struct ScoreExplanationText: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(ScoreExplanation.body)
+                .font(.callout)
+                .foregroundStyle(Brand.muted)
+            Text(ScoreExplanation.formula)
+                .font(.system(.caption, design: .monospaced).weight(.bold))
+                .foregroundStyle(Brand.ink)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .background(Brand.orange.opacity(0.10))
+            Text(ScoreExplanation.note)
+                .font(.callout)
+                .foregroundStyle(Brand.muted)
+        }
+        .accessibilityIdentifier("score-explanation-text")
     }
 }
 

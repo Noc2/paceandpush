@@ -1,4 +1,5 @@
 import { AppDownloadActions } from "@/app/AppDownloadActions";
+import { ScoreExplainer } from "@/app/ScoreExplainer";
 import {
   distanceUnitAbbreviation,
   formatDistance,
@@ -66,6 +67,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
           <Stat label={runningDistanceLabel(units)} value={formatDistance(profile.score.kilometers, units)} />
           <Stat label="Streak" value={`${row?.streakDays ?? 0}d`} />
         </div>
+        <ScoreExplainer />
 
         <PeriodSelector
           activePeriod={profile.score.period}

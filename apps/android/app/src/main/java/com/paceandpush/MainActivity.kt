@@ -43,6 +43,11 @@ class MainActivity : Activity() {
         const val PREF_DEVICE_TOKEN_CIPHERTEXT = "mobile_device_token_ciphertext"
         const val PREF_DEVICE_TOKEN_IV = "mobile_device_token_iv"
         const val PREF_DISTANCE_UNITS = "distance_units"
+        const val SCORE_FORMULA = "score = sqrt(commit ratio x running ratio) x 100"
+        const val SCORE_EXPLANATION =
+            "Balanced score compares your commits and running distance with the strongest totals in the selected period. Each side becomes a 0-1 ratio, then the two ratios are combined with a geometric mean."
+        const val SCORE_NOTE =
+            "A zero on either side makes the score 0, so the balanced board rewards people who ship code and run."
     }
 
     private val ink = Color.rgb(33, 30, 26)
@@ -229,6 +234,9 @@ class MainActivity : Activity() {
                     }
                 },
             )
+            if (board == Board.Balanced) {
+                addView(scoreExplanationPanel())
+            }
 
             if (sortedRows.isEmpty()) {
                 addView(
@@ -315,6 +323,7 @@ class MainActivity : Activity() {
         return panel {
             addView(titleText("@${me.login}", 28f))
             addView(bodyText("Healthy body, shipped code.", 16f))
+            addView(scoreExplanationPanel())
             history.forEach { point ->
                 addView(
                     bodyText(
@@ -389,6 +398,7 @@ class MainActivity : Activity() {
             addView(labelText("Distance units").apply { setPadding(0, dp(12), 0, 0) })
             addView(unitSelector())
             addView(bodyText("Public leaderboard: ${if (me.publicLeaderboard) "On" else "Off"}", 16f))
+            addView(scoreExplanationPanel())
             addView(
                 Button(this@MainActivity).apply {
                     text = "Save"
@@ -511,6 +521,21 @@ class MainActivity : Activity() {
                     },
                 )
             }
+        }
+    }
+
+    private fun scoreExplanationPanel(): View {
+        return panel {
+            addView(labelText("How score works"))
+            addView(bodyText(SCORE_EXPLANATION, 15f).apply {
+                setPadding(0, dp(6), 0, dp(6))
+            })
+            addView(bodyText(SCORE_FORMULA, 14f).apply {
+                typeface = Typeface.MONOSPACE
+                setTextColor(ink)
+                setPadding(dp(8), dp(6), dp(8), dp(6))
+            })
+            addView(bodyText(SCORE_NOTE, 15f))
         }
     }
 

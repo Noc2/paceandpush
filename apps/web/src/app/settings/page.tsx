@@ -7,6 +7,7 @@ import { AccountDataControls } from "./AccountDataControls";
 import { GitHubConnectionControl } from "./GitHubConnectionControl";
 import { LeaderboardVisibilityControl } from "./LeaderboardVisibilityControl";
 import { MobileConnectPanel } from "./MobileConnectPanel";
+import { ScoreExplainer } from "../ScoreExplainer";
 import { SignOutControl } from "./SignOutControl";
 import { UnitPreferenceControl } from "./UnitPreferenceControl";
 
@@ -55,6 +56,8 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             {githubMessage}
           </p>
         ) : null}
+
+        <ScoreExplainer />
 
         <section
           id="mobile-apps"
