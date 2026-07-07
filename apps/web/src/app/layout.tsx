@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Pace & Push",
-  description: "A leaderboard for healthy body, shipped code.",
+  description: "A leaderboard for runners who ship.",
 };
 
 export default function RootLayout({

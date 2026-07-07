@@ -1,6 +1,6 @@
 export const brandName = "Pace & Push";
 
-export const brandTagline = "Healthy body, shipped code.";
+export const brandTagline = "Run. Commit. Repeat.";
 
 export const brandColors = {
   paper: "#f7f3ea",

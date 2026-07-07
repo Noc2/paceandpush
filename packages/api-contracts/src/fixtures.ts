@@ -80,7 +80,7 @@ export const seedMe: MeResponse = {
 export const seedProfile: PublicProfileResponse = {
   login: "Noc2",
   displayName: "David Hawig",
-  bio: "Healthy body, shipped code.",
+  bio: "Run. Commit. Repeat.",
   score: seedMe.score,
   history: [
     { date: "2026-07-01", commits: 41, kilometers: 8.1, score: 42.8 },

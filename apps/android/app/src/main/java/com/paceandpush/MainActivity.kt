@@ -163,7 +163,7 @@ class MainActivity : Activity() {
                 LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.VERTICAL
                     addView(titleText("Pace & Push", 30f))
-                    addView(bodyText("Healthy body, shipped code.", 16f))
+                    addView(bodyText("Run. Commit. Repeat.", 16f))
                 },
             )
         }
@@ -322,7 +322,7 @@ class MainActivity : Activity() {
     private fun profileScreen(): View {
         return panel {
             addView(titleText("@${me.login}", 28f))
-            addView(bodyText("Healthy body, shipped code.", 16f))
+            addView(bodyText("Run. Commit. Repeat.", 16f))
             addView(scoreExplanationPanel())
             history.forEach { point ->
                 addView(

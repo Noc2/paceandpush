@@ -16,7 +16,7 @@ leaderboard experience, not a marketing landing page.
 ## Identity
 
 - Name: Pace & Push.
-- Tagline: Healthy body, shipped code.
+- Tagline: Run. Commit. Repeat.
 - Mark: a simple terminal prompt built around `>`, paired with a route/cursor
   line and small metric pixels.
 - Identity direction: quiet, technical, and direct, with the symbol doing the

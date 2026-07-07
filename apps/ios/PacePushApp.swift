@@ -337,7 +337,7 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("@\(store.profile.login)")
                             .font(.title.bold())
-                        Text(store.profile.bio ?? "Healthy body, shipped code.")
+                        Text(store.profile.bio ?? "Run. Commit. Repeat.")
                             .foregroundStyle(Brand.muted)
 
                         HStack(spacing: 12) {
@@ -530,7 +530,7 @@ struct HeaderView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Pace & Push")
                     .font(.title.bold())
-                Text("Healthy body, shipped code.")
+                Text("Run. Commit. Repeat.")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Brand.muted)
             }
