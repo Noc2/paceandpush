@@ -1100,6 +1100,9 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidGradleProperties, /android\.useAndroidX=true/);
   assert.match(androidGradleProperties, /android\.suppressUnsupportedCompileSdk=36/);
   assert.match(androidBuild, /androidx\.health\.connect:connect-client:1\.1\.0/);
+  assert.match(androidBuild, /sourceCompatibility = JavaVersion\.VERSION_17/);
+  assert.match(androidBuild, /targetCompatibility = JavaVersion\.VERSION_17/);
+  assert.match(androidBuild, /jvmToolchain\(17\)/);
 });
 
 test("beta feedback, share profile, and health repair paths stay visible", async () => {
