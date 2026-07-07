@@ -511,6 +511,24 @@ test("score rank mutations recompute every affected snapshot period", async () =
   );
 });
 
+test("mobile GitHub disconnect revokes social credentials and device access", async () => {
+  const route = await readFile(
+    new URL("../src/app/api/mobile/me/github/disconnect/route.ts", import.meta.url),
+    "utf8",
+  );
+  const nativeApp = await readFile(
+    new URL("../../ios/PacePushApp.swift", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(route, /verifyDeviceToken\(request\.headers\.get\("authorization"\)\)/);
+  assert.match(route, /disconnectGitHubAccount\(auth\.user\.id\)/);
+  assert.match(route, /revokeMobileDevice\(\{ id: auth\.device\.id, userId: auth\.user\.id \}\)/);
+  assert.match(route, /recomputeScoreSnapshotPeriods\(affectedPeriods\)/);
+  assert.match(nativeApp, /settings-disconnect-github-button/);
+  assert.match(nativeApp, /\/api\/mobile\/me\/github\/disconnect/);
+});
+
 test("authenticated profile reads repair stale zero-commit distance snapshots", async () => {
   const source = await readFile(
     new URL("../src/server/data/read-model.ts", import.meta.url),

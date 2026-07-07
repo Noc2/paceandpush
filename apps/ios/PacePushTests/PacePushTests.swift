@@ -191,6 +191,30 @@ final class PacePushTests: XCTestCase {
         XCTAssertNil(loader.requests.first?.value(forHTTPHeaderField: "authorization"))
     }
 
+    func testAPIClientDeletesMobileGitHubConnectionWithBearerToken() async throws {
+        let loader = RecordingDataLoader(json: """
+        {
+          "login": "noc2",
+          "github": {
+            "connected": false,
+            "needsReconnect": false,
+            "updatedAt": null
+          },
+          "disconnectedAt": "2026-07-07T12:00:00.000Z"
+        }
+        """)
+        let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: "token-123", dataLoader: loader)
+
+        let response = try await client.disconnectGitHub()
+
+        XCTAssertEqual(response.login, "noc2")
+        XCTAssertEqual(response.disconnectedAt, "2026-07-07T12:00:00.000Z")
+        XCTAssertEqual(loader.requests.first?.httpMethod, "DELETE")
+        XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/me/github/disconnect")
+        XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "accept"), "application/json")
+        XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
+    }
+
     @MainActor
     func testStoreExchangesPairingPayloadRefreshesAndRunsFirstSync() async throws {
         let keychain = InMemoryKeychain()
@@ -355,6 +379,39 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(client.publicProfilePeriods, ["2026-07"])
     }
 
+    @MainActor
+    func testStoreDisconnectsGitHubOnServerAndClearsLocalDeviceToken() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let preferences = InMemoryPreferences(values: [
+            "healthAuthorized": true,
+            "firstSyncAt": "2026-07-01T00:00:00.000Z",
+            "historicalDistanceSyncVersion": "full-history-v1",
+        ])
+        let client = FakePacePushClient()
+
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.disconnectGitHub()
+
+        XCTAssertEqual(client.disconnectGitHubCallCount, 1)
+        XCTAssertNil(try keychain.readString(account: "mobileDeviceToken"))
+        XCTAssertNil(store.deviceToken)
+        XCTAssertNil(store.firstSyncAt)
+        XCTAssertNil(preferences.string(forKey: "firstSyncAt"))
+        XCTAssertNil(preferences.string(forKey: "historicalDistanceSyncVersion"))
+        XCTAssertEqual(store.lastSuccess, "GitHub disconnected. Contribution access is off.")
+        XCTAssertNil(store.lastError)
+    }
+
     private static let meJSON = """
     {
       "login": "noc2",
@@ -514,6 +571,8 @@ private final class FakePacePushClient: PacePushClienting {
     var profilePeriods: [String] = []
     var publicProfileLogins: [String] = []
     var publicProfilePeriods: [String] = []
+    var disconnectGitHubCallCount = 0
+    var disconnectResponse = GitHubDisconnectResponse(login: "noc2", disconnectedAt: "2026-07-07T12:00:00.000Z")
 
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL {
         URL(string: "https://example.test/start?platform=\(platform)&callbackScheme=\(callbackScheme)")!
@@ -527,6 +586,11 @@ private final class FakePacePushClient: PacePushClienting {
         exchangedPairingCodes.append(code)
         exchangedPairingLabels.append(label)
         return deviceExchangeResponse
+    }
+
+    func disconnectGitHub() async throws -> GitHubDisconnectResponse {
+        disconnectGitHubCallCount += 1
+        return disconnectResponse
     }
 
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse {

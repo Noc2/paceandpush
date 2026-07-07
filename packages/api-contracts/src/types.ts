@@ -66,6 +66,13 @@ export interface GitHubConnectionSummary {
   updatedAt: string | null;
 }
 
+export interface GitHubDisconnectResponse {
+  login: string;
+  github: GitHubConnectionSummary;
+  device: MobileDeviceSummary;
+  disconnectedAt: string;
+}
+
 export interface MobileDeviceSummary {
   id: string;
   platform: Platform;

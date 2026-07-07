@@ -69,6 +69,9 @@ Owner-only production setup is tracked in
 - Confirm the iOS archive includes `PrivacyInfo.xcprivacy`, generate the Xcode
   privacy report from the organizer, and save the report with App Review
   evidence before submitting.
+- Paste the GitHub-specific login rationale and in-app disconnect reviewer
+  steps from `docs/launch/app-review-notes-ios.md` into App Store Connect
+  Notes for Review.
 - Google Play Console: create the Android app record, declare Health Connect
   running exercise and distance access, provide the permission rationale and
   privacy policy, and distribute the first build through internal testing.

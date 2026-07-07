@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Pace & Push API",
-    "version": "2026-07-05"
+    "version": "2026-07-07"
   },
   "paths": {
     "/api/me": {
@@ -276,6 +276,25 @@
         "security": [{ "mobileBearer": [] }]
       }
     },
+    "/api/mobile/me/github/disconnect": {
+      "delete": {
+        "summary": "Disconnect GitHub and revoke the current mobile device",
+        "responses": {
+          "200": {
+            "description": "GitHub access and current mobile device revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GitHubDisconnectResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid device token"
+          }
+        },
+        "security": [{ "mobileBearer": [] }]
+      }
+    },
     "/api/mobile/me/settings": {
       "patch": {
         "summary": "Update mobile-authenticated user settings",
@@ -469,6 +488,36 @@
         "required": ["code"],
         "properties": {
           "code": { "type": "string" }
+        }
+      },
+      "GitHubConnectionSummary": {
+        "type": "object",
+        "required": ["connected", "needsReconnect", "updatedAt"],
+        "properties": {
+          "connected": { "type": "boolean" },
+          "needsReconnect": { "type": "boolean" },
+          "updatedAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "MobileDeviceSummary": {
+        "type": "object",
+        "required": ["id", "platform", "label", "lastSeenAt", "revoked"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "platform": { "enum": ["ios", "android"] },
+          "label": { "type": "string" },
+          "lastSeenAt": { "type": ["string", "null"], "format": "date-time" },
+          "revoked": { "type": "boolean" }
+        }
+      },
+      "GitHubDisconnectResponse": {
+        "type": "object",
+        "required": ["login", "github", "device", "disconnectedAt"],
+        "properties": {
+          "login": { "type": "string" },
+          "github": { "$ref": "#/components/schemas/GitHubConnectionSummary" },
+          "device": { "$ref": "#/components/schemas/MobileDeviceSummary" },
+          "disconnectedAt": { "type": "string", "format": "date-time" }
         }
       },
       "DistanceDayInput": {

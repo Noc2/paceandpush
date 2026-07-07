@@ -527,6 +527,7 @@ struct ProfileErrorPanel: View {
 struct SettingsView: View {
     @EnvironmentObject private var store: PacePushStore
     @State private var isServerSettingsExpanded = false
+    @State private var isDisconnectConfirmationPresented = false
 
     var body: some View {
         NavigationStack {
@@ -543,7 +544,15 @@ struct SettingsView: View {
 
                 Section("Sync") {
                     StatusRow(label: "GitHub", value: store.isGitHubConnected ? "@\(store.me.login)" : "Disconnected")
-                    if !store.isGitHubConnected {
+                    if store.isGitHubConnected {
+                        Button(role: .destructive) {
+                            isDisconnectConfirmationPresented = true
+                        } label: {
+                            Label("Disconnect GitHub", systemImage: "person.crop.circle.badge.xmark")
+                        }
+                        .accessibilityIdentifier("settings-disconnect-github-button")
+                        .disabled(store.busy)
+                    } else {
                         Button {
                             Task { await store.connectGitHub() }
                         } label: {
@@ -638,6 +647,18 @@ struct SettingsView: View {
             .foregroundStyle(Brand.ink)
             .toolbar(.hidden, for: .navigationBar)
             .contentMargins(.top, 8, for: .scrollContent)
+            .confirmationDialog(
+                "Disconnect GitHub?",
+                isPresented: $isDisconnectConfirmationPresented,
+                titleVisibility: .visible,
+            ) {
+                Button("Disconnect GitHub", role: .destructive) {
+                    Task { await store.disconnectGitHub() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Pace & Push will stop GitHub contribution access and clear this device connection.")
+            }
         }
     }
 }
@@ -1081,6 +1102,7 @@ protocol PacePushClienting {
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL
     func exchangeMobileAuthCode(_ code: String) async throws -> DeviceExchangeResponse
     func exchangeDevicePairing(code: String, platform: String, label: String) async throws -> DeviceExchangeResponse
+    func disconnectGitHub() async throws -> GitHubDisconnectResponse
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse
     func fetchMe(period: String) async throws -> MeResponse
     func fetchProfile(period: String) async throws -> PublicProfileResponse
@@ -1347,6 +1369,38 @@ final class PacePushStore: ObservableObject {
 
     func confirmPublicLeaderboardPreference() async {
         await setPublicLeaderboardPreference(publicLeaderboardPreference)
+    }
+
+    func disconnectGitHub() async {
+        guard let token = deviceToken else {
+            signOut()
+            lastSuccess = "GitHub disconnected. Contribution access is off."
+            return
+        }
+
+        guard let baseURL = URL(string: apiBaseURL) else {
+            lastError = "API base URL is invalid."
+            lastSuccess = nil
+            return
+        }
+
+        busy = true
+        lastError = nil
+        lastSuccess = nil
+        defer { busy = false }
+
+        do {
+            let client = apiClientFactory(baseURL, token)
+            _ = try await client.disconnectGitHub()
+            signOut()
+            lastSuccess = "GitHub disconnected. Contribution access is off."
+        } catch PacePushAPIError.unauthorized {
+            signOut()
+            lastError = "This device was revoked. Connect GitHub again."
+        } catch {
+            lastError = error.localizedDescription
+            lastSuccess = nil
+        }
     }
 
     func syncRunningDistance(successMessage: String = "Running data synced.") async {
@@ -1722,6 +1776,10 @@ private final class UITestingPacePushClient: PacePushClienting {
         deviceExchangeResponse
     }
 
+    func disconnectGitHub() async throws -> GitHubDisconnectResponse {
+        GitHubDisconnectResponse(login: "noc2", disconnectedAt: "2026-07-06T12:00:00.000Z")
+    }
+
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse {
         LeaderboardResponse(
             period: period,
@@ -1845,6 +1903,10 @@ final class PacePushAPIClient: PacePushClienting {
         )
     }
 
+    func disconnectGitHub() async throws -> GitHubDisconnectResponse {
+        try await delete("/api/mobile/me/github/disconnect", authenticated: true)
+    }
+
     func fetch<T: Decodable>(
         _ path: String,
         queryItems: [URLQueryItem] = [],
@@ -1862,6 +1924,18 @@ final class PacePushAPIClient: PacePushClienting {
         let (data, response) = try await dataLoader.data(for: request)
         try validate(response: response, data: data)
         return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    func delete<Response: Decodable>(_ path: String, authenticated: Bool) async throws -> Response {
+        var request = URLRequest(url: url(path))
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "accept")
+        if authenticated {
+            try authorize(&request)
+        }
+        let (data, response) = try await dataLoader.data(for: request)
+        try validate(response: response, data: data)
+        return try JSONDecoder().decode(Response.self, from: data)
     }
 
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse {
@@ -2704,6 +2778,11 @@ struct DevicePairingExchangeRequest: Encodable {
 struct DeviceExchangeResponse: Decodable {
     let device: MobileDeviceSummary
     let token: String
+}
+
+struct GitHubDisconnectResponse: Decodable {
+    let login: String
+    let disconnectedAt: String
 }
 
 struct MobileDeviceSummary: Decodable, Identifiable {

@@ -23,6 +23,7 @@ test("OpenAPI lists the production route surface", () => {
     "/api/github/oauth/callback/mobile",
     "/api/mobile/auth/exchange",
     "/api/mobile/me",
+    "/api/mobile/me/github/disconnect",
     "/api/mobile/me/settings",
     "/api/mobile/me/profile",
     "/api/mobile/devices",
@@ -63,6 +64,7 @@ test("OpenAPI documents mobile request bodies and bearer auth", () => {
 
   for (const [path, method] of [
     ["/api/mobile/me", "get"],
+    ["/api/mobile/me/github/disconnect", "delete"],
     ["/api/mobile/me/settings", "patch"],
     ["/api/mobile/me/profile", "get"],
     ["/api/mobile/distance-days", "post"],
