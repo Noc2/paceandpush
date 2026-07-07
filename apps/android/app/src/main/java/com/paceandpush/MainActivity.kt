@@ -54,7 +54,7 @@ class MainActivity : Activity() {
     private val blue = Color.rgb(11, 92, 173)
     private val line = Color.argb(56, 33, 30, 26)
 
-    private var activeTab = Tab.Today
+    private var activeTab = Tab.Board
     private var board = Board.Balanced
     private var boardSearchQuery = ""
     private var apiBaseUrl = DEFAULT_API_BASE_URL
@@ -191,26 +191,9 @@ class MainActivity : Activity() {
 
     private fun contentFor(tab: Tab): View {
         return when (tab) {
-            Tab.Today -> todayScreen()
             Tab.Board -> boardScreen()
             Tab.Profile -> profileScreen()
-            Tab.Sync -> syncScreen()
             Tab.Settings -> settingsScreen()
-        }
-    }
-
-    private fun todayScreen(): View {
-        return column {
-            addView(
-                panel {
-                    addView(labelText("Your July score"))
-                    addView(scoreText(me.score.score.toFixed(1), 72f, ink))
-                    addView(bodyText("Rank ${me.score.rank} this month.", 20f))
-                },
-            )
-
-            addView(metricRow("Commits", me.score.commits.toString(), green, units.title, formatDistance(me.score.kilometers), red))
-            addView(metricRow("Board", "#${me.score.rank}", blue, "Sync", "Ready", ink))
         }
     }
 
@@ -346,11 +329,13 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun syncScreen(): View {
+    private fun settingsScreen(): View {
         lateinit var codeInput: EditText
+        lateinit var urlInput: EditText
 
         return panel {
-            addView(titleText("Connect this device", 22f))
+            addView(titleText("Settings", 24f))
+            addView(labelText("Device sync"))
             val statusMessage = pairingStatusMessage
                 ?: if (paired) "Device paired for local sync." else "Scan QR or paste a pairing code from the web app."
             val statusColor = if (pairingStatusMessage == null) muted else pairingStatusColor
@@ -391,15 +376,7 @@ class MainActivity : Activity() {
                     }
                 },
             )
-        }
-    }
-
-    private fun settingsScreen(): View {
-        lateinit var urlInput: EditText
-
-        return panel {
-            addView(titleText("Settings", 24f))
-            addView(labelText("API base URL"))
+            addView(labelText("API base URL").apply { setPadding(0, dp(12), 0, 0) })
             urlInput = EditText(this@MainActivity).apply {
                 setText(apiBaseUrl)
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
@@ -434,28 +411,6 @@ class MainActivity : Activity() {
                     }
                 },
             )
-        }
-    }
-
-    private fun metricRow(
-        leftTitle: String,
-        leftValue: String,
-        leftColor: Int,
-        rightTitle: String,
-        rightValue: String,
-        rightColor: Int,
-    ): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            addView(metricTile(leftTitle, leftValue, leftColor), LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(8) })
-            addView(metricTile(rightTitle, rightValue, rightColor), LinearLayout.LayoutParams(0, -2, 1f))
-        }
-    }
-
-    private fun metricTile(title: String, value: String, color: Int): View {
-        return panel {
-            addView(labelText(title))
-            addView(scoreText(value, 30f, color))
         }
     }
 
@@ -595,7 +550,7 @@ class MainActivity : Activity() {
 
         pairingStatusMessage = "Opening QR scanner..."
         pairingStatusColor = ink
-        activeTab = Tab.Sync
+        activeTab = Tab.Settings
         render()
 
         scanner.startScan()
@@ -617,7 +572,7 @@ class MainActivity : Activity() {
     }
 
     private fun pairFromPayload(rawPayload: String) {
-        activeTab = Tab.Sync
+        activeTab = Tab.Settings
         val pairingPayload = parsePairingPayload(rawPayload)
         if (pairingPayload == null) {
             showPairingError("Enter a valid Pace & Push pairing code or QR link.")
@@ -667,7 +622,7 @@ class MainActivity : Activity() {
         pairingInProgress = true
         pairingStatusMessage = "Pairing with ${Uri.parse(targetBaseUrl).host ?: targetBaseUrl}..."
         pairingStatusColor = ink
-        activeTab = Tab.Sync
+        activeTab = Tab.Settings
         render()
 
         Thread {
@@ -823,7 +778,7 @@ class MainActivity : Activity() {
         pairingInProgress = false
         pairingStatusMessage = message
         pairingStatusColor = color
-        activeTab = Tab.Sync
+        activeTab = Tab.Settings
         render()
     }
 
@@ -969,10 +924,8 @@ class MainActivity : Activity() {
 }
 
 private enum class Tab(val title: String) {
-    Today("Today"),
     Board("Board"),
     Profile("Profile"),
-    Sync("Sync"),
     Settings("Settings"),
 }
 

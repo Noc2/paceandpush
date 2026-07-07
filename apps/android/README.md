@@ -2,8 +2,8 @@
 
 Native Kotlin client for Pace & Push.
 
-The current PoC app shell includes Today, Leaderboard, Profile, Sync, and
-Settings tabs, plus pairing-code exchange with the web API.
+The current PoC app shell includes Board, Profile, and Settings tabs,
+plus pairing-code exchange with the web API from Settings.
 
 Health Connect sync scaffolding exists in `HealthConnectDistanceSync.kt`: it can
 read running exercise sessions, aggregate `DistanceRecord` distance inside those

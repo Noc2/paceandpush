@@ -47,17 +47,11 @@ struct RootView: View {
 struct MainTabsView: View {
     var body: some View {
         TabView {
-            TodayView()
-                .tabItem { Label("Today", systemImage: "bolt.fill") }
-
             LeaderboardView()
                 .tabItem { Label("Board", systemImage: "list.number") }
 
             ProfileView()
                 .tabItem { Label("Profile", systemImage: "person.crop.square") }
-
-            SyncView()
-                .tabItem { Label("Sync", systemImage: "arrow.triangle.2.circlepath") }
 
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
@@ -234,59 +228,6 @@ struct OnboardingStep<Actions: View>: View {
     }
 }
 
-struct TodayView: View {
-    @EnvironmentObject private var store: PacePushStore
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    HeaderView()
-                    ScorePeriodSelector(activePeriod: store.activePeriod) { period in
-                        Task { await store.setActivePeriod(period) }
-                    }
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Your \(store.activePeriod.label) score")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(Brand.muted)
-                            .textCase(.uppercase)
-
-                        Text(store.me.score.score.formatted(.number.precision(.fractionLength(1))))
-                            .font(.system(size: 72, weight: .black, design: .rounded))
-                            .foregroundStyle(Brand.ink)
-
-                        Text(store.me.score.rank.map { "Rank #\($0) for \(store.activePeriod.shortLabel)." } ?? "No public rank yet.")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(Brand.muted)
-                    }
-                    .panelStyle()
-
-                    HStack(spacing: 12) {
-                        MetricTile(title: "Commits", value: "\(store.me.score.commits)", color: Brand.green)
-                        MetricTile(
-                            title: store.units.title,
-                            value: store.formatDistance(store.me.score.kilometers),
-                            color: Brand.red
-                        )
-                    }
-
-                    HStack(spacing: 12) {
-                        MetricTile(title: "Board", value: store.me.score.rank.map { "#\($0)" } ?? "-", color: Brand.blue)
-                        MetricTile(title: "Sync", value: store.me.score.lastSyncAt == nil ? "Never" : "Ready", color: Brand.ink)
-                    }
-                }
-                .padding(20)
-            }
-            .accessibilityIdentifier("today-screen")
-            .background(Brand.paper)
-            .refreshable {
-                await store.refresh()
-            }
-        }
-    }
-}
-
 struct LeaderboardView: View {
     @EnvironmentObject private var store: PacePushStore
     @State private var board = Board.balanced
@@ -459,50 +400,6 @@ struct ProfileView: View {
     }
 }
 
-struct SyncView: View {
-    @EnvironmentObject private var store: PacePushStore
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    HeaderView()
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label("Running sync", systemImage: "figure.run")
-                            .font(.title3.bold())
-
-                        StatusRow(label: "GitHub", value: store.isGitHubConnected ? "@\(store.me.login)" : "Disconnected")
-                        StatusRow(label: "Apple Health", value: store.healthAuthorized ? "Enabled" : "Needs permission")
-                        StatusRow(label: "Last sync", value: store.firstSyncAt ?? "Never")
-
-                        Button {
-                            Task { await store.syncRunningDistance() }
-                        } label: {
-                            Label(store.busy ? "Syncing..." : "Sync Now", systemImage: "arrow.triangle.2.circlepath")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .accessibilityIdentifier("sync-now-button")
-                        .disabled(store.busy || !store.healthAuthorized)
-
-                        if let error = store.lastError {
-                            Text(error)
-                                .font(.callout.weight(.semibold))
-                                .foregroundStyle(Brand.red)
-                        }
-                    }
-                    .panelStyle()
-                }
-                .padding(20)
-            }
-            .accessibilityIdentifier("sync-screen")
-            .background(Brand.paper)
-            .navigationTitle("Sync")
-        }
-    }
-}
-
 struct SettingsView: View {
     @EnvironmentObject private var store: PacePushStore
 
@@ -515,6 +412,45 @@ struct SettingsView: View {
                         store.signOut()
                     } label: {
                         Text("Sign out")
+                            .foregroundStyle(Brand.red)
+                    }
+                }
+
+                Section("Sync") {
+                    StatusRow(label: "GitHub", value: store.isGitHubConnected ? "@\(store.me.login)" : "Disconnected")
+                    if !store.isGitHubConnected {
+                        Button {
+                            Task { await store.connectGitHub() }
+                        } label: {
+                            Label("Connect GitHub", systemImage: "chevron.right.square")
+                        }
+                        .accessibilityIdentifier("settings-connect-github-button")
+                        .disabled(store.busy)
+                    }
+
+                    StatusRow(label: "Apple Health", value: store.healthAuthorized ? "Enabled" : "Needs permission")
+                    if !store.healthAuthorized {
+                        Button {
+                            Task { await store.requestHealthAccess() }
+                        } label: {
+                            Label("Enable Health", systemImage: "heart.text.square")
+                        }
+                        .accessibilityIdentifier("settings-enable-health-button")
+                        .disabled(store.busy)
+                    }
+
+                    StatusRow(label: "Last sync", value: store.firstSyncAt ?? "Never")
+                    Button {
+                        Task { await store.syncRunningDistance() }
+                    } label: {
+                        Label(store.busy ? "Syncing..." : "Sync Now", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .accessibilityIdentifier("sync-now-button")
+                    .disabled(store.busy || !store.healthAuthorized || !store.isGitHubConnected)
+
+                    if let error = store.lastError {
+                        Text(error)
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(Brand.red)
                     }
                 }

@@ -24,18 +24,18 @@ final class PacePushUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-uiTestingSeeded"]
         app.launch()
 
-        XCTAssertTrue(app.descendants(matching: .any)["today-screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["period-selector"].exists)
-        XCTAssertTrue(
-            app.staticTexts
-                .containing(NSPredicate(format: "label CONTAINS[c] %@", "July 2026 score"))
-                .firstMatch
-                .exists
-        )
+        XCTAssertTrue(app.tabBars.buttons["Board"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Profile"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Settings"].exists)
+        XCTAssertFalse(app.tabBars.buttons["Today"].exists)
+        XCTAssertFalse(app.tabBars.buttons["Sync"].exists)
 
         app.tabBars.buttons["Settings"].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["sync-now-button"].exists)
         XCTAssertTrue(app.textFields["api-base-url-field"].exists)
         XCTAssertTrue(app.switches["settings-public-leaderboard-toggle"].exists)
     }
@@ -45,7 +45,7 @@ final class PacePushUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-uiTestingSeeded"]
         app.launch()
 
-        XCTAssertTrue(app.descendants(matching: .any)["today-screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
         app.tabBars.buttons["Profile"].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
