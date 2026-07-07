@@ -2,12 +2,16 @@ package com.paceandpush
 
 import android.app.Activity
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.text.InputType
+import android.util.Base64
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -22,14 +26,22 @@ import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.KeyStore
 import java.util.Locale
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
 
 class MainActivity : Activity() {
     private companion object {
+        const val ANDROID_KEYSTORE = "AndroidKeyStore"
         const val DEFAULT_API_BASE_URL = "https://paceandpush.com"
+        const val DEVICE_TOKEN_KEY_ALIAS = "pacepush_mobile_device_token"
         const val PAIRING_CODE_PREFIX = "pp_pair."
         const val PREF_API_BASE_URL = "api_base_url"
         const val PREF_DEVICE_TOKEN = "mobile_device_token"
+        const val PREF_DEVICE_TOKEN_CIPHERTEXT = "mobile_device_token_ciphertext"
+        const val PREF_DEVICE_TOKEN_IV = "mobile_device_token_iv"
         const val PREF_DISTANCE_UNITS = "distance_units"
     }
 
@@ -89,7 +101,8 @@ class MainActivity : Activity() {
         applyBrandSystemBars()
         val preferences = getPreferences(MODE_PRIVATE)
         apiBaseUrl = normalizeBaseUrl(preferences.getString(PREF_API_BASE_URL, null)) ?: DEFAULT_API_BASE_URL
-        paired = !preferences.getString(PREF_DEVICE_TOKEN, null).isNullOrBlank()
+        migrateLegacyDeviceToken(preferences)
+        paired = hasStoredDeviceToken(preferences)
         units = DistanceUnits.from(preferences.getString(PREF_DISTANCE_UNITS, null))
         render()
         if (savedInstanceState == null) {
@@ -664,15 +677,18 @@ class MainActivity : Activity() {
                 pairingInProgress = false
                 result
                     .onSuccess { exchangeResult ->
-                        apiBaseUrl = targetBaseUrl
-                        paired = true
-                        pairingStatusMessage = "Device paired."
-                        pairingStatusColor = green
-                        getPreferences(MODE_PRIVATE)
-                            .edit()
-                            .putString(PREF_API_BASE_URL, targetBaseUrl)
-                            .putString(PREF_DEVICE_TOKEN, exchangeResult.token)
-                            .apply()
+                        runCatching {
+                            storePairingCredentials(targetBaseUrl, exchangeResult.token)
+                        }.onSuccess {
+                            apiBaseUrl = targetBaseUrl
+                            paired = true
+                            pairingStatusMessage = "Device paired."
+                            pairingStatusColor = green
+                        }.onFailure {
+                            paired = false
+                            pairingStatusMessage = "Could not store the device token securely."
+                            pairingStatusColor = red
+                        }
                     }
                     .onFailure { error ->
                         pairingStatusMessage = error.message ?: "Pairing failed."
@@ -720,6 +736,71 @@ class MainActivity : Activity() {
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun storePairingCredentials(baseUrl: String, token: String) {
+        val encryptedToken = encryptDeviceToken(token)
+        getPreferences(MODE_PRIVATE)
+            .edit()
+            .putString(PREF_API_BASE_URL, baseUrl)
+            .putString(PREF_DEVICE_TOKEN_CIPHERTEXT, encryptedToken.ciphertext)
+            .putString(PREF_DEVICE_TOKEN_IV, encryptedToken.iv)
+            .remove(PREF_DEVICE_TOKEN)
+            .apply()
+    }
+
+    private fun migrateLegacyDeviceToken(preferences: SharedPreferences) {
+        if (hasStoredDeviceToken(preferences)) {
+            preferences.edit().remove(PREF_DEVICE_TOKEN).apply()
+            return
+        }
+
+        val legacyToken = preferences.getString(PREF_DEVICE_TOKEN, null)?.trim()
+        if (legacyToken.isNullOrBlank()) return
+
+        runCatching {
+            val encryptedToken = encryptDeviceToken(legacyToken)
+            preferences.edit()
+                .putString(PREF_DEVICE_TOKEN_CIPHERTEXT, encryptedToken.ciphertext)
+                .putString(PREF_DEVICE_TOKEN_IV, encryptedToken.iv)
+                .remove(PREF_DEVICE_TOKEN)
+                .apply()
+        }.onFailure {
+            preferences.edit().remove(PREF_DEVICE_TOKEN).apply()
+        }
+    }
+
+    private fun hasStoredDeviceToken(preferences: SharedPreferences): Boolean {
+        return !preferences.getString(PREF_DEVICE_TOKEN_CIPHERTEXT, null).isNullOrBlank() &&
+            !preferences.getString(PREF_DEVICE_TOKEN_IV, null).isNullOrBlank()
+    }
+
+    private fun encryptDeviceToken(token: String): EncryptedDeviceToken {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, deviceTokenSecretKey())
+        val ciphertext = cipher.doFinal(token.toByteArray(Charsets.UTF_8))
+        return EncryptedDeviceToken(
+            ciphertext = Base64.encodeToString(ciphertext, Base64.NO_WRAP),
+            iv = Base64.encodeToString(cipher.iv, Base64.NO_WRAP),
+        )
+    }
+
+    private fun deviceTokenSecretKey(): SecretKey {
+        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        (keyStore.getKey(DEVICE_TOKEN_KEY_ALIAS, null) as? SecretKey)?.let { return it }
+
+        val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
+        keyGenerator.init(
+            KeyGenParameterSpec.Builder(
+                DEVICE_TOKEN_KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setRandomizedEncryptionRequired(true)
+                .build(),
+        )
+        return keyGenerator.generateKey()
     }
 
     private fun readResponseBody(connection: HttpURLConnection, responseCode: Int): String {
@@ -966,4 +1047,9 @@ private data class PairingPayload(
 
 private data class DeviceExchangeResult(
     val token: String,
+)
+
+private data class EncryptedDeviceToken(
+    val ciphertext: String,
+    val iv: String,
 )
