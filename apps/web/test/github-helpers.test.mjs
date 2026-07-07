@@ -1049,6 +1049,10 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
     new URL("../../../.github/workflows/ci.yml", import.meta.url),
     "utf8",
   );
+  const androidRootBuild = await readFile(
+    new URL("../../android/build.gradle.kts", import.meta.url),
+    "utf8",
+  );
   const androidGradleProperties = await readFile(
     new URL("../../android/gradle.properties", import.meta.url),
     "utf8",
@@ -1090,8 +1094,9 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidReadme, /\/api\/mobile\/sync-runs/);
   assert.match(androidReadme, /Android CI build is green on `main`/);
   assert.match(androidWorkflow, /android:/);
-  assert.match(androidWorkflow, /gradle-version: "8\.10\.2"/);
+  assert.match(androidWorkflow, /gradle-version: "8\.11\.1"/);
   assert.match(androidWorkflow, /gradle -p apps\/android :app:assembleDebug --no-daemon/);
+  assert.match(androidRootBuild, /com\.android\.application"\) version "8\.9\.2"/);
   assert.match(androidGradleProperties, /android\.useAndroidX=true/);
   assert.match(androidGradleProperties, /android\.suppressUnsupportedCompileSdk=36/);
   assert.match(androidBuild, /androidx\.health\.connect:connect-client:1\.1\.0/);
