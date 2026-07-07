@@ -66,16 +66,31 @@ Owner-only production setup is tracked in
 
 - Apple Developer: create the iOS app record, enable HealthKit, add privacy
   nutrition labels, and distribute the first build through TestFlight.
+- Follow `docs/launch/release-runbook.md` for archive, TestFlight, rollback,
+  alerting, and incident-response steps.
 - Confirm the iOS archive includes `PrivacyInfo.xcprivacy`, generate the Xcode
   privacy report from the organizer, and save the report with App Review
   evidence before submitting.
+- Complete `docs/launch/real-device-beta-checklist.md` for the exact build
+  being submitted.
 - Paste the GitHub-specific login rationale and in-app disconnect reviewer
   steps from `docs/launch/app-review-notes-ios.md` into App Store Connect
   Notes for Review.
 - Google Play Console: create the Android app record, declare Health Connect
   running exercise and distance access, provide the permission rationale and
   privacy policy, and distribute the first build through internal testing.
+- Use `docs/store-listing/app-store.md`, `docs/store-listing/google-play.md`,
+  and `docs/store-listing/screenshots.md` for store copy, privacy declarations,
+  review notes, release contacts, and screenshot coverage.
 - Point both apps at `https://paceandpush.com` before beta distribution.
+
+## Observability
+
+- Enable Vercel Cron failure notifications for `/api/jobs/recompute-scores`.
+- Add an external uptime check for `https://paceandpush.com/api/health`.
+- Enable Vercel runtime error notifications or add Sentry/error monitoring only
+  after `/privacy` and store declarations are updated for the provider.
+- Confirm CI failure notifications reach the release owner before store review.
 
 ## Legal
 

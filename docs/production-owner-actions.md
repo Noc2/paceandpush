@@ -13,6 +13,8 @@ These items need owner input, provider access, legal details, or platform-accoun
    - Enable Vercel Cron failure notifications for `/api/jobs/recompute-scores`.
    - Choose Sentry or Vercel Error Monitoring and provide the project DSN/integration.
    - Add an external uptime check against `https://paceandpush.com/api/health`.
+   - Keep `docs/launch/release-runbook.md` updated with the active alert
+     recipients, rollback path, and incident contacts.
 
 3. Decide the Android launch scope.
    - Option A: descope Android from the first launch and update app-store/checklist copy accordingly.
@@ -21,6 +23,8 @@ These items need owner input, provider access, legal details, or platform-accoun
 4. Complete platform health-data compliance.
    - Apple: App Store privacy nutrition labels, HealthKit purpose strings, TestFlight/App Review material.
    - Google Play, if Android ships: Health Connect declaration, permission rationale, privacy policy URL, restricted-permission approval.
+   - Use `docs/store-listing/` as the source draft for store copy, screenshot
+     coverage, privacy declarations, and review answers.
 
 5. Confirm mobile OAuth hardening direction.
    - Prefer Android App Links and iOS Universal Links over custom schemes for production.
@@ -30,8 +34,9 @@ These items need owner input, provider access, legal details, or platform-accoun
    - Plan PKCE binding for the native OAuth exchange before broad mobile distribution.
 
 6. Choose the distance day timezone policy.
-   - Current native code can shift evening workouts across UTC day/month boundaries.
-   - Pick device-local or UTC bucketing, then align iOS, Android, and API contract wording.
+   - Current product policy is UTC calendar-day bucketing.
+   - Revisit this only with an API-contract, native-client, privacy-policy, and
+     store-review update.
 
 7. Provision production and staging data operations.
    - Create a staging/preview database or Neon branch separate from production.

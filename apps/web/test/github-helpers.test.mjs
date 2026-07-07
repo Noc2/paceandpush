@@ -983,6 +983,48 @@ test("native API base URL editing is debug-only", async () => {
   assert.match(androidSource, /DEFAULT_API_BASE_URL/);
 });
 
+test("launch evidence docs cover alerts, rollback, stores, and real devices", async () => {
+  const runbook = await readFile(
+    new URL("../../../docs/launch/release-runbook.md", import.meta.url),
+    "utf8",
+  );
+  const realDeviceChecklist = await readFile(
+    new URL("../../../docs/launch/real-device-beta-checklist.md", import.meta.url),
+    "utf8",
+  );
+  const appStore = await readFile(
+    new URL("../../../docs/store-listing/app-store.md", import.meta.url),
+    "utf8",
+  );
+  const googlePlay = await readFile(
+    new URL("../../../docs/store-listing/google-play.md", import.meta.url),
+    "utf8",
+  );
+  const screenshots = await readFile(
+    new URL("../../../docs/store-listing/screenshots.md", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(runbook, /Vercel Cron failure notifications/);
+  assert.match(runbook, /https:\/\/paceandpush\.com\/api\/health/);
+  assert.match(runbook, /Rollback path/);
+  assert.match(runbook, /Pause mobile sync/);
+  assert.match(runbook, /DELETE \/api\/mobile\/devices\/:id\/revoke/);
+  assert.match(runbook, /hawigxyz@proton\.me/);
+
+  assert.match(realDeviceChecklist, /GitHub auth succeeds/);
+  assert.match(realDeviceChecklist, /Health Connect permission denial/);
+  assert.match(realDeviceChecklist, /Token revocation disables further mobile API access/);
+
+  assert.match(appStore, /Privacy Labels/);
+  assert.match(appStore, /daily aggregate running distance totals/);
+  assert.match(appStore, /GitHub-specific login\s+rationale/);
+  assert.match(googlePlay, /Health Connect Declaration/);
+  assert.match(googlePlay, /Public Release Blockers/);
+  assert.match(screenshots, /Zero-distance recovery hint/);
+  assert.match(screenshots, /Leaderboard\/profile loaded from the real API/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");
