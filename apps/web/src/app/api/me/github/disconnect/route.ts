@@ -1,6 +1,9 @@
 import { getSessionUser } from "@/server/auth/session";
 import { disconnectGitHubAccount, getAccountUser } from "@/server/data/accounts";
-import { recomputeScoreSnapshots } from "@/server/data/scores";
+import {
+  getScoreSnapshotPeriodsForUser,
+  recomputeScoreSnapshotPeriods,
+} from "@/server/data/scores";
 import { currentPeriod, periodForKind } from "@/lib/periods";
 import { NextResponse } from "next/server";
 
@@ -10,18 +13,15 @@ export async function DELETE() {
     return NextResponse.json({ error: "Sign in with GitHub first." }, { status: 401 });
   }
 
-  await disconnectGitHubAccount(user.id);
-
   const now = new Date();
-  const recomputePeriods = uniquePeriods([
+  const affectedPeriods = await getScoreSnapshotPeriodsForUser(user.id, [
     periodForKind("year", now),
     currentPeriod(now),
     periodForKind("week", now),
   ]);
 
-  for (const period of recomputePeriods) {
-    await recomputeScoreSnapshots(period);
-  }
+  await disconnectGitHubAccount(user.id);
+  await recomputeScoreSnapshotPeriods(affectedPeriods);
 
   return NextResponse.json({
     login: user.login,
@@ -32,8 +32,4 @@ export async function DELETE() {
     },
     disconnectedAt: new Date().toISOString(),
   });
-}
-
-function uniquePeriods(periods: string[]): string[] {
-  return [...new Set(periods)];
 }

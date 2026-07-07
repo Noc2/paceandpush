@@ -470,6 +470,47 @@ test("GitHub commit refresh upserts before deleting stale days", async () => {
   assert.match(refreshBlock, /notInArray\(commitDays\.day/);
 });
 
+test("score rank mutations recompute every affected snapshot period", async () => {
+  const scoresSource = await readFile(
+    new URL("../src/server/data/scores.ts", import.meta.url),
+    "utf8",
+  );
+  const deleteRoute = await readFile(
+    new URL("../src/app/api/me/delete/route.ts", import.meta.url),
+    "utf8",
+  );
+  const disconnectRoute = await readFile(
+    new URL("../src/app/api/me/github/disconnect/route.ts", import.meta.url),
+    "utf8",
+  );
+  const visibilityBlock = scoresSource.slice(
+    scoresSource.indexOf("export async function refreshScoresAfterLeaderboardVisibilityChange"),
+    scoresSource.indexOf("async function getScoreTotals"),
+  );
+
+  assert.match(scoresSource, /export async function getScoreSnapshotPeriodsForUser/);
+  assert.match(scoresSource, /export async function recomputeScoreSnapshotPeriods/);
+  assert.match(visibilityBlock, /getScoreSnapshotPeriodsForUser\(userId, \[period\]\)/);
+  assert.match(visibilityBlock, /recomputeScoreSnapshotPeriods\(affectedPeriods\)/);
+
+  assert.ok(
+    deleteRoute.indexOf("getScoreSnapshotPeriodsForUser(user.id)") <
+      deleteRoute.indexOf("deleteAccountData(user.id)"),
+  );
+  assert.ok(
+    deleteRoute.indexOf("deleteAccountData(user.id)") <
+      deleteRoute.indexOf("recomputeScoreSnapshotPeriods(affectedPeriods)"),
+  );
+  assert.ok(
+    disconnectRoute.indexOf("getScoreSnapshotPeriodsForUser(user.id") <
+      disconnectRoute.indexOf("disconnectGitHubAccount(user.id)"),
+  );
+  assert.ok(
+    disconnectRoute.indexOf("disconnectGitHubAccount(user.id)") <
+      disconnectRoute.indexOf("recomputeScoreSnapshotPeriods(affectedPeriods)"),
+  );
+});
+
 test("score totals keep raw kilometer precision before display rounding", async () => {
   const source = await readFile(
     new URL("../src/server/data/scores.ts", import.meta.url),

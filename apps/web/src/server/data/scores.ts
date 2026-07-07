@@ -182,6 +182,24 @@ export async function recomputeScoreSnapshots(period = currentPeriod()): Promise
   };
 }
 
+export async function getScoreSnapshotPeriodsForUser(
+  userId: string,
+  extraPeriods: string[] = [],
+): Promise<string[]> {
+  const rows = await getDb()
+    .select({ period: scoreSnapshots.period })
+    .from(scoreSnapshots)
+    .where(eq(scoreSnapshots.userId, userId));
+
+  return uniqueSortedPeriods([...extraPeriods, ...rows.map((row) => row.period)]);
+}
+
+export async function recomputeScoreSnapshotPeriods(periods: Iterable<string>): Promise<void> {
+  for (const period of uniqueSortedPeriods(periods)) {
+    await recomputeScoreSnapshots(period);
+  }
+}
+
 export async function refreshScoresAfterLeaderboardVisibilityChange({
   userId,
   login,
@@ -193,6 +211,8 @@ export async function refreshScoresAfterLeaderboardVisibilityChange({
   publicLeaderboard: boolean;
   period?: string;
 }): Promise<void> {
+  const affectedPeriods = await getScoreSnapshotPeriodsForUser(userId, [period]);
+
   if (publicLeaderboard) {
     try {
       await refreshGitHubCommitsForUser({ userId, login, period });
@@ -201,7 +221,7 @@ export async function refreshScoresAfterLeaderboardVisibilityChange({
     }
   }
 
-  await recomputeScoreSnapshots(period);
+  await recomputeScoreSnapshotPeriods(affectedPeriods);
 }
 
 async function getScoreTotals(period: string): Promise<ScoreTotals[]> {
@@ -266,4 +286,8 @@ function compareBoardRows(
   if (board === "commits") return right.commits - left.commits;
   if (board === "distance") return right.kilometers - left.kilometers;
   return right.score - left.score;
+}
+
+function uniqueSortedPeriods(periods: Iterable<string>): string[] {
+  return [...new Set(periods)].sort();
 }
