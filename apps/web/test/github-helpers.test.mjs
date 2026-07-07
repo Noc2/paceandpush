@@ -407,6 +407,48 @@ test("mobile auth routes require PKCE challenge and verifier", async () => {
   assert.match(mobileData, /codeChallengeForVerifier\(codeVerifier\) !== exchange\.codeChallenge/);
 });
 
+test("high-risk routes expose structured rate limits", async () => {
+  const rateLimitSource = await readFile(
+    new URL("../src/server/api/rate-limit.ts", import.meta.url),
+    "utf8",
+  );
+  const routes = await Promise.all(
+    [
+      "../src/app/api/leaderboard/route.ts",
+      "../src/app/api/search/users/route.ts",
+      "../src/app/api/users/[login]/route.ts",
+      "../src/app/api/embed/[login]/chart.svg/route.ts",
+      "../src/app/api/mobile/auth/github/start/route.ts",
+      "../src/app/api/mobile/auth/exchange/route.ts",
+      "../src/app/api/mobile/devices/route.ts",
+      "../src/app/api/mobile/pairing-codes/route.ts",
+      "../src/app/api/mobile/distance-days/route.ts",
+      "../src/app/api/me/github/refresh/route.ts",
+    ].map(async (route) => [
+      route,
+      await readFile(new URL(route, import.meta.url), "utf8"),
+    ]),
+  );
+
+  assert.match(rateLimitSource, /status: 429/);
+  assert.match(rateLimitSource, /"retry-after"/);
+  assert.match(rateLimitSource, /Too many requests\. Please retry later\./);
+  for (const [route, source] of routes) {
+    assert.match(source, /rateLimit\(request/, `${route} uses the rate limiter`);
+  }
+});
+
+test("GitHub refresh has a per-user minimum interval", async () => {
+  const route = await readFile(
+    new URL("../src/app/api/me/github/refresh/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(route, /githubRefreshMinimumIntervalMs = 15 \* 60 \* 1000/);
+  assert.match(route, /minimumInterval\(/);
+  assert.match(route, /`github-refresh:user:\$\{user\.id\}`/);
+});
+
 test("privacy export omits internal token and source hashes", async () => {
   const source = await readFile(
     new URL("../src/server/data/accounts.ts", import.meta.url),
@@ -577,6 +619,19 @@ test("score rank mutations recompute every affected snapshot period", async () =
     disconnectRoute.indexOf("disconnectGitHubAccount(user.id)") <
       disconnectRoute.indexOf("recomputeScoreSnapshotPeriods(affectedPeriods)"),
   );
+});
+
+test("score recomputes coalesce in-progress period work", async () => {
+  const scoresSource = await readFile(
+    new URL("../src/server/data/scores.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(scoresSource, /const recomputeInFlight = new Map/);
+  assert.match(scoresSource, /const existing = recomputeInFlight\.get\(period\)/);
+  assert.match(scoresSource, /if \(existing\) return existing/);
+  assert.match(scoresSource, /recomputeScoreSnapshotsUnlocked/);
+  assert.match(scoresSource, /recomputeInFlight\.delete\(period\)/);
 });
 
 test("mobile GitHub disconnect revokes social credentials and device access", async () => {

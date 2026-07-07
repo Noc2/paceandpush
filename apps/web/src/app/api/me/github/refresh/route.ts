@@ -1,17 +1,33 @@
 import { getSessionUser } from "@/server/auth/session";
+import { minimumInterval, rateLimit } from "@/server/api/rate-limit";
 import { getAccountUser } from "@/server/data/accounts";
 import {
   recomputeScoreSnapshots,
   refreshGitHubCommitsForUser,
 } from "@/server/data/scores";
 import { currentPeriod, periodForKind } from "@/lib/periods";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST() {
+const githubRefreshMinimumIntervalMs = 15 * 60 * 1000;
+
+export async function POST(request: NextRequest) {
+  const limited = rateLimit(request, {
+    bucket: "github-refresh",
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
+
   const user = await getAccountUser(await getSessionUser());
   if (!user) {
     return NextResponse.json({ error: "Sign in with GitHub first." }, { status: 401 });
   }
+
+  const throttled = minimumInterval(
+    `github-refresh:user:${user.id}`,
+    githubRefreshMinimumIntervalMs,
+  );
+  if (throttled) return throttled;
 
   try {
     const now = new Date();

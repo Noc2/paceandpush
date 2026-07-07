@@ -16,6 +16,12 @@ interface ScoreTotals {
   publicLeaderboard: boolean;
 }
 
+const recomputeInFlight = new Map<string, Promise<{
+  period: string;
+  users: number;
+  snapshots: number;
+}>>();
+
 export { currentPeriod, isSupportedPeriod, parsePeriod, periodBounds } from "@/lib/periods";
 
 export async function refreshGitHubCommits(period = currentPeriod()): Promise<{
@@ -126,6 +132,21 @@ export async function refreshGitHubCommitsForUser({
 }
 
 export async function recomputeScoreSnapshots(period = currentPeriod()): Promise<{
+  period: string;
+  users: number;
+  snapshots: number;
+}> {
+  const existing = recomputeInFlight.get(period);
+  if (existing) return existing;
+
+  const recompute = recomputeScoreSnapshotsUnlocked(period).finally(() => {
+    recomputeInFlight.delete(period);
+  });
+  recomputeInFlight.set(period, recompute);
+  return recompute;
+}
+
+async function recomputeScoreSnapshotsUnlocked(period: string): Promise<{
   period: string;
   users: number;
   snapshots: number;

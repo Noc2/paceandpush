@@ -1,11 +1,19 @@
 import { upsertDistanceDays, verifyDeviceToken } from "@/server/data/mobile";
 import { recomputeScoreSnapshots } from "@/server/data/scores";
 import { periodForKind } from "@/lib/periods";
+import { rateLimit } from "@/server/api/rate-limit";
 import { isDistanceDayInput, isPlainObject } from "@/server/api/payloads";
 import type { DistanceDayInput } from "@paceandpush/api-contracts";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(request, {
+    bucket: "mobile-distance-days",
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
+
   const auth = await verifyDeviceToken(request.headers.get("authorization"));
   if (!auth) {
     return NextResponse.json({ error: "Missing or invalid device token." }, { status: 401 });

@@ -1,8 +1,16 @@
 import { exchangeMobilePairingCode } from "@/server/data/mobile";
+import { rateLimit } from "@/server/api/rate-limit";
 import type { DeviceExchangeRequest } from "@paceandpush/api-contracts";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(request, {
+    bucket: "mobile-device-pairing",
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
+
   let body: DeviceExchangeRequest;
   try {
     body = (await request.json()) as DeviceExchangeRequest;

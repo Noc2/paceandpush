@@ -1,9 +1,17 @@
 import { buildGitHubAuthorizeUrl } from "@/server/github/oauth";
+import { rateLimit } from "@/server/api/rate-limit";
 import { mobileGitHubOAuthConfigurationError } from "@/server/mobile/oauth-config";
 import { createMobileAuthState } from "@/server/mobile/tokens";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, {
+    bucket: "mobile-auth-start",
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
+
   const configurationError = mobileGitHubOAuthConfigurationError();
   if (configurationError) {
     return NextResponse.json(
