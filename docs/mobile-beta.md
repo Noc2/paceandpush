@@ -51,8 +51,15 @@ path, but it should not be the primary iOS onboarding path.
   payloads.
 - Before Android beta sync, request read-only exercise-session and distance
   access, read Health Connect running exercise sessions, aggregate
-  `DistanceRecord` distance inside those sessions, and upload daily totals, not
-  raw records.
+  `DistanceRecord` distance inside those sessions by UTC day, and upload daily
+  totals, not raw records.
+
+## Date Bucketing
+
+Pace & Push scores use UTC calendar days. Native clients should assign each
+running workout/session to the UTC date of its start time before uploading daily
+distance totals. This keeps mobile uploads aligned with GitHub contribution
+queries and backend week/month/year period boundaries.
 
 ## Beta Boundaries
 

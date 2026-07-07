@@ -39,7 +39,7 @@ Reviewers can test the flow with a connected account:
 
 Apple Health access is requested separately and remains controlled by the
 user's iOS Health permissions. Pace & Push uploads only daily running distance
-totals, not raw workouts or routes.
+totals bucketed by UTC calendar day, not raw workouts or routes.
 
 ## Guideline Rationale
 

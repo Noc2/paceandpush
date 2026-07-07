@@ -965,6 +965,24 @@ test("sync run validation accepts omitted finishedAt and null errorSummary", asy
   assert.match(contractSource, /errorSummary\?: string \| null/);
 });
 
+test("native API base URL editing is debug-only", async () => {
+  const iosSource = await readFile(
+    new URL("../../ios/PacePushApp.swift", import.meta.url),
+    "utf8",
+  );
+  const androidSource = await readFile(
+    new URL("../../android/app/src/main/java/com/paceandpush/MainActivity.kt", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(iosSource, /var showsServerSettings: Bool/);
+  assert.match(iosSource, /#if DEBUG[\s\S]*true[\s\S]*#else[\s\S]*false[\s\S]*#endif/);
+  assert.match(iosSource, /allowsAPIBaseURLOverride \? pairing\.baseURL : nil/);
+  assert.match(androidSource, /ApplicationInfo\.FLAG_DEBUGGABLE/);
+  assert.match(androidSource, /if \(allowsApiBaseUrlOverride\(\)\)/);
+  assert.match(androidSource, /DEFAULT_API_BASE_URL/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");

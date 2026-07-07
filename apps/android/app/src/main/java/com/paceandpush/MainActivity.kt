@@ -3,6 +3,7 @@ package com.paceandpush
 import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.ApplicationInfo
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -108,7 +109,11 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         applyBrandSystemBars()
         val preferences = getPreferences(MODE_PRIVATE)
-        apiBaseUrl = normalizeBaseUrl(preferences.getString(PREF_API_BASE_URL, null)) ?: DEFAULT_API_BASE_URL
+        apiBaseUrl = if (allowsApiBaseUrlOverride()) {
+            normalizeBaseUrl(preferences.getString(PREF_API_BASE_URL, null)) ?: DEFAULT_API_BASE_URL
+        } else {
+            DEFAULT_API_BASE_URL
+        }
         migrateLegacyDeviceToken(preferences)
         paired = hasStoredDeviceToken(preferences)
         units = DistanceUnits.from(preferences.getString(PREF_DISTANCE_UNITS, null))
@@ -381,9 +386,6 @@ class MainActivity : Activity() {
     }
 
     private fun settingsScreen(): View {
-        lateinit var codeInput: EditText
-        lateinit var urlInput: EditText
-
         return panel {
             addView(titleText("Settings", 24f))
             addView(labelText("Device sync"))
@@ -405,7 +407,7 @@ class MainActivity : Activity() {
                     }
                 },
             )
-            codeInput = EditText(this@MainActivity).apply {
+            val codeInput = EditText(this@MainActivity).apply {
                 hint = "Pairing code or link"
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
                 typeface = Typeface.MONOSPACE
@@ -427,42 +429,47 @@ class MainActivity : Activity() {
                     }
                 },
             )
-            addView(labelText("API base URL").apply { setPadding(0, dp(12), 0, 0) })
-            urlInput = EditText(this@MainActivity).apply {
-                setText(apiBaseUrl)
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-                typeface = Typeface.MONOSPACE
-                setSingleLine(true)
-                setTextColor(ink)
-                setHintTextColor(muted)
+            if (allowsApiBaseUrlOverride()) {
+                addView(labelText("API base URL").apply { setPadding(0, dp(12), 0, 0) })
+                val urlInput = EditText(this@MainActivity).apply {
+                    setText(apiBaseUrl)
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+                    typeface = Typeface.MONOSPACE
+                    setSingleLine(true)
+                    setTextColor(ink)
+                    setHintTextColor(muted)
+                }
+                addView(urlInput)
+                addView(
+                    Button(this@MainActivity).apply {
+                        text = "Save Server"
+                        isAllCaps = false
+                        setTextColor(ink)
+                        setBackgroundColor(orange)
+                        setOnClickListener {
+                            val normalizedUrl = normalizeBaseUrl(urlInput.text.toString())
+                            if (normalizedUrl == null) {
+                                activeTab = Tab.Settings
+                                render()
+                                return@setOnClickListener
+                            }
+                            apiBaseUrl = normalizedUrl
+                            getPreferences(MODE_PRIVATE)
+                                .edit()
+                                .putString(PREF_API_BASE_URL, normalizedUrl)
+                                .apply()
+                            render()
+                        }
+                    },
+                )
+            } else {
+                addView(labelText("Server").apply { setPadding(0, dp(12), 0, 0) })
+                addView(bodyText("API: paceandpush.com", 16f))
             }
-            addView(urlInput)
             addView(labelText("Distance units").apply { setPadding(0, dp(12), 0, 0) })
             addView(unitSelector())
             addView(bodyText("Public leaderboard: ${if (me.publicLeaderboard) "On" else "Off"}", 16f))
             addView(scoreExplanationPanel())
-            addView(
-                Button(this@MainActivity).apply {
-                    text = "Save"
-                    isAllCaps = false
-                    setTextColor(ink)
-                    setBackgroundColor(orange)
-                    setOnClickListener {
-                        val normalizedUrl = normalizeBaseUrl(urlInput.text.toString())
-                        if (normalizedUrl == null) {
-                            activeTab = Tab.Settings
-                            render()
-                            return@setOnClickListener
-                        }
-                        apiBaseUrl = normalizedUrl
-                        getPreferences(MODE_PRIVATE)
-                            .edit()
-                            .putString(PREF_API_BASE_URL, normalizedUrl)
-                            .apply()
-                        render()
-                    }
-                },
-            )
         }
     }
 
@@ -690,7 +697,11 @@ class MainActivity : Activity() {
     }
 
     private fun exchangePairingCode(pairingPayload: PairingPayload) {
-        val targetBaseUrl = normalizeBaseUrl(pairingPayload.baseUrl ?: apiBaseUrl)
+        val targetBaseUrl = if (allowsApiBaseUrlOverride()) {
+            normalizeBaseUrl(pairingPayload.baseUrl ?: apiBaseUrl)
+        } else {
+            DEFAULT_API_BASE_URL
+        }
         if (targetBaseUrl == null) {
             showPairingError("Set a valid API base URL before pairing.")
             return
@@ -774,13 +785,19 @@ class MainActivity : Activity() {
 
     private fun storePairingCredentials(baseUrl: String, token: String) {
         val encryptedToken = encryptDeviceToken(token)
-        getPreferences(MODE_PRIVATE)
+        val editor = getPreferences(MODE_PRIVATE)
             .edit()
-            .putString(PREF_API_BASE_URL, baseUrl)
             .putString(PREF_DEVICE_TOKEN_CIPHERTEXT, encryptedToken.ciphertext)
             .putString(PREF_DEVICE_TOKEN_IV, encryptedToken.iv)
             .remove(PREF_DEVICE_TOKEN)
-            .apply()
+
+        if (allowsApiBaseUrlOverride()) {
+            editor.putString(PREF_API_BASE_URL, baseUrl)
+        } else {
+            editor.remove(PREF_API_BASE_URL)
+        }
+
+        editor.apply()
     }
 
     private fun migrateLegacyDeviceToken(preferences: SharedPreferences) {
@@ -877,6 +894,8 @@ class MainActivity : Activity() {
     }
 
     private fun queryBaseUrl(uri: Uri): String? {
+        if (!allowsApiBaseUrlOverride()) return null
+
         listOf("baseUrl", "base_url", "apiBaseUrl").forEach { key ->
             allowedBaseUrl(uri.getQueryParameter(key))?.let { return it }
         }
@@ -927,6 +946,10 @@ class MainActivity : Activity() {
         if (scheme != "http" && scheme != "https") return null
         val authority = uri.encodedAuthority ?: return null
         return "$scheme://$authority"
+    }
+
+    private fun allowsApiBaseUrlOverride(): Boolean {
+        return (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
 
     private fun panel(build: LinearLayout.() -> Unit): LinearLayout {

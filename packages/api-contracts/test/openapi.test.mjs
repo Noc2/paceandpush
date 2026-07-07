@@ -87,8 +87,18 @@ test("OpenAPI documents mobile request bodies and bearer auth", () => {
 
 test("distance-day schemas include server-enforced limits", () => {
   assert.equal(jsonSchemas.distanceDayInput.properties.meters.maximum, 250000);
+  assert.match(jsonSchemas.distanceDayInput.properties.date.description, /UTC calendar day/);
+  assert.match(jsonSchemas.distanceDayInput.properties.meters.description, /UTC day/);
   assert.match(jsonSchemas.distanceDayInput.properties.meters.description, /over 100000/);
   assert.equal(jsonSchemas.distanceDaysRequest.properties.days.maxItems, 45);
+  assert.match(api.components.schemas.DistanceDayInput.properties.date.description, /UTC calendar day/);
   assert.equal(api.components.schemas.DistanceDayInput.properties.meters.maximum, 250000);
   assert.equal(api.components.schemas.DistanceDaysRequest.properties.days.maxItems, 45);
+});
+
+test("contract README documents UTC distance-day bucketing", async () => {
+  const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
+
+  assert.match(readme, /UTC calendar dates/);
+  assert.match(readme, /\/api\/mobile\/distance-days/);
 });

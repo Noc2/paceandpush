@@ -30,13 +30,17 @@ export const jsonSchemas = {
     type: "object",
     required: ["date", "meters", "sourcePlatform", "sourceHash"],
     properties: {
-      date: { type: "string", format: "date" },
+      date: {
+        type: "string",
+        format: "date",
+        description: "UTC calendar day in YYYY-MM-DD format.",
+      },
       meters: {
         type: "number",
         minimum: 0,
         maximum: 250000,
         description:
-          "Running-only distance for this day, in meters. Values over 100000 are accepted but flagged as implausible.",
+          "Running-only distance for this UTC day, in meters. Values over 100000 are accepted but flagged as implausible.",
       },
       sourcePlatform: { enum: ["ios", "android"] },
       sourceHash: { type: "string", minLength: 8 },
@@ -53,13 +57,17 @@ export const jsonSchemas = {
           type: "object",
           required: ["date", "meters", "sourcePlatform", "sourceHash"],
           properties: {
-            date: { type: "string", format: "date" },
+            date: {
+              type: "string",
+              format: "date",
+              description: "UTC calendar day in YYYY-MM-DD format.",
+            },
             meters: {
               type: "number",
               minimum: 0,
               maximum: 250000,
               description:
-                "Running-only distance for this day, in meters. Values over 100000 are accepted but flagged as implausible.",
+                "Running-only distance for this UTC day, in meters. Values over 100000 are accepted but flagged as implausible.",
             },
             sourcePlatform: { enum: ["ios", "android"] },
             sourceHash: { type: "string", minLength: 8 },

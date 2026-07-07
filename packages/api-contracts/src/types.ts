@@ -103,8 +103,9 @@ export interface MobileAuthExchangeRequest {
 }
 
 export interface DistanceDayInput {
+  /** UTC calendar day in YYYY-MM-DD format. */
   date: string;
-  /** Running-only distance for this day, in meters. */
+  /** Running-only distance for this UTC day, in meters. */
   meters: number;
   sourcePlatform: Platform;
   sourceHash: string;

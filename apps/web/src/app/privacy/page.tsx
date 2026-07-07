@@ -67,7 +67,10 @@ export default function PrivacyPage() {
 
             <h3>Distance sync</h3>
             <ul>
-              <li>Daily aggregate distance totals sent by the iOS or Android app.</li>
+              <li>
+                Daily aggregate distance totals sent by the iOS or Android app,
+                bucketed by UTC calendar day.
+              </li>
               <li>Device label, platform, sync timestamps, status, and error summaries.</li>
               <li>
                 {brandName} does not collect raw workouts, GPS routes, or
@@ -131,10 +134,10 @@ export default function PrivacyPage() {
             <p>
               {brandName} calculates period scores from daily GitHub commit
               counts, restricted/private contribution aggregates visible to your
-              GitHub token, and daily aggregate distance totals. The score is
-              used to rank public users on the leaderboard. This ranking is for
-              the product experience only and does not produce legal or similarly
-              significant effects.
+              GitHub token, and daily aggregate distance totals bucketed by UTC
+              calendar day. The score is used to rank public users on the
+              leaderboard. This ranking is for the product experience only and
+              does not produce legal or similarly significant effects.
             </p>
           </section>
 

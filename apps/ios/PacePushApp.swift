@@ -616,29 +616,35 @@ struct SettingsView: View {
                         .foregroundStyle(Brand.muted)
                 }
 
-                Section("Advanced") {
-                    Button {
-                        withAnimation(.snappy) {
-                            isServerSettingsExpanded.toggle()
+                if store.showsServerSettings {
+                    Section("Advanced") {
+                        Button {
+                            withAnimation(.snappy) {
+                                isServerSettingsExpanded.toggle()
+                            }
+                        } label: {
+                            HStack {
+                                Text("Server")
+                                Spacer()
+                                Image(systemName: isServerSettingsExpanded ? "chevron.up" : "chevron.down")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Brand.muted)
+                            }
                         }
-                    } label: {
-                        HStack {
-                            Text("Server")
-                            Spacer()
-                            Image(systemName: isServerSettingsExpanded ? "chevron.up" : "chevron.down")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(Brand.muted)
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Server")
+                        .accessibilityIdentifier("advanced-server-disclosure")
+
+                        if isServerSettingsExpanded {
+                            TextField("API base URL", text: $store.apiBaseURL)
+                                .font(Font.system(.body, design: .monospaced))
+                                .foregroundStyle(Brand.ink)
+                                .accessibilityIdentifier("api-base-url-field")
                         }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Server")
-                    .accessibilityIdentifier("advanced-server-disclosure")
-
-                    if isServerSettingsExpanded {
-                        TextField("API base URL", text: $store.apiBaseURL)
-                            .font(Font.system(.body, design: .monospaced))
-                            .foregroundStyle(Brand.ink)
-                            .accessibilityIdentifier("api-base-url-field")
+                } else {
+                    Section("Server") {
+                        StatusRow(label: "API", value: "paceandpush.com")
                     }
                 }
             }
@@ -1190,6 +1196,10 @@ final class PacePushStore: ObservableObject {
         deviceToken != nil
     }
 
+    var showsServerSettings: Bool {
+        allowsAPIBaseURLOverride
+    }
+
     func isCurrentUser(_ row: LeaderboardRow) -> Bool {
         isGitHubConnected && row.login.localizedCaseInsensitiveCompare(me.login) == .orderedSame
     }
@@ -1306,7 +1316,7 @@ final class PacePushStore: ObservableObject {
             return
         }
 
-        guard let baseURL = pairing.baseURL ?? currentBaseURL else {
+        guard let baseURL = (allowsAPIBaseURLOverride ? pairing.baseURL : nil) ?? currentBaseURL else {
             lastError = "API base URL is invalid."
             lastSuccess = nil
             return
@@ -1644,7 +1654,7 @@ final class PacePushStore: ObservableObject {
         try keychain.saveString(exchange.token, account: tokenKey)
         deviceToken = exchange.token
 
-        if pairing.baseURL != nil {
+        if allowsAPIBaseURLOverride, pairing.baseURL != nil {
             apiBaseURL = baseURL.absoluteString.trimmedTrailingSlash
         }
 
@@ -1661,6 +1671,14 @@ final class PacePushStore: ObservableObject {
 
     private var setupReadyForFirstSync: Bool {
         isGitHubConnected && healthAuthorized && firstSyncAt == nil
+    }
+
+    private var allowsAPIBaseURLOverride: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
     }
 
     private var needsHistoricalDistanceSync: Bool {
