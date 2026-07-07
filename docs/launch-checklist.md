@@ -66,6 +66,9 @@ Owner-only production setup is tracked in
 
 - Apple Developer: create the iOS app record, enable HealthKit, add privacy
   nutrition labels, and distribute the first build through TestFlight.
+- Confirm the iOS archive includes `PrivacyInfo.xcprivacy`, generate the Xcode
+  privacy report from the organizer, and save the report with App Review
+  evidence before submitting.
 - Google Play Console: create the Android app record, declare Health Connect
   running exercise and distance access, provide the permission rationale and
   privacy policy, and distribute the first build through internal testing.

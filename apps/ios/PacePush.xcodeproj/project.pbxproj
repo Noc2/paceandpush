@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1D60A2E92CB74C6500110A10 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1D60A2E82CB74C6500110A10 /* Assets.xcassets */; };
+		1D60A2EB2CB74C6500110A10 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1D60A2EA2CB74C6500110A10 /* PrivacyInfo.xcprivacy */; };
 		1D60A2D92CB74C6500110A10 /* PacePushApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60A2D82CB74C6500110A10 /* PacePushApp.swift */; };
 		1D60A2DB2CB74C6500110A10 /* HealthKitDistanceSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60A2DA2CB74C6500110A10 /* HealthKitDistanceSync.swift */; };
 		1D60B0102CB74C6500110A10 /* PacePushTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60B0042CB74C6500110A10 /* PacePushTests.swift */; };
@@ -39,6 +40,7 @@
 		1D60A2E62CB74C6500110A10 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1D60A2E72CB74C6500110A10 /* PacePush.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PacePush.entitlements; sourceTree = "<group>"; };
 		1D60A2E82CB74C6500110A10 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1D60A2EA2CB74C6500110A10 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1D60B0022CB74C6500110A10 /* PacePushTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PacePushTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D60B0032CB74C6500110A10 /* PacePushUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PacePushUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D60B0042CB74C6500110A10 /* PacePushTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacePushTests.swift; sourceTree = "<group>"; };
@@ -78,6 +80,7 @@
 				1D60A2E82CB74C6500110A10 /* Assets.xcassets */,
 				1D60A2E62CB74C6500110A10 /* Info.plist */,
 				1D60A2E72CB74C6500110A10 /* PacePush.entitlements */,
+				1D60A2EA2CB74C6500110A10 /* PrivacyInfo.xcprivacy */,
 				1D60A2DC2CB74C6500110A10 /* README.md */,
 				1D60B0402CB74C6500110A10 /* PacePushTests */,
 				1D60B0412CB74C6500110A10 /* PacePushUITests */,
@@ -221,6 +224,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1D60A2E92CB74C6500110A10 /* Assets.xcassets in Resources */,
+				1D60A2EB2CB74C6500110A10 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
