@@ -1049,6 +1049,10 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
     new URL("../../../.github/workflows/ci.yml", import.meta.url),
     "utf8",
   );
+  const androidGradleProperties = await readFile(
+    new URL("../../android/gradle.properties", import.meta.url),
+    "utf8",
+  );
   const launcherIcon = await readFile(
     new URL(
       "../../android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
@@ -1084,6 +1088,8 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidWorkflow, /android:/);
   assert.match(androidWorkflow, /gradle-version: "8\.10\.2"/);
   assert.match(androidWorkflow, /gradle -p apps\/android :app:assembleDebug --no-daemon/);
+  assert.match(androidGradleProperties, /android\.useAndroidX=true/);
+  assert.match(androidGradleProperties, /android\.suppressUnsupportedCompileSdk=36/);
 });
 
 test("beta feedback, share profile, and health repair paths stay visible", async () => {

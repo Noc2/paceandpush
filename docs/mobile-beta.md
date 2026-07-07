@@ -45,13 +45,15 @@ path, but it should not be the primary iOS onboarding path.
 
 ## Android
 
-- Current status: pairing/shell-only. The project has Health Connect permissions,
-  a permission rationale activity, and a `HealthConnectDistanceSync` collector,
-  but the Android UI does not yet request permission or POST distance/sync-run
-  payloads.
-- Before Android beta sync, request read-only exercise-session and distance
-  access, read Health Connect running exercise sessions, aggregate
-  `DistanceRecord` distance inside those sessions by UTC day, and upload daily
+- Current status: internal-test client. The app pairs with the production API,
+  loads `/api/mobile/me`, `/api/mobile/me/profile`, and `/api/leaderboard`,
+  requests Health Connect permission, and uploads daily totals plus sync-run
+  status.
+- Before public Google Play distribution, complete the real-device checklist
+  with one Android Health Connect device, confirm the GitHub Actions Android
+  build is green on `main`, and complete Play Console Health Connect review.
+- Android sync reads Health Connect running exercise sessions, aggregates
+  `DistanceRecord` distance inside those sessions by UTC day, and uploads daily
   totals, not raw records.
 
 ## Date Bucketing
