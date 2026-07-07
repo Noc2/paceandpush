@@ -518,7 +518,7 @@ struct StatusRow: View {
 
 struct HeaderView: View {
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             Text(">")
                 .font(.system(size: 34, weight: .black, design: .monospaced))
                 .foregroundStyle(Brand.ink)

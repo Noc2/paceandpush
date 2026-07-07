@@ -156,7 +156,7 @@ class MainActivity : Activity() {
                     setTextColor(ink)
                     setBackgroundColor(orange)
                     layoutParams = LinearLayout.LayoutParams(dp(52), dp(52)).apply {
-                        rightMargin = dp(12)
+                        rightMargin = dp(16)
                     }
                 },
             )
@@ -176,7 +176,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(16))
-            Tab.values().forEach { tab ->
+            Tab.values().forEachIndexed { index, tab ->
                 addView(
                     Button(this@MainActivity).apply {
                         text = tab.title
@@ -189,7 +189,7 @@ class MainActivity : Activity() {
                         }
                     },
                     LinearLayout.LayoutParams(0, dp(48), 1f).apply {
-                        rightMargin = dp(4)
+                        rightMargin = if (index == Tab.values().lastIndex) 0 else dp(8)
                     },
                 )
             }
