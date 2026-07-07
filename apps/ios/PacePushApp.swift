@@ -265,16 +265,12 @@ struct LeaderboardView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 16) {
                     ScorePeriodSelector(activePeriod: store.activePeriod) { period in
                         Task { await store.setActivePeriod(period, board: board) }
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Leaderboard")
-                            .font(.system(size: 34, weight: .black, design: .rounded))
-                            .foregroundStyle(Brand.ink)
-
                         LeaderboardSearchField(searchText: $searchText)
                         BoardSelector(board: $board)
                         if board == .balanced {
@@ -305,19 +301,14 @@ struct LeaderboardView: View {
                         }
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 20)
             }
             .accessibilityIdentifier("leaderboard-screen")
             .background(Brand.paper)
             .foregroundStyle(Brand.ink)
-            .navigationTitle("Leaderboard")
-            .toolbar {
-                Button {
-                    Task { await store.refresh(board: board) }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .refreshable {
                 await store.refresh(board: board)
             }
@@ -403,11 +394,13 @@ struct ProfileView: View {
                     }
                     .panelStyle()
                 }
-                .padding(20)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 20)
             }
             .accessibilityIdentifier("profile-screen")
             .background(Brand.paper)
-            .navigationTitle("Profile")
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 }
@@ -524,7 +517,8 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
             .background(Brand.paper)
             .foregroundStyle(Brand.ink)
-            .navigationTitle("Settings")
+            .toolbar(.hidden, for: .navigationBar)
+            .contentMargins(.top, 8, for: .scrollContent)
         }
     }
 }
