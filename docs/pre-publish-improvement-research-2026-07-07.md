@@ -20,6 +20,31 @@ Do not publish both native apps publicly as-is. The strongest launch path is:
    store forms. The app's current daily-total-only posture is good, but the
    disclosures, review notes, and in-app wording must exactly match it.
 
+## Implementation Status
+
+Status after the pre-publish implementation pass on July 7, 2026:
+
+- P0 items 1-4 and 6 are implemented in-repo: legal fields and placeholder
+  checks, production privacy commitments, iOS privacy manifest/archive evidence,
+  GitHub-specific App Review notes, visible disconnect/revocation paths, mobile
+  OAuth PKCE/scheme hardening, rate limits, refresh throttling, and recompute
+  coalescing.
+- Android is no longer shell-only for internal testing: it loads the real mobile
+  profile and public leaderboard APIs, requests Health Connect permissions,
+  uploads foreground daily distance totals, records sync runs, stores bearer
+  credentials encrypted, exposes disconnect/revocation, and has adaptive
+  launcher icons plus a GitHub Actions `assembleDebug` job.
+- P1/P2 repo work is represented by launch runbooks, store-listing drafts,
+  screenshot and real-device evidence checklists, production-pinned native
+  settings, UTC date-bucketing documentation, beta feedback links, zero-distance
+  repair hints, and shareable profile paths.
+- Remaining blockers are external or physical-device gates: enable production
+  alert recipients in Vercel/Sentry or Vercel Error Monitoring, export the final
+  Xcode Organizer privacy report PDF, complete real-device iPhone and Android
+  checklists, capture final store screenshots, upload signed TestFlight/Play
+  builds, complete App Store and Play Console privacy/health declarations, and
+  confirm the new Android CI job is green on `main`.
+
 ## External research anchors
 
 - Apple says App Review expects the app to be tested for crashes and bugs,

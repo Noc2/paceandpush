@@ -5,9 +5,9 @@ These items need owner input, provider access, legal details, or platform-accoun
 ## Required Before Public Launch
 
 1. Choose and enable abuse protection.
-   - Recommended: Vercel WAF / Firewall rules for public APIs and `/api/mobile/*` auth endpoints.
-   - Alternative: provision Upstash Redis and add rate-limit env vars for middleware.
-   - Cover at least search, leaderboard, SVG embed, GitHub refresh, pairing-code creation, and mobile auth exchange routes.
+   - Application-level rate limits now cover public and mobile-auth endpoints.
+   - Recommended supplement: Vercel WAF / Firewall rules for public APIs and `/api/mobile/*` auth endpoints.
+   - Cover at least search, leaderboard, SVG embed, GitHub refresh, pairing-code creation, mobile auth exchange, and distance upload routes.
 
 2. Enable production monitoring and alerting.
    - Enable Vercel Cron failure notifications for `/api/jobs/recompute-scores`.
@@ -17,8 +17,11 @@ These items need owner input, provider access, legal details, or platform-accoun
      recipients, rollback path, and incident contacts.
 
 3. Decide the Android launch scope.
-   - Option A: descope Android from the first launch and update app-store/checklist copy accordingly.
-   - Option B: finish real Android API sync, Health Connect upload, encrypted token storage, and backup exclusion before release.
+   - Current scope: Android can proceed to internal testing only.
+   - Public Google Play remains blocked until Android CI is green on `main`,
+     Play Console Health Connect review is complete, and the physical-device
+     checklist proves pairing, permission, sync upload, sync-run reporting,
+     token revocation, and backup/restore behavior.
 
 4. Complete platform health-data compliance.
    - Apple: App Store privacy nutrition labels, HealthKit purpose strings, TestFlight/App Review material.
@@ -31,7 +34,9 @@ These items need owner input, provider access, legal details, or platform-accoun
    - Register both GitHub OAuth callbacks:
      - `https://paceandpush.com/api/github/oauth/callback`
      - `https://paceandpush.com/api/github/oauth/callback/mobile`
-   - Plan PKCE binding for the native OAuth exchange before broad mobile distribution.
+   - Native OAuth now uses PKCE binding and platform callback-scheme allowlists;
+     verified Android App Links and iOS Universal Links are still preferred for
+     later production auth callbacks.
 
 6. Choose the distance day timezone policy.
    - Current product policy is UTC calendar-day bucketing.
