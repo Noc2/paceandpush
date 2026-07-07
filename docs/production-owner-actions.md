@@ -45,7 +45,10 @@ These items need owner input, provider access, legal details, or platform-accoun
    - Create a staging/preview database or Neon branch separate from production.
    - Enable production backup/PITR.
    - Run and document one restore drill before public launch.
-   - Run `npm run db:migrate` with production database credentials before deploying app traffic.
+   - Confirm Vercel keeps the repository `buildCommand` (`npm run vercel:build`),
+     which runs migration checks and production migrations before the app build.
+     Run `npm run db:migrate` manually only for non-Vercel deploys or explicit
+     data-operation drills.
 
 9. Set production secrets in Vercel.
    - `NEXT_PUBLIC_APP_URL=https://paceandpush.com`

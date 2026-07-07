@@ -10,7 +10,9 @@ Owner-only production setup is tracked in
 
 - Create a Vercel project from this repository with the repository root as the
   project root.
-- Set the build command to `npm run build` and the install command to `npm ci`.
+- Keep the build command from `vercel.json`: `npm run vercel:build`. It runs
+  migration checks and production migrations before `npm run build`. Keep the
+  install command as `npm ci`.
 - Add `paceandpush.com` and `www.paceandpush.com` to the production deployment.
 - Configure production environment variables:
   - `NEXT_PUBLIC_APP_URL=https://paceandpush.com`
@@ -31,8 +33,9 @@ Owner-only production setup is tracked in
 
 ## Data
 
-- Run `npm run db:migrations:check`, then run `npm run db:migrate` with
-  production `DATABASE_URL` before deploying application traffic.
+- Run `npm run db:migrations:check` before launch. Vercel production builds run
+  `npm run db:migrate` through `npm run vercel:build`; run `npm run db:migrate`
+  manually only for non-Vercel deployment paths or explicit data-operation drills.
 - Confirm leaderboard, profile, settings, privacy export, device revoke, sync
   run, and running distance upload routes read/write production database rows.
 - Confirm the web homepage and public profiles show iPhone and Android download
