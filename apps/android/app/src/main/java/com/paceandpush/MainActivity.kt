@@ -329,7 +329,6 @@ class MainActivity : Activity() {
     private fun profileScreen(): View {
         return panel {
             addView(titleText("@${me.login}", 28f))
-            addView(bodyText("No bio yet - add one on GitHub.", 16f))
             addView(scoreExplanationPanel())
             addView(profileChartPanel())
             addView(labelText("History").apply { setPadding(0, dp(10), 0, 0) })

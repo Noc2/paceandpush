@@ -342,8 +342,10 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("@\(store.profile.login)")
                             .font(.title.bold())
-                        Text(store.profile.bio ?? "No bio yet - add one on GitHub.")
-                            .foregroundStyle(Brand.muted)
+                        if let bio = store.profile.bio?.trimmingCharacters(in: .whitespacesAndNewlines), !bio.isEmpty {
+                            Text(bio)
+                                .foregroundStyle(Brand.muted)
+                        }
 
                         HStack(spacing: 12) {
                             MetricTile(
