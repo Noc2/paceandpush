@@ -36,8 +36,8 @@ final class PacePushUITests: XCTestCase {
 
         XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["sync-now-button"].exists)
-        XCTAssertTrue(app.textFields["api-base-url-field"].exists)
         XCTAssertTrue(app.switches["settings-public-leaderboard-toggle"].exists)
+        XCTAssertFalse(app.textFields["api-base-url-field"].isHittable)
     }
 
     func testSeededProfileShowsPeriodSelectorAndChart() {

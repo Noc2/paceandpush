@@ -412,6 +412,7 @@ struct ProfileView: View {
 
 struct SettingsView: View {
     @EnvironmentObject private var store: PacePushStore
+    @State private var isServerSettingsExpanded = false
 
     var body: some View {
         NavigationStack {
@@ -465,13 +466,6 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Server") {
-                    TextField("API base URL", text: $store.apiBaseURL)
-                        .font(Font.system(.body, design: .monospaced))
-                        .foregroundStyle(Brand.ink)
-                        .accessibilityIdentifier("api-base-url-field")
-                }
-
                 Section("Units") {
                     Picker("Distance", selection: $store.units) {
                         ForEach(DistanceUnits.allCases) { units in
@@ -496,6 +490,32 @@ struct SettingsView: View {
                     ScoreExplanationText()
                     Text("Running distance summaries are synced by day. Raw workouts and routes are not uploaded.")
                         .foregroundStyle(Brand.muted)
+                }
+
+                Section("Advanced") {
+                    Button {
+                        withAnimation(.snappy) {
+                            isServerSettingsExpanded.toggle()
+                        }
+                    } label: {
+                        HStack {
+                            Text("Server")
+                            Spacer()
+                            Image(systemName: isServerSettingsExpanded ? "chevron.up" : "chevron.down")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Brand.muted)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Server")
+                    .accessibilityIdentifier("advanced-server-disclosure")
+
+                    if isServerSettingsExpanded {
+                        TextField("API base URL", text: $store.apiBaseURL)
+                            .font(Font.system(.body, design: .monospaced))
+                            .foregroundStyle(Brand.ink)
+                            .accessibilityIdentifier("api-base-url-field")
+                    }
                 }
             }
             .accessibilityIdentifier("settings-screen")
