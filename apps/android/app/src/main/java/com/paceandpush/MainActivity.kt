@@ -57,7 +57,9 @@ class MainActivity : Activity() {
     private val green = Color.rgb(22, 101, 52)
     private val red = Color.rgb(180, 35, 24)
     private val blue = Color.rgb(11, 92, 173)
+    private val yellow = Color.rgb(246, 200, 95)
     private val line = Color.argb(56, 33, 30, 26)
+    private val currentUserFill = Color.argb(22, 249, 115, 22)
 
     private var activeTab = Tab.Board
     private var board = Board.Balanced
@@ -460,10 +462,20 @@ class MainActivity : Activity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(0, dp(14), 0, dp(14))
+                    if (row.login.equals(me.login, ignoreCase = true)) {
+                        setBackgroundColor(currentUserFill)
+                    }
 
                     addView(
                         bodyText(rank.toString().padStart(2, '0'), 18f).apply {
                             typeface = Typeface.MONOSPACE
+                            if (rank <= 3) {
+                                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                                gravity = Gravity.CENTER
+                                setTextColor(ink)
+                                setBackgroundColor(yellow)
+                                setPadding(dp(4), dp(3), dp(4), dp(3))
+                            }
                         },
                         LinearLayout.LayoutParams(dp(48), -2),
                     )

@@ -1,6 +1,7 @@
 import { AppDownloadActions } from "@/app/AppDownloadActions";
 import { ScoreExplainer } from "@/app/ScoreExplainer";
 import { SiteHeader } from "@/app/SiteHeader";
+import { getSessionUser } from "@/server/auth/session";
 import { getLeaderboard, parsePeriod, searchPublicUsers } from "@/server/data/read-model";
 import type { LeaderboardRow } from "@paceandpush/api-contracts";
 import Link from "next/link";
@@ -30,6 +31,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const sort = parseLeaderboardSort(params.sort) ?? parseLeaderboardSort(params.board) ?? "score";
   const direction = parseSortDirection(params.dir, sort);
   const searchQuery = parseSearchQuery(params.q);
+  const sessionUser = await getSessionUser();
   const leaderboardResult = searchQuery
     ? await searchPublicUsers({ period, query: searchQuery })
     : await getLeaderboard("balanced", period);
@@ -66,6 +68,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           sort={sort}
           direction={direction}
           units="metric"
+          signedInLogin={sessionUser?.login ?? null}
         />
       </section>
     </main>
@@ -79,6 +82,7 @@ function LeaderboardTable({
   sort,
   direction,
   units,
+  signedInLogin,
 }: {
   rows: LeaderboardRow[];
   period: string;
@@ -86,9 +90,11 @@ function LeaderboardTable({
   sort: LeaderboardSort;
   direction: SortDirection;
   units: UnitPreference;
+  signedInLogin: string | null;
 }) {
   const sortedRows = sortLeaderboardRows(rows, sort, direction);
   const emptyState = getEmptyState(query);
+  const normalizedSignedInLogin = signedInLogin?.toLowerCase() ?? null;
 
   return (
     <div className="leaderboard" role="table" aria-label={query ? "Search results" : "Leaderboard"}>
@@ -141,26 +147,44 @@ function LeaderboardTable({
           <span>{emptyState.description}</span>
         </div>
       ) : null}
-      {sortedRows.map((row, index) => (
-        <Link
-          href={`/users/${encodeURIComponent(row.login)}?period=${period}`}
-          className="leaderboard-row"
-          role="row"
-          key={row.login}
-        >
-          <span role="cell">{String(index + 1).padStart(2, "0")}</span>
-          <span className="developer" role="cell">
-            <strong>{row.login}</strong>
-            <small>{row.displayName}</small>
-          </span>
-          <strong role="cell">{row.score.toFixed(1)}</strong>
-          <span role="cell">{row.commits}</span>
-          <span role="cell">{formatDistance(row.kilometers, units)}</span>
-          <span role="cell">{row.streakDays}d</span>
-        </Link>
-      ))}
+      {sortedRows.map((row, index) => {
+        const displayRank = index + 1;
+        const isSignedInUser =
+          normalizedSignedInLogin !== null && row.login.toLowerCase() === normalizedSignedInLogin;
+
+        return (
+          <Link
+            href={`/users/${encodeURIComponent(row.login)}?period=${period}`}
+            className={leaderboardRowClassName(displayRank, isSignedInUser)}
+            role="row"
+            key={row.login}
+          >
+            <span className="rank-cell" role="cell">
+              {String(displayRank).padStart(2, "0")}
+            </span>
+            <span className="developer" role="cell">
+              <strong>{row.login}</strong>
+              <small>{row.displayName}</small>
+            </span>
+            <strong role="cell">{row.score.toFixed(1)}</strong>
+            <span role="cell">{row.commits}</span>
+            <span role="cell">{formatDistance(row.kilometers, units)}</span>
+            <span role="cell">{row.streakDays}d</span>
+          </Link>
+        );
+      })}
     </div>
   );
+}
+
+function leaderboardRowClassName(rank: number, isSignedInUser: boolean): string {
+  return [
+    "leaderboard-row",
+    rank <= 3 ? "top-rank" : "",
+    isSignedInUser ? "signed-in-user" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function SearchForm({

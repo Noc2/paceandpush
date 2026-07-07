@@ -295,7 +295,13 @@ struct LeaderboardView: View {
                         }
 
                         ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                            LeaderboardRowView(rank: index + 1, row: row, board: board, units: store.units)
+                            LeaderboardRowView(
+                                rank: index + 1,
+                                row: row,
+                                board: board,
+                                units: store.units,
+                                isCurrentUser: store.isCurrentUser(row)
+                            )
                         }
                     }
                 }
@@ -889,6 +895,7 @@ struct LeaderboardRowView: View {
     let row: LeaderboardRow
     let board: Board
     let units: DistanceUnits
+    let isCurrentUser: Bool
 
     private var metric: LeaderboardMetric {
         board.leaderboardMetric(for: row, units: units)
@@ -897,8 +904,14 @@ struct LeaderboardRowView: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(String(format: "%02d", rank))
-                .font(.system(.headline, design: .monospaced))
-                .frame(width: 38, alignment: .leading)
+                .font(.system(.headline, design: .monospaced).weight(rank <= 3 ? .black : .regular))
+                .frame(width: 38, height: 28, alignment: rank <= 3 ? .center : .leading)
+                .background(rank <= 3 ? Brand.yellow : Color.clear)
+                .overlay {
+                    if rank <= 3 {
+                        Rectangle().stroke(Brand.ink, lineWidth: 1)
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.login)
@@ -923,6 +936,8 @@ struct LeaderboardRowView: View {
             .frame(width: 108, alignment: .trailing)
         }
         .padding(.vertical, 14)
+        .padding(.horizontal, isCurrentUser ? 8 : 0)
+        .background(isCurrentUser ? Brand.orange.opacity(0.08) : Color.clear)
         .borderedRow()
     }
 }
@@ -1013,6 +1028,10 @@ final class PacePushStore: ObservableObject {
 
     var isGitHubConnected: Bool {
         deviceToken != nil
+    }
+
+    func isCurrentUser(_ row: LeaderboardRow) -> Bool {
+        isGitHubConnected && row.login.localizedCaseInsensitiveCompare(me.login) == .orderedSame
     }
 
     var onboardingComplete: Bool {
@@ -2645,6 +2664,7 @@ enum Brand {
     private static let greenHex: UInt32 = 0x166534
     private static let redHex: UInt32 = 0xb42318
     private static let blueHex: UInt32 = 0x0b5cad
+    private static let yellowHex: UInt32 = 0xf6c85f
 
     static let paper = Color(hex: paperHex)
     static let ink = Color(hex: inkHex)
@@ -2653,6 +2673,7 @@ enum Brand {
     static let green = Color(hex: greenHex)
     static let red = Color(hex: redHex)
     static let blue = Color(hex: blueHex)
+    static let yellow = Color(hex: yellowHex)
 
     static let uiPaper = UIColor(hex: paperHex)
     static let uiInk = UIColor(hex: inkHex)
