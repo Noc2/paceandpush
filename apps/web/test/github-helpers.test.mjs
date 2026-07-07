@@ -1082,7 +1082,7 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidReadme, /\/api\/mobile\/sync-runs/);
   assert.match(androidReadme, /Android CI build is green on `main`/);
   assert.match(androidWorkflow, /android:/);
-  assert.match(androidWorkflow, /gradle-version: "8\.10"/);
+  assert.match(androidWorkflow, /gradle-version: "8\.10\.2"/);
   assert.match(androidWorkflow, /gradle -p apps\/android :app:assembleDebug --no-daemon/);
 });
 
