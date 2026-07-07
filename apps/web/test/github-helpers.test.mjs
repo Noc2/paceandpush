@@ -766,10 +766,14 @@ test("production Vercel builds run database migrations before building", async (
   );
 
   assert.match(packageJson, /"vercel:build": "node scripts\/vercel-build\.mjs"/);
+  assert.match(packageJson, /"legal:check": "node scripts\/check-legal\.mjs"/);
+  assert.match(packageJson, /"build": "npm run legal:check && npm run build:web"/);
   assert.match(vercelJson, /"buildCommand": "npm run vercel:build"/);
   assert.match(buildScript, /process\.env\.VERCEL_ENV === "production"/);
+  assert.ok(buildScript.indexOf("\"legal:check\"") < buildScript.indexOf("\"db:migrations:check\""));
   assert.ok(buildScript.indexOf("\"db:migrations:check\"") < buildScript.indexOf("\"db:migrate\""));
-  assert.ok(buildScript.indexOf("\"db:migrate\"") < buildScript.indexOf("\"build\""));
+  assert.ok(buildScript.indexOf("\"db:migrate\"") < buildScript.indexOf("\"build:web\""));
+  assert.doesNotMatch(buildScript, /\["run", "build"\]/);
 });
 
 test("web layout consumes shared brand CSS variables", async () => {

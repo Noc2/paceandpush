@@ -4,44 +4,36 @@ These items need owner input, provider access, legal details, or platform-accoun
 
 ## Required Before Public Launch
 
-1. Fill the legal identity fields in `apps/web/src/lib/legal.ts`.
-   - Geschaeftsfuehrer
-   - Registergericht
-   - Registernummer / HRB
-   - working legal/privacy email
-   - VAT ID or Wirtschafts-ID decision
-   - final § 36 VSBG wording
-
-2. Choose and enable abuse protection.
+1. Choose and enable abuse protection.
    - Recommended: Vercel WAF / Firewall rules for public APIs and `/api/mobile/*` auth endpoints.
    - Alternative: provision Upstash Redis and add rate-limit env vars for middleware.
    - Cover at least search, leaderboard, SVG embed, GitHub refresh, pairing-code creation, and mobile auth exchange routes.
 
-3. Enable production monitoring and alerting.
+2. Enable production monitoring and alerting.
    - Enable Vercel Cron failure notifications for `/api/jobs/recompute-scores`.
    - Choose Sentry or Vercel Error Monitoring and provide the project DSN/integration.
    - Add an external uptime check against `https://paceandpush.com/api/health`.
 
-4. Decide the Android launch scope.
+3. Decide the Android launch scope.
    - Option A: descope Android from the first launch and update app-store/checklist copy accordingly.
    - Option B: finish real Android API sync, Health Connect upload, encrypted token storage, and backup exclusion before release.
 
-5. Complete platform health-data compliance.
+4. Complete platform health-data compliance.
    - Apple: App Store privacy nutrition labels, HealthKit purpose strings, TestFlight/App Review material.
    - Google Play, if Android ships: Health Connect declaration, permission rationale, privacy policy URL, restricted-permission approval.
 
-6. Confirm mobile OAuth hardening direction.
+5. Confirm mobile OAuth hardening direction.
    - Prefer Android App Links and iOS Universal Links over custom schemes for production.
    - Register both GitHub OAuth callbacks:
      - `https://paceandpush.com/api/github/oauth/callback`
      - `https://paceandpush.com/api/github/oauth/callback/mobile`
    - Plan PKCE binding for the native OAuth exchange before broad mobile distribution.
 
-7. Choose the distance day timezone policy.
+6. Choose the distance day timezone policy.
    - Current native code can shift evening workouts across UTC day/month boundaries.
    - Pick device-local or UTC bucketing, then align iOS, Android, and API contract wording.
 
-8. Provision production and staging data operations.
+7. Provision production and staging data operations.
    - Create a staging/preview database or Neon branch separate from production.
    - Enable production backup/PITR.
    - Run and document one restore drill before public launch.
@@ -50,7 +42,7 @@ These items need owner input, provider access, legal details, or platform-accoun
      Run `npm run db:migrate` manually only for non-Vercel deploys or explicit
      data-operation drills.
 
-9. Set production secrets in Vercel.
+8. Set production secrets in Vercel.
    - `NEXT_PUBLIC_APP_URL=https://paceandpush.com`
    - `NEXT_PUBLIC_IOS_APP_URL`
    - `NEXT_PUBLIC_ANDROID_APP_URL`
@@ -63,6 +55,9 @@ These items need owner input, provider access, legal details, or platform-accoun
    - `MOBILE_TOKEN_SECRET` distinct from `SESSION_SECRET`
    - `CRON_SECRET`
 
-10. Get a final privacy/legal review.
-    - Confirm processor list and international transfer safeguards for Vercel, Neon, GitHub, and any monitoring provider.
-    - Confirm final retention periods for account, GitHub, mobile-device, score, and sync-run data.
+9. Keep privacy/legal records current.
+   - `apps/web/src/lib/legal.ts` has production legal fields and is enforced by
+     `npm run legal:check`.
+   - Confirm the live privacy policy still matches enabled processors,
+     platform recipients, retention behavior, and store declarations before
+     each public release.

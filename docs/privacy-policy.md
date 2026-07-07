@@ -26,11 +26,21 @@ The public privacy policy now lives in the web app at
 - Private repository source code.
 - Payment information.
 
-## Open Legal Details
+## Production Legal Position
 
-- Working privacy/legal email address.
-- Processor agreements and international transfer safeguards for Vercel, Neon,
-  GitHub, and any future analytics or email providers.
-- Final retention periods for score snapshots, sync logs, and deleted accounts.
-- Legal review of the HealthKit and Health Connect consent wording before beta
-  distribution.
+- Privacy/legal contact: `hawigxyz@proton.me`.
+- Processor position: Vercel hosts and executes the web application; Neon hosts
+  the Postgres database. Where they process personal data on behalf of Pace &
+  Push, the production position is to rely on their applicable data-processing
+  terms, subprocessor controls, technical and organizational measures, and
+  cross-border transfer mechanisms.
+- Platform-recipient position: GitHub provides OAuth and API data and also acts
+  independently for GitHub account/service data. Apple and Google provide app
+  distribution and native health-permission surfaces; HealthKit and Health
+  Connect remain local platform permission systems.
+- No analytics, advertising, or error-monitoring provider is currently enabled.
+  Update the policy before adding one.
+- Retention position: account, commit, distance, device, score, and sync records
+  are kept while the account is active and are deleted from the application
+  database on account deletion, subject to limited provider backup/log retention
+  cycles.

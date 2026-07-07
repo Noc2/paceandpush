@@ -6,11 +6,12 @@ export const legalEntity = {
   managingDirector: "David Hawig",
   registerCourt: "Amtsgericht Bad Kreuznach",
   registerNumber: "HRB 24975",
-  vatId: "To be added if available",
-  email: "To be added before public launch",
-  employeesVsbThresholdStatus: "To be confirmed before public launch",
+  vatId:
+    "Es ist derzeit keine Umsatzsteuer-Identifikationsnummer nach § 27a UStG zugeteilt.",
+  email: "hawigxyz@proton.me",
+  employeesVsbThresholdStatus: "weniger als 11 Beschäftigte",
   consumerDisputeResolution:
-    "Participation in consumer dispute resolution will be confirmed before consumer-facing launch.",
+    "Wir sind weder verpflichtet noch bereit, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.",
 } as const;
 
 export const legalLinks = [

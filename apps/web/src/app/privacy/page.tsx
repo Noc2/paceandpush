@@ -24,7 +24,7 @@ export default function PrivacyPage() {
           <h1>Privacy Policy</h1>
           <p>
             This policy explains how {brandName} processes account, coding, and
-            distance data. Last updated: July 6, 2026.
+            distance data. Last updated: July 7, 2026.
           </p>
         </section>
 
@@ -141,18 +141,42 @@ export default function PrivacyPage() {
           <section className="legal-section">
             <h2>Processors and Recipients</h2>
             <ul>
-              <li>Vercel for hosting and serverless application execution.</li>
-              <li>Neon for Postgres database hosting.</li>
-              <li>GitHub for OAuth sign-in and GitHub API data.</li>
               <li>
-                Apple HealthKit and Android Health Connect remain local platform
-                permission systems; the app sends only aggregate distance totals
-                to {brandName}.
+                Vercel for hosting, edge delivery, serverless application
+                execution, deployment logs, and operational security.
+              </li>
+              <li>Neon for Postgres database hosting, backups, and database operations.</li>
+              <li>
+                GitHub for OAuth sign-in and GitHub API data. GitHub also acts
+                independently for your GitHub account and GitHub service data.
+              </li>
+              <li>
+                Apple for App Store/TestFlight distribution and HealthKit
+                permission surfaces. Apple HealthKit remains a local platform
+                permission system; the iOS app sends only aggregate distance
+                totals to {brandName}.
+              </li>
+              <li>
+                Google for Google Play distribution and Android Health Connect
+                permission surfaces. Health Connect remains a local platform
+                permission system; the Android app sends only aggregate distance
+                totals to {brandName}.
+              </li>
+              <li>
+                No analytics, advertising, or error-monitoring provider is
+                currently enabled. This policy will be updated before any such
+                provider is added.
               </li>
             </ul>
             <p>
-              International transfer safeguards, processor agreements, and final
-              hosting locations must be confirmed before public launch.
+              Where Vercel or Neon process personal data on our behalf, we rely
+              on their applicable data-processing terms, subprocessor controls,
+              technical and organizational measures, and cross-border transfer
+              mechanisms. For transfers outside the EEA, United Kingdom, or
+              Switzerland, safeguards may include adequacy decisions, Standard
+              Contractual Clauses or equivalent transfer terms, and supplemental
+              security measures such as data minimization, encryption in transit,
+              token hashing, and encrypted credential storage.
             </p>
           </section>
 
@@ -164,6 +188,16 @@ export default function PrivacyPage() {
                 while your account is active or while needed to operate the service.
               </li>
               <li>
+                Sync-run status records and score history are kept while your
+                account is active so the product can show sync state, score
+                history, and troubleshooting context.
+              </li>
+              <li>
+                Operational server logs are kept only as long as needed for
+                security, reliability, abuse prevention, and debugging, and are
+                not used for advertising or marketing.
+              </li>
+              <li>
                 Signed-in users can export data through{" "}
                 <code>/api/me/privacy-export</code>.
               </li>
@@ -171,6 +205,9 @@ export default function PrivacyPage() {
                 Signed-in users can request deletion through{" "}
                 <code>DELETE /api/me/delete</code>; this removes account,
                 GitHub, device, commit, distance, score, and sync records.
+                Backup copies and provider logs may persist for a limited period
+                under provider retention cycles, but are not restored to active
+                service except for disaster recovery or legal/security needs.
               </li>
               <li>
                 You can withdraw mobile distance sync by revoking HealthKit or
@@ -206,8 +243,11 @@ export default function PrivacyPage() {
               product needs to refresh commit counts, keeps token hashes for
               audit and export metadata, minimizes health-derived uploads to
               daily totals, and keeps device authentication separate from GitHub
-              sign-in. Final production security controls and incident-response
-              contacts must be confirmed before public launch.
+              sign-in. Production controls include HTTPS, strict transport
+              security headers, database-backed device revocation, hashed mobile
+              bearer tokens, production-only secret checks, and a health endpoint
+              for operational monitoring. Security or privacy concerns can be
+              sent to {legalEntity.email}.
             </p>
           </section>
 
@@ -220,12 +260,13 @@ export default function PrivacyPage() {
             </p>
           </section>
 
-          <section className="legal-section legal-warning">
-            <h2>Launch checklist</h2>
+          <section className="legal-section">
+            <h2>Policy Updates</h2>
             <p>
-              Add a working privacy contact, confirm processor agreements and
-              international transfer safeguards, finalize retention periods, and
-              have this policy legally reviewed before public launch.
+              This policy will be updated before {brandName} enables analytics,
+              advertising, error monitoring, paid plans, background sync, raw
+              workout collection, GPS route collection, or any new third-party
+              provider that materially changes how personal data is processed.
             </p>
           </section>
         </div>

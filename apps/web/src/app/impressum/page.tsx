@@ -79,14 +79,6 @@ export default function ImpressumPage() {
             </p>
           </section>
 
-          <section className="legal-section legal-warning">
-            <h2>Launch checklist</h2>
-            <p>
-              Registergericht, Registernummer, vertretungsberechtigte Person und
-              eine funktionierende E-Mail-Adresse müssen vor dem öffentlichen
-              Launch ergänzt und rechtlich geprüft werden.
-            </p>
-          </section>
         </div>
       </section>
     </main>

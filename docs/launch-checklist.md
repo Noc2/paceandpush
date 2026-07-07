@@ -74,19 +74,19 @@ Owner-only production setup is tracked in
 ## Legal
 
 - Confirm `/impressum` and `/privacy` are linked from every public page footer.
-- Add the Geschäftsführer, register court, HRB number, and working legal email
-  to `apps/web/src/lib/legal.ts`.
-- Confirm whether a VAT ID or Wirtschafts-ID must be listed.
-- Confirm employee count and consumer dispute resolution wording for § 36 VSBG.
-- Confirm processor agreements, international transfer safeguards, and final
-  retention periods for Vercel, Neon, GitHub, and any future analytics/email
-  provider.
-- Have the Impressum and privacy policy reviewed before public launch.
+- Keep `apps/web/src/lib/legal.ts` current and run `npm run legal:check`.
+- Confirm the current production processor/recipient position in `/privacy`
+  still matches the enabled services: Vercel, Neon, GitHub, Apple, Google, and
+  no analytics, advertising, or error-monitoring provider.
+- Re-review the Impressum and privacy policy whenever a new processor,
+  monitoring provider, analytics provider, paid plan, background sync, raw
+  workout collection, or GPS route collection is added.
 
 ## Release Gate
 
 - `npm run typecheck`
 - `npm run lint`
+- `npm run legal:check`
 - `npm test`
 - `npm run test:e2e`
 - `npm run build`
