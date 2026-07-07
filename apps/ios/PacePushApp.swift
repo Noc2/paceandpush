@@ -925,6 +925,7 @@ final class PacePushStore: ObservableObject {
     private let activePeriodKey = "activeScorePeriod"
     private let publicLeaderboardPreferenceKey = "publicLeaderboardPreference"
     private let publicLeaderboardPreferenceChosenKey = "publicLeaderboardPreferenceChosen"
+    private let historicalDistanceSyncVersionKey = "historicalDistanceSyncVersion"
     private let keychain: KeychainStoring
     private let healthSync: HealthDistanceSyncing
     private let authSession: GitHubAuthenticating
@@ -933,6 +934,9 @@ final class PacePushStore: ObservableObject {
     private let deviceLabel: @MainActor () -> String
     private let now: () -> Date
     private let bootstrapSyncEnabled: Bool
+    private static let distanceUploadBatchSize = 45
+    private static let historicalDistanceSyncStartDate = Date(timeIntervalSince1970: 0)
+    private static let historicalDistanceSyncVersion = "full-history-v1"
 
     @Published var leaderboard = LeaderboardResponse.seed
     @Published var me = MeResponse.seed
@@ -1005,6 +1009,7 @@ final class PacePushStore: ObservableObject {
     func bootstrap() async {
         guard deviceToken != nil else { return }
         await refresh()
+        await syncHistoricalDistanceIfNeeded()
         await syncFirstRunIfReady()
     }
 
@@ -1154,25 +1159,36 @@ final class PacePushStore: ObservableObject {
         do {
             let client = apiClientFactory(baseURL, token)
             let syncEnd = now()
-            let startDate = Calendar(identifier: .gregorian).date(byAdding: .day, value: -35, to: syncEnd) ?? syncEnd
-            let result = try await healthSync.collectDistanceDays(from: startDate, through: syncEnd)
-            let upload = try await client.uploadDistanceDays(result.days)
+            let result = try await healthSync.collectDistanceDays(
+                from: Self.historicalDistanceSyncStartDate,
+                through: syncEnd,
+            )
+            var acceptedDays = 0
+            var flaggedDays = 0
+            for batchStart in stride(from: 0, to: result.days.count, by: Self.distanceUploadBatchSize) {
+                let batchEnd = min(batchStart + Self.distanceUploadBatchSize, result.days.count)
+                let batch = Array(result.days[batchStart..<batchEnd])
+                let upload = try await client.uploadDistanceDays(batch)
+                acceptedDays += upload.accepted
+                flaggedDays += upload.flagged
+            }
             try await client.recordSyncRun(
                 SyncRunRequest(
                     platform: "ios",
-                    status: upload.flagged > 0 ? "warning" : "success",
+                    status: flaggedDays > 0 ? "warning" : "success",
                     startedAt: startedAt.isoString,
                     finishedAt: now().isoString,
                     counters: [
                         "days": result.days.count,
-                        "accepted": upload.accepted,
-                        "flagged": upload.flagged,
+                        "accepted": acceptedDays,
+                        "flagged": flaggedDays,
                     ],
                     errorSummary: nil,
                 ),
             )
             firstSyncAt = now().isoString
             preferences.set(firstSyncAt, forKey: firstSyncKey)
+            preferences.set(Self.historicalDistanceSyncVersion, forKey: historicalDistanceSyncVersionKey)
             await refresh()
             if lastError == nil {
                 lastSuccess = successMessage
@@ -1258,6 +1274,7 @@ final class PacePushStore: ObservableObject {
         deviceToken = nil
         firstSyncAt = nil
         preferences.removeObject(forKey: firstSyncKey)
+        preferences.removeObject(forKey: historicalDistanceSyncVersionKey)
         me = .seed
         profile = .seed
         lastSuccess = nil
@@ -1367,6 +1384,17 @@ final class PacePushStore: ObservableObject {
 
     private var setupReadyForFirstSync: Bool {
         isGitHubConnected && healthAuthorized && firstSyncAt == nil
+    }
+
+    private var needsHistoricalDistanceSync: Bool {
+        isGitHubConnected &&
+            healthAuthorized &&
+            preferences.string(forKey: historicalDistanceSyncVersionKey) != Self.historicalDistanceSyncVersion
+    }
+
+    private func syncHistoricalDistanceIfNeeded() async {
+        guard bootstrapSyncEnabled, needsHistoricalDistanceSync else { return }
+        await syncRunningDistance(successMessage: "Running history synced.")
     }
 
     private func syncFirstRunIfReady() async {

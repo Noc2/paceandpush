@@ -212,6 +212,67 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
+    func testSyncUploadsFullHistoryInApiSizedBatches() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let healthSync = FakeHealthSync(days: Self.distanceDays(count: 47))
+        let client = FakePacePushClient()
+        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.profileResponse = Self.profileResponse()
+
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: healthSync,
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: ["healthAuthorized": true]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.syncRunningDistance()
+
+        XCTAssertEqual(healthSync.requestedRanges.first?.start.timeIntervalSince1970, 0)
+        XCTAssertEqual(healthSync.requestedRanges.first?.end, date("2026-07-06T12:00:00.000Z"))
+        XCTAssertEqual(client.uploadedDistanceDays.map(\.count), [45, 2])
+        XCTAssertEqual(client.uploadedDistanceDays.first?.first?.date, "2024-01-01")
+        XCTAssertEqual(client.uploadedDistanceDays.last?.last?.date, "2024-02-16")
+        XCTAssertEqual(client.recordedSyncRuns.first?.counters["days"], 47)
+        XCTAssertEqual(client.recordedSyncRuns.first?.counters["accepted"], 47)
+        XCTAssertEqual(client.recordedSyncRuns.first?.status, "success")
+    }
+
+    @MainActor
+    func testBootstrapRunsHistoricalBackfillOnceForExistingDevice() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let preferences = InMemoryPreferences(values: [
+            "healthAuthorized": true,
+            "firstSyncAt": "2026-07-01T00:00:00.000Z",
+        ])
+        let healthSync = FakeHealthSync(days: Self.distanceDays(count: 2))
+        let client = FakePacePushClient()
+        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.profileResponse = Self.profileResponse()
+
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: healthSync,
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") }
+        )
+
+        await store.bootstrap()
+        await store.bootstrap()
+
+        XCTAssertEqual(client.uploadedDistanceDays.map(\.count), [2])
+        XCTAssertEqual(healthSync.requestedRanges.count, 1)
+        XCTAssertEqual(preferences.string(forKey: "historicalDistanceSyncVersion"), "full-history-v1")
+    }
+
+    @MainActor
     func testStoreRefreshesSelectedPeriodAcrossScoreSurfaces() async throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")
@@ -357,14 +418,20 @@ private final class InMemoryPreferences: PreferencesStoring {
     }
 }
 
-private struct FakeHealthSync: HealthDistanceSyncing {
+private final class FakeHealthSync: HealthDistanceSyncing {
     var isAvailable = true
     let days: [HealthKitDistanceDay]
+    private(set) var requestedRanges: [(start: Date, end: Date)] = []
+
+    init(days: [HealthKitDistanceDay]) {
+        self.days = days
+    }
 
     func requestAuthorization() async throws {}
 
     func collectDistanceDays(from startDate: Date, through endDate: Date) async throws -> HealthKitDistanceSyncResult {
-        HealthKitDistanceSyncResult(days: days, startedAt: startDate, finishedAt: endDate)
+        requestedRanges.append((startDate, endDate))
+        return HealthKitDistanceSyncResult(days: days, startedAt: startDate, finishedAt: endDate)
     }
 }
 
@@ -380,7 +447,7 @@ private final class FakePacePushClient: PacePushClienting {
     var meResponse = MeResponse.seed
     var profileResponse = PublicProfileResponse.seed
     var settingsResponse = AccountSettingsResponse(login: "noc2", displayName: "David", publicLeaderboard: true, units: "metric")
-    var distanceDaysResponse = DistanceDaysResponse(accepted: 0, flagged: 0)
+    var distanceDaysResponse: DistanceDaysResponse?
     var exchangedPairingCodes: [String] = []
     var exchangedPairingLabels: [String] = []
     var uploadedDistanceDays: [[HealthKitDistanceDay]] = []
@@ -424,7 +491,7 @@ private final class FakePacePushClient: PacePushClienting {
 
     func uploadDistanceDays(_ days: [HealthKitDistanceDay]) async throws -> DistanceDaysResponse {
         uploadedDistanceDays.append(days)
-        return distanceDaysResponse
+        return distanceDaysResponse ?? DistanceDaysResponse(accepted: days.count, flagged: 0)
     }
 
     func recordSyncRun(_ run: SyncRunRequest) async throws {
@@ -434,6 +501,31 @@ private final class FakePacePushClient: PacePushClienting {
 
 private func date(_ value: String) -> Date {
     ISO8601DateFormatter.pacePush.date(from: value)!
+}
+
+private extension PacePushTests {
+    static func distanceDays(count: Int) -> [HealthKitDistanceDay] {
+        let start = date("2024-01-01T00:00:00.000Z")
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        return (0..<count).map { offset in
+            let day = calendar.date(byAdding: .day, value: offset, to: start)!
+            let dateString = formatter.string(from: day)
+            return HealthKitDistanceDay(
+                id: dateString,
+                date: dateString,
+                meters: Double(1_000 + offset),
+                sourcePlatform: "ios",
+                sourceHash: "healthkit-ios-running-\(dateString)-\(1_000 + offset)"
+            )
+        }
+    }
 }
 
 private func queryValue(_ name: String, in url: URL?) -> String? {
