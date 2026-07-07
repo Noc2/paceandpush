@@ -31,9 +31,41 @@ export const jsonSchemas = {
     required: ["date", "meters", "sourcePlatform", "sourceHash"],
     properties: {
       date: { type: "string", format: "date" },
-      meters: { type: "number", minimum: 0, description: "Running-only distance for this day, in meters." },
+      meters: {
+        type: "number",
+        minimum: 0,
+        maximum: 250000,
+        description:
+          "Running-only distance for this day, in meters. Values over 100000 are accepted but flagged as implausible.",
+      },
       sourcePlatform: { enum: ["ios", "android"] },
       sourceHash: { type: "string", minLength: 8 },
+    },
+  },
+  distanceDaysRequest: {
+    type: "object",
+    required: ["days"],
+    properties: {
+      days: {
+        type: "array",
+        maxItems: 45,
+        items: {
+          type: "object",
+          required: ["date", "meters", "sourcePlatform", "sourceHash"],
+          properties: {
+            date: { type: "string", format: "date" },
+            meters: {
+              type: "number",
+              minimum: 0,
+              maximum: 250000,
+              description:
+                "Running-only distance for this day, in meters. Values over 100000 are accepted but flagged as implausible.",
+            },
+            sourcePlatform: { enum: ["ios", "android"] },
+            sourceHash: { type: "string", minLength: 8 },
+          },
+        },
+      },
     },
   },
 } as const;
