@@ -33,6 +33,18 @@ type LeaderboardSnapshotRow = {
   userId: string;
 };
 
+type AccountScoreUser = {
+  id: string;
+  login: string;
+};
+
+type ScoreSnapshotSummary = {
+  score: string;
+  rank: number | null;
+  commits: number;
+  distanceMeters: number;
+};
+
 type SearchPublicUsersOptions = {
   limit?: number;
   period?: string;
@@ -238,7 +250,7 @@ export async function getAccountProfile({
   bio: string | null;
   period?: string;
 }): Promise<PublicProfileResponse> {
-  const score = await getScoreSummary(userId, period);
+  const score = await getFreshAccountScoreSummary({ id: userId, login }, period);
 
   return {
     login,
@@ -279,7 +291,7 @@ export async function getMe(
     };
   }
 
-  const score = await getInitialScoreSummary(account, period);
+  const score = await getFreshAccountScoreSummary(account, period);
 
   return {
     login: account.login,
@@ -314,7 +326,10 @@ function escapeLikePattern(value: string): string {
 
 export { parsePeriod } from "@/server/data/scores";
 
-async function getScoreSummary(userId: string, period: string): Promise<ScoreSummary> {
+async function getScoreSnapshot(
+  userId: string,
+  period: string,
+): Promise<ScoreSnapshotSummary | null> {
   const [snapshot] = await getDb()
     .select({
       score: scoreSnapshots.balancedScore,
@@ -332,6 +347,11 @@ async function getScoreSummary(userId: string, period: string): Promise<ScoreSum
     )
     .limit(1);
 
+  return snapshot ?? null;
+}
+
+async function getScoreSummary(userId: string, period: string): Promise<ScoreSummary> {
+  const snapshot = await getScoreSnapshot(userId, period);
   const [lastSync] = await getDb()
     .select({
       finishedAt: syncRuns.finishedAt,
@@ -361,11 +381,11 @@ async function getScoreSummary(userId: string, period: string): Promise<ScoreSum
   };
 }
 
-async function getInitialScoreSummary(
-  account: NonNullable<Awaited<ReturnType<typeof getAccountUser>>>,
+async function getFreshAccountScoreSummary(
+  account: AccountScoreUser,
   period: string,
 ): Promise<ScoreSummary> {
-  if (await hasScoreSnapshot(account.id, period)) {
+  if (!(await shouldRefreshAccountScoreSnapshot(account.id, period))) {
     return getScoreSummary(account.id, period);
   }
 
@@ -377,10 +397,24 @@ async function getInitialScoreSummary(
     });
     await recomputeScoreSnapshots(period);
   } catch (error) {
-    console.error("[scores] initial signed-in score refresh failed", error);
+    console.error("[scores] authenticated score refresh failed", error);
   }
 
   return getScoreSummary(account.id, period);
+}
+
+async function shouldRefreshAccountScoreSnapshot(
+  userId: string,
+  period: string,
+): Promise<boolean> {
+  const snapshot = await getScoreSnapshot(userId, period);
+  if (!snapshot) return true;
+
+  return (
+    isCurrentOrPreviousPeriod(period) &&
+    snapshot.commits === 0 &&
+    snapshot.distanceMeters > 0
+  );
 }
 
 async function hasScoreSnapshot(userId: string, period: string): Promise<boolean> {

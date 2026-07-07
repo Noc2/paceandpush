@@ -511,6 +511,29 @@ test("score rank mutations recompute every affected snapshot period", async () =
   );
 });
 
+test("authenticated profile reads repair stale zero-commit distance snapshots", async () => {
+  const source = await readFile(
+    new URL("../src/server/data/read-model.ts", import.meta.url),
+    "utf8",
+  );
+  const profileBlock = source.slice(
+    source.indexOf("export async function getAccountProfile"),
+    source.indexOf("export async function getMe"),
+  );
+  const refreshBlock = source.slice(
+    source.indexOf("async function getFreshAccountScoreSummary"),
+    source.indexOf("async function hasScoreSnapshot"),
+  );
+
+  assert.match(profileBlock, /getFreshAccountScoreSummary\(\{ id: userId, login \}, period\)/);
+  assert.match(refreshBlock, /shouldRefreshAccountScoreSnapshot\(account\.id, period\)/);
+  assert.match(refreshBlock, /refreshGitHubCommitsForUser/);
+  assert.match(refreshBlock, /recomputeScoreSnapshots\(period\)/);
+  assert.match(refreshBlock, /isCurrentOrPreviousPeriod\(period\)/);
+  assert.match(refreshBlock, /snapshot\.commits === 0/);
+  assert.match(refreshBlock, /snapshot\.distanceMeters > 0/);
+});
+
 test("score totals keep raw kilometer precision before display rounding", async () => {
   const source = await readFile(
     new URL("../src/server/data/scores.ts", import.meta.url),
