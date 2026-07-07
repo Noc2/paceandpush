@@ -1,8 +1,8 @@
 import { AppDownloadActions } from "@/app/AppDownloadActions";
 import { ScoreExplainer } from "@/app/ScoreExplainer";
+import { SiteHeader } from "@/app/SiteHeader";
 import { getLeaderboard, parsePeriod, searchPublicUsers } from "@/server/data/read-model";
 import type { LeaderboardRow } from "@paceandpush/api-contracts";
-import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
 import { PeriodSelector } from "@/app/PeriodSelector";
 import {
@@ -42,7 +42,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   return (
     <main className="app-shell">
       <section className="app-frame" aria-label="Pace and Push leaderboard">
-        <AppHeader />
+        <SiteHeader>
+          <AppDownloadActions />
+        </SiteHeader>
         <h1 className="sr-only">Pace & Push leaderboard</h1>
 
         <PeriodSelector
@@ -67,24 +69,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         />
       </section>
     </main>
-  );
-}
-
-function AppHeader() {
-  return (
-    <header className="topbar">
-      <Link href="/" className="brand-lockup" aria-label={brandName}>
-        <span className="logo-mark" aria-hidden="true">
-          {promptMark.character}
-        </span>
-        <span>
-          <strong>{brandName}</strong>
-          <small>{brandTagline}</small>
-        </span>
-      </Link>
-
-      <AppDownloadActions />
-    </header>
   );
 }
 

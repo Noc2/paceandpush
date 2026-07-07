@@ -266,7 +266,6 @@ struct LeaderboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    HeaderView()
                     ScorePeriodSelector(activePeriod: store.activePeriod) { period in
                         Task { await store.setActivePeriod(period, board: board) }
                     }
@@ -305,6 +304,7 @@ struct LeaderboardView: View {
             .accessibilityIdentifier("leaderboard-screen")
             .background(Brand.paper)
             .foregroundStyle(Brand.ink)
+            .navigationTitle("Leaderboard")
             .toolbar {
                 Button {
                     Task { await store.refresh(board: board) }
@@ -329,7 +329,6 @@ struct ProfileView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    HeaderView()
                     ScorePeriodSelector(activePeriod: store.activePeriod) { period in
                         Task { await store.setActivePeriod(period) }
                     }
@@ -337,7 +336,7 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("@\(store.profile.login)")
                             .font(.title.bold())
-                        Text(store.profile.bio ?? "Run. Commit. Repeat.")
+                        Text(store.profile.bio ?? "No bio yet - add one on GitHub.")
                             .foregroundStyle(Brand.muted)
 
                         HStack(spacing: 12) {

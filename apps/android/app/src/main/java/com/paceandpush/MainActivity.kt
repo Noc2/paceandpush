@@ -129,7 +129,9 @@ class MainActivity : Activity() {
                     orientation = LinearLayout.VERTICAL
                     setBackgroundColor(paper)
                     setPadding(dp(20), dp(20), dp(20), dp(28))
-                    addView(header())
+                    if (activeTab == Tab.Board) {
+                        addView(header())
+                    }
                     addView(tabBar())
                     addView(contentFor(activeTab))
                 },
@@ -322,7 +324,7 @@ class MainActivity : Activity() {
     private fun profileScreen(): View {
         return panel {
             addView(titleText("@${me.login}", 28f))
-            addView(bodyText("Run. Commit. Repeat.", 16f))
+            addView(bodyText("No bio yet - add one on GitHub.", 16f))
             addView(scoreExplanationPanel())
             history.forEach { point ->
                 addView(

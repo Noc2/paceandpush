@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
+import { brandName } from "@paceandpush/brand";
 import Link from "next/link";
 import { legalEntity } from "@/lib/legal";
+import { SiteHeader } from "@/app/SiteHeader";
 
 export const metadata: Metadata = {
   title: `Privacy Policy | ${brandName}`,
@@ -12,20 +13,11 @@ export default function PrivacyPage() {
   return (
     <main className="app-shell legal-page">
       <section className="app-frame" aria-label="Privacy policy">
-        <header className="topbar">
-          <Link href="/" className="brand-lockup" aria-label={brandName}>
-            <span className="logo-mark" aria-hidden="true">
-              {promptMark.character}
-            </span>
-            <span>
-              <strong>{brandName}</strong>
-              <small>{brandTagline}</small>
-            </span>
-          </Link>
+        <SiteHeader compact>
           <Link className="button" href="/">
             Leaderboard
           </Link>
-        </header>
+        </SiteHeader>
 
         <section className="profile-hero">
           <p className="section-label">Legal</p>

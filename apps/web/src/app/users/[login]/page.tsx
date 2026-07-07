@@ -1,5 +1,5 @@
-import { AppDownloadActions } from "@/app/AppDownloadActions";
 import { ScoreExplainer } from "@/app/ScoreExplainer";
+import { SiteHeader } from "@/app/SiteHeader";
 import {
   distanceUnitAbbreviation,
   formatDistance,
@@ -7,7 +7,7 @@ import {
   runningDistanceShortLabel,
 } from "@/lib/distance-units";
 import { getLeaderboard, getPublicProfile, parsePeriod } from "@/server/data/read-model";
-import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
+import { brandName } from "@paceandpush/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PeriodSelector } from "@/app/PeriodSelector";
@@ -42,18 +42,11 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   return (
     <main className="app-shell">
       <section className="app-frame profile-page" aria-label={`${profile.login} profile`}>
-        <header className="topbar">
-          <Link href="/" className="brand-lockup" aria-label={brandName}>
-            <span className="logo-mark" aria-hidden="true">
-              {promptMark.character}
-            </span>
-            <span>
-              <strong>{brandName}</strong>
-              <small>{brandTagline}</small>
-            </span>
+        <SiteHeader compact>
+          <Link className="button" href="/">
+            Leaderboard
           </Link>
-          <AppDownloadActions />
-        </header>
+        </SiteHeader>
 
         <section className="profile-hero">
           <p className="section-label">Developer profile</p>

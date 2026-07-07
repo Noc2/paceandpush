@@ -1,13 +1,13 @@
 import { getSessionUser } from "@/server/auth/session";
 import { getMe } from "@/server/data/read-model";
 import { distanceUnitLabel } from "@/lib/distance-units";
-import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
 import { AccountDataControls } from "./AccountDataControls";
 import { GitHubConnectionControl } from "./GitHubConnectionControl";
 import { LeaderboardVisibilityControl } from "./LeaderboardVisibilityControl";
 import { MobileConnectPanel } from "./MobileConnectPanel";
 import { ScoreExplainer } from "../ScoreExplainer";
+import { SiteHeader } from "../SiteHeader";
 import { SignOutControl } from "./SignOutControl";
 import { UnitPreferenceControl } from "./UnitPreferenceControl";
 
@@ -26,20 +26,11 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   return (
     <main className="app-shell">
       <section className="app-frame profile-page" aria-label="Account settings">
-        <header className="topbar">
-          <Link href="/" className="brand-lockup" aria-label={brandName}>
-            <span className="logo-mark" aria-hidden="true">
-              {promptMark.character}
-            </span>
-            <span>
-              <strong>{brandName}</strong>
-              <small>{brandTagline}</small>
-            </span>
-          </Link>
+        <SiteHeader compact>
           <Link className="button" href="/">
             Leaderboard
           </Link>
-        </header>
+        </SiteHeader>
 
         <section className="profile-hero">
           <p className="section-label">Settings</p>
