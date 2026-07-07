@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -178,22 +179,24 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(16))
+            background = borderedBackground(paper, ink)
             Tab.values().forEachIndexed { index, tab ->
                 addView(
                     Button(this@MainActivity).apply {
                         text = tab.title
                         isAllCaps = false
                         setTextColor(ink)
-                        setBackgroundColor(if (tab == activeTab) orange else paper)
+                        background = solidBackground(if (tab == activeTab) orange else paper)
                         setOnClickListener {
                             activeTab = tab
                             render()
                         }
                     },
-                    LinearLayout.LayoutParams(0, dp(48), 1f).apply {
-                        rightMargin = if (index == Tab.values().lastIndex) 0 else dp(8)
-                    },
+                    LinearLayout.LayoutParams(0, dp(48), 1f),
                 )
+                if (index != Tab.values().lastIndex) {
+                    addView(divider(), LinearLayout.LayoutParams(dp(1), dp(48)))
+                }
             }
         }
     }
@@ -328,6 +331,8 @@ class MainActivity : Activity() {
             addView(titleText("@${me.login}", 28f))
             addView(bodyText("No bio yet - add one on GitHub.", 16f))
             addView(scoreExplanationPanel())
+            addView(profileChartPanel())
+            addView(labelText("History").apply { setPadding(0, dp(10), 0, 0) })
             history.forEach { point ->
                 addView(
                     bodyText(
@@ -339,6 +344,40 @@ class MainActivity : Activity() {
                     },
                 )
             }
+        }
+    }
+
+    private fun profileChartPanel(): View {
+        return panel {
+            addView(labelText("Profile chart"))
+            if (history.isEmpty()) {
+                addView(chartPlaceholder("No chart data yet.").apply {
+                    setPadding(0, dp(10), 0, 0)
+                })
+            } else {
+                val first = history.first()
+                val last = history.last()
+                addView(bodyText("${first.date} to ${last.date}", 14f).apply {
+                    setPadding(0, dp(6), 0, dp(6))
+                    typeface = Typeface.DEFAULT_BOLD
+                })
+                addView(bodyText(
+                    "Score ${last.score.toFixed(1)} / ${last.commits} commits / ${formatDistance(last.kilometers, includeUnit = true)}",
+                    15f,
+                ))
+            }
+        }
+    }
+
+    private fun chartPlaceholder(message: String): View {
+        return TextView(this).apply {
+            text = message
+            textSize = 16f
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(muted)
+            background = borderedBackground(paper, line)
+            layoutParams = LinearLayout.LayoutParams(-1, dp(144))
         }
     }
 
@@ -948,6 +987,19 @@ class MainActivity : Activity() {
     private fun divider(): View {
         return View(this).apply {
             setBackgroundColor(line)
+        }
+    }
+
+    private fun solidBackground(fillColor: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(fillColor)
+        }
+    }
+
+    private fun borderedBackground(fillColor: Int, strokeColor: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(fillColor)
+            setStroke(dp(1), strokeColor)
         }
     }
 
