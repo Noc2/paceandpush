@@ -2,8 +2,13 @@
 
 The native companion apps should launch with the same basic information as the
 website: current score, leaderboard, public profile, sync state, and settings.
+Health-data sync is launch-ready only for a platform after permission request,
+secure token storage, daily-total upload, and sync-run reporting are wired in
+that native app.
 
 ## Native Onboarding Flow
+
+Target flow for a platform that ships health-data sync:
 
 1. Open the native app.
 2. Connect GitHub from the app through backend-mediated mobile OAuth.
@@ -40,11 +45,14 @@ path, but it should not be the primary iOS onboarding path.
 
 ## Android
 
-- Read Health Connect running exercise sessions and aggregate `DistanceRecord`
-  distance inside those sessions.
-- Request read-only exercise-session and distance access.
-- Provide the Health Connect permission rationale activity.
-- Upload daily totals, not raw records.
+- Current status: pairing/shell-only. The project has Health Connect permissions,
+  a permission rationale activity, and a `HealthConnectDistanceSync` collector,
+  but the Android UI does not yet request permission or POST distance/sync-run
+  payloads.
+- Before Android beta sync, request read-only exercise-session and distance
+  access, read Health Connect running exercise sessions, aggregate
+  `DistanceRecord` distance inside those sessions, and upload daily totals, not
+  raw records.
 
 ## Beta Boundaries
 

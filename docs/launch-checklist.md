@@ -94,5 +94,5 @@ Owner-only production setup is tracked in
 - Android build in Android Studio with Health Connect SDK resolved.
 - Manual GitHub OAuth login.
 - Manual mobile pairing exchange.
-- Manual running distance sync with one iOS HealthKit device and one Android
-  Health Connect device.
+- Manual running distance sync with one iOS HealthKit device, plus one Android
+  Health Connect device if Android is included in the launch scope.

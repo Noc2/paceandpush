@@ -2,10 +2,12 @@
 
 Native Kotlin client for Pace & Push.
 
-The PoC app shell will include Today, Leaderboard, Profile, Sync, and Settings
-tabs, plus Health Connect running distance sync.
+The current PoC app shell includes Today, Leaderboard, Profile, Sync, and
+Settings tabs, plus pairing-code exchange with the web API.
 
-Health Connect sync reads running exercise sessions, aggregates `DistanceRecord`
-distance inside those sessions, and shapes them for the web API's
-`/api/mobile/distance-days` endpoint. The app declares read-only running
-exercise and distance data access for the PoC.
+Health Connect sync scaffolding exists in `HealthConnectDistanceSync.kt`: it can
+read running exercise sessions, aggregate `DistanceRecord` distance inside those
+sessions, and shape daily totals for `/api/mobile/distance-days`. The Android
+UI does not yet request Health Connect permission at runtime or upload
+`/api/mobile/distance-days` and `/api/mobile/sync-runs` payloads, so Android is
+pairing/shell-only until that wiring is finished.
