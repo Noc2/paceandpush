@@ -349,6 +349,88 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
+    func testSyncShowsRepairHintWhenNoRunningDistanceIsFound() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let client = FakePacePushClient()
+        client.distanceDaysResponse = DistanceDaysResponse(accepted: 0, flagged: 0)
+        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.profileResponse = Self.profileResponse()
+
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: ["healthAuthorized": true]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.syncRunningDistance()
+
+        XCTAssertEqual(client.recordedSyncRuns.first?.status, "warning")
+        XCTAssertTrue(store.lastSuccess?.contains("No running distance found") == true)
+        XCTAssertTrue(store.lastSuccess?.contains("check Apple Health sharing") == true)
+        XCTAssertNil(store.lastError)
+    }
+
+    @MainActor
+    func testRequestHealthAccessShowsRepairHintWhenAuthorizationFails() async throws {
+        let healthSync = FakeHealthSync(days: [])
+        healthSync.authorizationError = PacePushAPIError.server("denied")
+        let store = PacePushStore(
+            healthSync: healthSync,
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [:]),
+            apiClientFactory: { _, _ in FakePacePushClient() },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.requestHealthAccess()
+
+        XCTAssertTrue(store.lastError?.contains("Settings > Health > Data Access & Devices") == true)
+        XCTAssertFalse(store.healthAuthorized)
+    }
+
+    @MainActor
+    func testShareProfileURLRequiresConnectedAccountAndFirstSync() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let client = FakePacePushClient()
+        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.profileResponse = Self.profileResponse()
+        let preferences = InMemoryPreferences(values: [:])
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.refresh()
+        XCTAssertNil(store.shareProfileURL)
+
+        preferences.set("2026-07-06T12:00:00.000Z", forKey: "firstSyncAt")
+        let syncedStore = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+        await syncedStore.refresh()
+
+        XCTAssertEqual(syncedStore.shareProfileURL?.absoluteString, "https://paceandpush.com/users/noc2")
+    }
+
+    @MainActor
     func testBootstrapRunsHistoricalBackfillOnceForExistingDevice() async throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")
@@ -588,6 +670,7 @@ private final class InMemoryPreferences: PreferencesStoring {
 
 private final class FakeHealthSync: HealthDistanceSyncing {
     var isAvailable = true
+    var authorizationError: Error?
     let days: [HealthKitDistanceDay]
     private(set) var requestedRanges: [(start: Date, end: Date)] = []
 
@@ -595,7 +678,11 @@ private final class FakeHealthSync: HealthDistanceSyncing {
         self.days = days
     }
 
-    func requestAuthorization() async throws {}
+    func requestAuthorization() async throws {
+        if let authorizationError {
+            throw authorizationError
+        }
+    }
 
     func collectDistanceDays(from startDate: Date, through endDate: Date) async throws -> HealthKitDistanceSyncResult {
         requestedRanges.append((startDate, endDate))

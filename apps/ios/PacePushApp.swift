@@ -343,6 +343,17 @@ struct ProfileView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 .padding(.bottom, 20)
+
+                if let shareURL = store.shareProfileURL {
+                    ShareLink(item: shareURL) {
+                        Label("Share Profile", systemImage: "square.and.arrow.up")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .accessibilityIdentifier("share-profile-button")
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                }
             }
             .accessibilityIdentifier("profile-screen")
             .background(Brand.paper)
@@ -647,6 +658,13 @@ struct SettingsView: View {
                         StatusRow(label: "API", value: "paceandpush.com")
                     }
                 }
+
+                Section("Support") {
+                    Link(destination: SupportLinks.feedbackURL) {
+                        Label("Beta feedback", systemImage: "envelope")
+                    }
+                    .accessibilityIdentifier("beta-feedback-link")
+                }
             }
             .accessibilityIdentifier("settings-screen")
             .scrollContentBackground(.hidden)
@@ -730,6 +748,19 @@ enum ScoreExplanation {
     static let formula = "score = sqrt(commit ratio x running ratio) x 100"
     static let body = "Balanced score compares your commits and running distance with the strongest totals in the selected period. Each side becomes a 0-1 ratio, then the two ratios are combined with a geometric mean."
     static let note = "A zero on either side makes the score 0, so the balanced board rewards people who ship code and run."
+}
+
+enum SupportLinks {
+    static let email = "hawigxyz@proton.me"
+    static let feedbackURL = URL(string: "mailto:\(email)?subject=Pace%20%26%20Push%20beta%20feedback")!
+
+    static func publicProfileURL(login: String) -> URL? {
+        guard let encodedLogin = login.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            return nil
+        }
+
+        return URL(string: "https://paceandpush.com/users/\(encodedLogin)")
+    }
 }
 
 struct ScoreExplanationDisclosure: View {
@@ -1200,6 +1231,11 @@ final class PacePushStore: ObservableObject {
         allowsAPIBaseURLOverride
     }
 
+    var shareProfileURL: URL? {
+        guard isGitHubConnected, firstSyncAt != nil else { return nil }
+        return SupportLinks.publicProfileURL(login: me.login)
+    }
+
     func isCurrentUser(_ row: LeaderboardRow) -> Bool {
         isGitHubConnected && row.login.localizedCaseInsensitiveCompare(me.login) == .orderedSame
     }
@@ -1351,7 +1387,7 @@ final class PacePushStore: ObservableObject {
                 lastSuccess = "Apple Health enabled. Next, connect GitHub."
             }
         } catch {
-            lastError = "Apple Health is unavailable or permission was not granted."
+            lastError = "Apple Health is unavailable or permission was not granted. Open Settings > Health > Data Access & Devices > Pace & Push to allow running workouts, then retry."
             lastSuccess = nil
         }
     }
@@ -1438,6 +1474,7 @@ final class PacePushStore: ObservableObject {
                 from: Self.historicalDistanceSyncStartDate,
                 through: syncEnd,
             )
+            let foundRunningDistance = result.days.contains { $0.meters > 0 }
             var acceptedDays = 0
             var flaggedDays = 0
             for batchStart in stride(from: 0, to: result.days.count, by: Self.distanceUploadBatchSize) {
@@ -1450,7 +1487,7 @@ final class PacePushStore: ObservableObject {
             try await client.recordSyncRun(
                 SyncRunRequest(
                     platform: "ios",
-                    status: flaggedDays > 0 ? "warning" : "success",
+                    status: (!foundRunningDistance || flaggedDays > 0) ? "warning" : "success",
                     startedAt: startedAt.isoString,
                     finishedAt: now().isoString,
                     counters: [
@@ -1466,7 +1503,9 @@ final class PacePushStore: ObservableObject {
             preferences.set(Self.historicalDistanceSyncVersion, forKey: historicalDistanceSyncVersionKey)
             await refresh()
             if lastError == nil {
-                lastSuccess = successMessage
+                lastSuccess = foundRunningDistance
+                    ? successMessage
+                    : "No running distance found. If you expected a run, check Apple Health sharing for Pace & Push, then sync again."
             }
         } catch PacePushAPIError.unauthorized {
             signOut()

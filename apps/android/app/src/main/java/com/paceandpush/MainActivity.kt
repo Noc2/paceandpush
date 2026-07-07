@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
         const val PREF_DEVICE_TOKEN_CIPHERTEXT = "mobile_device_token_ciphertext"
         const val PREF_DEVICE_TOKEN_IV = "mobile_device_token_iv"
         const val PREF_DISTANCE_UNITS = "distance_units"
+        const val SUPPORT_EMAIL = "hawigxyz@proton.me"
         const val SCORE_FORMULA = "score = sqrt(commit ratio x running ratio) x 100"
         const val SCORE_EXPLANATION =
             "Balanced score compares your commits and running distance with the strongest totals in the selected period. Each side becomes a 0-1 ratio, then the two ratios are combined with a geometric mean."
@@ -541,6 +542,17 @@ class MainActivity : ComponentActivity() {
                     },
                 )
             }
+            addView(
+                Button(this@MainActivity).apply {
+                    text = "Beta Feedback"
+                    isAllCaps = false
+                    setTextColor(ink)
+                    setBackgroundColor(paper)
+                    setOnClickListener {
+                        openSupportEmail()
+                    }
+                },
+            )
             if (allowsApiBaseUrlOverride()) {
                 addView(labelText("API base URL").apply { setPadding(0, dp(12), 0, 0) })
                 val urlInput = EditText(this@MainActivity).apply {
@@ -613,6 +625,10 @@ class MainActivity : ComponentActivity() {
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            isClickable = true
+            setOnClickListener {
+                openPublicProfile(row.login)
+            }
 
             addView(
                 LinearLayout(this@MainActivity).apply {
@@ -1442,6 +1458,29 @@ class MainActivity : ComponentActivity() {
                 flags = flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
             }
             window.decorView.systemUiVisibility = flags
+        }
+    }
+
+    private fun openPublicProfile(login: String) {
+        val url = "${DEFAULT_API_BASE_URL}/users/${Uri.encode(login)}"
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }.onFailure {
+            dataStatusMessage = "Could not open public profile."
+            dataStatusColor = red
+            render()
+        }
+    }
+
+    private fun openSupportEmail() {
+        val subject = Uri.encode("Pace & Push beta feedback")
+        runCatching {
+            startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$SUPPORT_EMAIL?subject=$subject")))
+        }.onFailure {
+            pairingStatusMessage = "No email app is available. Send feedback to $SUPPORT_EMAIL."
+            pairingStatusColor = red
+            activeTab = Tab.Settings
+            render()
         }
     }
 

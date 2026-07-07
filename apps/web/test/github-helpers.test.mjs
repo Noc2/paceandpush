@@ -1086,6 +1086,37 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidWorkflow, /gradle -p apps\/android :app:assembleDebug --no-daemon/);
 });
 
+test("beta feedback, share profile, and health repair paths stay visible", async () => {
+  const iosSource = await readFile(
+    new URL("../../ios/PacePushApp.swift", import.meta.url),
+    "utf8",
+  );
+  const androidSource = await readFile(
+    new URL("../../android/app/src/main/java/com/paceandpush/MainActivity.kt", import.meta.url),
+    "utf8",
+  );
+  const webSettings = await readFile(
+    new URL("../src/app/settings/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(iosSource, /SupportLinks/);
+  assert.match(iosSource, /hawigxyz@proton\.me/);
+  assert.match(iosSource, /ShareLink\(item: shareURL\)/);
+  assert.match(iosSource, /shareProfileURL/);
+  assert.match(iosSource, /No running distance found/);
+  assert.match(iosSource, /Settings > Health > Data Access & Devices/);
+  assert.match(iosSource, /beta-feedback-link/);
+
+  assert.match(androidSource, /SUPPORT_EMAIL = "hawigxyz@proton\.me"/);
+  assert.match(androidSource, /openSupportEmail/);
+  assert.match(androidSource, /openPublicProfile/);
+  assert.match(androidSource, /\/users\/\$\{Uri\.encode\(login\)\}/);
+
+  assert.match(webSettings, /Beta feedback/);
+  assert.match(webSettings, /mailto:hawigxyz@proton\.me/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");

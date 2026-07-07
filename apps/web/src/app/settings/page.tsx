@@ -96,6 +96,11 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           ) : (
             <AccountDataControls />
           )}
+          <SettingsLinkRow
+            label="Beta feedback"
+            href="mailto:hawigxyz@proton.me?subject=Pace%20%26%20Push%20beta%20feedback"
+            value="Email support"
+          />
           {me.login === "guest" ? null : <SignOutControl />}
         </div>
       </section>
@@ -119,6 +124,17 @@ function SettingsRow({ label, value }: { label: string; value: string }) {
     <div className="settings-row">
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SettingsLinkRow({ label, value, href }: { label: string; value: string; href: string }) {
+  return (
+    <div className="settings-row">
+      <span>{label}</span>
+      <a className="button" href={href}>
+        {value}
+      </a>
     </div>
   );
 }
