@@ -1,10 +1,8 @@
 import { upsertDistanceDays, verifyDeviceToken } from "@/server/data/mobile";
 import { recomputeScoreSnapshots } from "@/server/data/scores";
 import { periodForKind } from "@/lib/periods";
-import type {
-  DistanceDayInput,
-  DistanceDaysRequest,
-} from "@paceandpush/api-contracts";
+import { isDistanceDayInput, isPlainObject } from "@/server/api/payloads";
+import type { DistanceDayInput } from "@paceandpush/api-contracts";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -13,22 +11,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing or invalid device token." }, { status: 401 });
   }
 
-  let body: DistanceDaysRequest;
+  let body: unknown;
   try {
-    body = (await request.json()) as DistanceDaysRequest;
+    body = await request.json();
   } catch {
     return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
   }
 
-  if (!Array.isArray(body.days)) {
+  if (!isPlainObject(body) || !Array.isArray(body.days)) {
     return NextResponse.json({ error: "days must be an array." }, { status: 400 });
   }
-  if (body.days.length > 45) {
+  const days = body.days;
+  if (days.length > 45) {
     return NextResponse.json({ error: "days may include at most 45 entries." }, { status: 400 });
   }
 
-  const accepted = body.days
-    .filter((day) => isValidDistanceDay(day, auth.device.platform))
+  const accepted = days
+    .filter((day): day is DistanceDayInput => isDistanceDayInput(day, auth.device.platform))
     .map((day) => ({
       ...day,
       meters: Math.round(day.meters),
@@ -57,26 +56,9 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     accepted: canonicalDays.length,
     flagged:
-      body.days.length - accepted.length + canonicalDays.filter((day) => day.flagged).length,
+      days.length - accepted.length + canonicalDays.filter((day) => day.flagged).length,
     ...(failedPeriods.length > 0 ? { warnings: ["score_recompute_failed"] } : {}),
   });
-}
-
-function isValidDistanceDay(
-  day: DistanceDayInput,
-  expectedPlatform: "ios" | "android",
-): boolean {
-  const date = new Date(`${day.date}T00:00:00.000Z`);
-  return (
-    Number.isFinite(date.valueOf()) &&
-    /^\d{4}-\d{2}-\d{2}$/.test(day.date) &&
-    Number.isFinite(day.meters) &&
-    day.meters >= 0 &&
-    day.meters <= 250_000 &&
-    day.sourcePlatform === expectedPlatform &&
-    typeof day.sourceHash === "string" &&
-    day.sourceHash.length >= 8
-  );
 }
 
 function isImplausibleDistanceDay(day: DistanceDayInput): boolean {

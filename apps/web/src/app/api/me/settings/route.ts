@@ -1,3 +1,4 @@
+import { isAccountSettingsPatch } from "@/server/api/payloads";
 import { getSessionUser } from "@/server/auth/session";
 import { getAccountUser, updateAccountSettings } from "@/server/data/accounts";
 import { refreshScoresAfterLeaderboardVisibilityChange } from "@/server/data/scores";
@@ -9,15 +10,15 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Sign in with GitHub first." }, { status: 401 });
   }
 
-  let body: Partial<{ publicLeaderboard: boolean; units: "metric" | "imperial" }>;
+  let body: unknown;
 
   try {
-    body = (await request.json()) as Partial<{
-      publicLeaderboard: boolean;
-      units: "metric" | "imperial";
-    }>;
+    body = await request.json();
   } catch {
     return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
+  }
+  if (!isAccountSettingsPatch(body)) {
+    return NextResponse.json({ error: "Request body must be a JSON object." }, { status: 400 });
   }
 
   const nextPublicLeaderboard =

@@ -1,3 +1,4 @@
+import { isAccountSettingsPatch } from "@/server/api/payloads";
 import { updateAccountSettings } from "@/server/data/accounts";
 import { verifyDeviceToken } from "@/server/data/mobile";
 import { refreshScoresAfterLeaderboardVisibilityChange } from "@/server/data/scores";
@@ -9,14 +10,14 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Missing or invalid device token." }, { status: 401 });
   }
 
-  let body: Partial<{ publicLeaderboard: boolean; units: "metric" | "imperial" }>;
+  let body: unknown;
   try {
-    body = (await request.json()) as Partial<{
-      publicLeaderboard: boolean;
-      units: "metric" | "imperial";
-    }>;
+    body = await request.json();
   } catch {
     return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
+  }
+  if (!isAccountSettingsPatch(body)) {
+    return NextResponse.json({ error: "Request body must be a JSON object." }, { status: 400 });
   }
 
   const nextPublicLeaderboard =

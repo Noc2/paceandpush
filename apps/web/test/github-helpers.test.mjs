@@ -12,6 +12,7 @@ const mobileOauthConfig = await loadTypeScriptModule("../src/server/mobile/oauth
 const mobileTokens = await loadTypeScriptModule("../src/server/mobile/tokens.ts");
 const callbackErrors = await loadTypeScriptModule("../src/server/mobile/callback-errors.ts");
 const oauth = await loadTypeScriptModule("../src/server/github/oauth.ts");
+const payloads = await loadTypeScriptModule("../src/server/api/payloads.ts");
 const periods = await loadTypeScriptModule("../src/lib/periods.ts");
 const streaks = await loadTypeScriptModule("../src/lib/streaks.ts");
 const tokenCrypto = await loadTypeScriptModule("../src/server/github/token-crypto.ts");
@@ -520,6 +521,55 @@ test("distance uploads recompute week month and year score periods", async () =>
   assert.match(source, /score_recompute_failed/);
 });
 
+test("distance upload validation rejects malformed items and impossible dates", () => {
+  const validDay = {
+    date: "2026-02-28",
+    meters: 10_000,
+    sourcePlatform: "ios",
+    sourceHash: "healthkit-ios-running-2026-02-28-10000",
+  };
+
+  assert.equal(payloads.isDistanceDayInput(validDay, "ios"), true);
+  assert.equal(
+    payloads.isDistanceDayInput({ ...validDay, date: "2026-02-31" }, "ios"),
+    false,
+  );
+  assert.equal(payloads.isDistanceDayInput(null, "ios"), false);
+  assert.equal(payloads.isDistanceDayInput({ ...validDay, sourcePlatform: "android" }, "ios"), false);
+});
+
+test("mutating JSON payload validators reject non-object bodies", () => {
+  assert.equal(payloads.isAccountSettingsPatch({ publicLeaderboard: true }), true);
+  assert.equal(payloads.isAccountSettingsPatch(null), false);
+  assert.equal(payloads.isAccountSettingsPatch([]), false);
+
+  assert.equal(
+    payloads.isSyncRunRequest(
+      {
+        platform: "ios",
+        status: "success",
+        startedAt: "2026-07-06T12:00:00.000Z",
+        counters: { days: 1 },
+      },
+      "ios",
+    ),
+    true,
+  );
+  assert.equal(payloads.isSyncRunRequest(null, "ios"), false);
+  assert.equal(
+    payloads.isSyncRunRequest(
+      {
+        platform: "ios",
+        status: "success",
+        startedAt: "2026-07-06T12:00:00.000Z",
+        counters: [],
+      },
+      "ios",
+    ),
+    false,
+  );
+});
+
 test("distance uploads are canonical by day instead of source hash", async () => {
   const routeSource = await readFile(
     new URL("../src/app/api/mobile/distance-days/route.ts", import.meta.url),
@@ -691,8 +741,8 @@ test("homepage has accessible heading cells and app download actions", async () 
 });
 
 test("sync run validation accepts omitted finishedAt and null errorSummary", async () => {
-  const routeSource = await readFile(
-    new URL("../src/app/api/mobile/sync-runs/route.ts", import.meta.url),
+  const payloadSource = await readFile(
+    new URL("../src/server/api/payloads.ts", import.meta.url),
     "utf8",
   );
   const contractSource = await readFile(
@@ -700,8 +750,8 @@ test("sync run validation accepts omitted finishedAt and null errorSummary", asy
     "utf8",
   );
 
-  assert.match(routeSource, /run\.finishedAt == null/);
-  assert.match(routeSource, /run\.errorSummary == null/);
+  assert.match(payloadSource, /value\.finishedAt == null/);
+  assert.match(payloadSource, /value\.errorSummary == null/);
   assert.match(contractSource, /finishedAt\?: string \| null/);
   assert.match(contractSource, /errorSummary\?: string \| null/);
 });

@@ -1,5 +1,6 @@
 import { recordSyncRun, verifyDeviceToken } from "@/server/data/mobile";
-import type { SyncRunRequest, SyncStatus } from "@paceandpush/api-contracts";
+import { isSyncRunRequest } from "@/server/api/payloads";
+import type { SyncRunRequest } from "@paceandpush/api-contracts";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -8,41 +9,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing or invalid device token." }, { status: 401 });
   }
 
-  let body: SyncRunRequest;
+  let body: unknown;
   try {
-    body = (await request.json()) as SyncRunRequest;
+    body = await request.json();
   } catch {
     return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
   }
 
-  if (!isValidSyncRun(body, auth.device.platform)) {
+  if (!isSyncRunRequest(body, auth.device.platform)) {
     return NextResponse.json({ error: "Invalid sync run payload." }, { status: 400 });
   }
 
   return NextResponse.json(await recordSyncRun({ auth, run: body }));
-}
-
-function isValidSyncRun(
-  run: SyncRunRequest,
-  expectedPlatform: "ios" | "android",
-): boolean {
-  const startedAt = Date.parse(run.startedAt);
-  const finishedAt = run.finishedAt == null ? null : Date.parse(run.finishedAt);
-  const counters = Object.entries(run.counters ?? {});
-
-  return (
-    run.platform === expectedPlatform &&
-    isSyncStatus(run.status) &&
-    Number.isFinite(startedAt) &&
-    (finishedAt === null || (Number.isFinite(finishedAt) && finishedAt >= startedAt)) &&
-    typeof run.counters === "object" &&
-    run.counters !== null &&
-    counters.length <= 20 &&
-    counters.every(([, value]) => Number.isFinite(value) && value >= 0) &&
-    (run.errorSummary == null || run.errorSummary.length <= 500)
-  );
-}
-
-function isSyncStatus(status: string): status is SyncStatus {
-  return status === "success" || status === "warning" || status === "error";
 }
