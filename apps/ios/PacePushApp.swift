@@ -1,4 +1,5 @@
 import AuthenticationServices
+import CryptoKit
 import Foundation
 import Security
 import SwiftUI
@@ -1099,8 +1100,8 @@ struct LeaderboardRowView: View {
 }
 
 protocol PacePushClienting {
-    func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL
-    func exchangeMobileAuthCode(_ code: String) async throws -> DeviceExchangeResponse
+    func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String, codeChallenge: String) throws -> URL
+    func exchangeMobileAuthCode(_ code: String, codeVerifier: String) async throws -> DeviceExchangeResponse
     func exchangeDevicePairing(code: String, platform: String, label: String) async throws -> DeviceExchangeResponse
     func disconnectGitHub() async throws -> GitHubDisconnectResponse
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse
@@ -1157,6 +1158,7 @@ final class PacePushStore: ObservableObject {
     private let deviceLabel: @MainActor () -> String
     private let now: () -> Date
     private let bootstrapSyncEnabled: Bool
+    private var pendingMobileAuthCodeVerifier: String?
     private static let distanceUploadBatchSize = 45
     private static let historicalDistanceSyncStartDate = Date(timeIntervalSince1970: 0)
     private static let historicalDistanceSyncVersion = "full-history-v1"
@@ -1254,16 +1256,20 @@ final class PacePushStore: ObservableObject {
 
         do {
             let client = apiClientFactory(baseURL, nil)
+            let pkce = try MobileAuthPKCE.generate()
+            pendingMobileAuthCodeVerifier = pkce.verifier
             let callback = try await authSession.authenticate(
                 startURL: client.mobileGitHubStartURL(
                     platform: "ios",
                     label: deviceLabel(),
                     callbackScheme: callbackScheme,
+                    codeChallenge: pkce.challenge,
                 ),
                 callbackScheme: callbackScheme,
             )
-            try await finishGitHubCallback(callback)
+            try await finishGitHubCallback(callback, codeVerifier: pkce.verifier)
         } catch {
+            pendingMobileAuthCodeVerifier = nil
             lastError = userFacingGitHubConnectionError(error)
             lastSuccess = nil
         }
@@ -1559,7 +1565,7 @@ final class PacePushStore: ObservableObject {
         units.format(kilometers, includeUnit: includeUnit)
     }
 
-    private func finishGitHubCallback(_ url: URL) async throws {
+    private func finishGitHubCallback(_ url: URL, codeVerifier: String? = nil) async throws {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             throw PacePushAPIError.invalidCallback
         }
@@ -1572,10 +1578,15 @@ final class PacePushStore: ObservableObject {
             throw PacePushAPIError.invalidCallback
         }
 
+        guard let codeVerifier = codeVerifier ?? pendingMobileAuthCodeVerifier else {
+            throw PacePushAPIError.server("GitHub sign-in expired. Please start GitHub connection again.")
+        }
+
         let preferredPublicLeaderboard = publicLeaderboardPreference
         let shouldSyncPublicLeaderboardPreference = publicLeaderboardPreferenceChosen
         let client = apiClientFactory(baseURL, nil)
-        let exchange = try await client.exchangeMobileAuthCode(code)
+        let exchange = try await client.exchangeMobileAuthCode(code, codeVerifier: codeVerifier)
+        pendingMobileAuthCodeVerifier = nil
         try keychain.saveString(exchange.token, account: tokenKey)
         deviceToken = exchange.token
         if shouldSyncPublicLeaderboardPreference {
@@ -1764,11 +1775,11 @@ private struct UITestingGitHubAuthSession: GitHubAuthenticating {
 }
 
 private final class UITestingPacePushClient: PacePushClienting {
-    func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL {
-        URL(string: "https://paceandpush.com/api/mobile/auth/github/start?platform=\(platform)&callbackScheme=\(callbackScheme)")!
+    func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String, codeChallenge: String) throws -> URL {
+        URL(string: "https://paceandpush.com/api/mobile/auth/github/start?platform=\(platform)&callbackScheme=\(callbackScheme)&codeChallenge=\(codeChallenge)")!
     }
 
-    func exchangeMobileAuthCode(_ code: String) async throws -> DeviceExchangeResponse {
+    func exchangeMobileAuthCode(_ code: String, codeVerifier: String) async throws -> DeviceExchangeResponse {
         deviceExchangeResponse
     }
 
@@ -1876,12 +1887,13 @@ final class PacePushAPIClient: PacePushClienting {
         self.dataLoader = dataLoader
     }
 
-    func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL {
+    func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String, codeChallenge: String) throws -> URL {
         var components = URLComponents(url: url("/api/mobile/auth/github/start"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "platform", value: platform),
             URLQueryItem(name: "label", value: label),
             URLQueryItem(name: "callbackScheme", value: callbackScheme),
+            URLQueryItem(name: "codeChallenge", value: codeChallenge),
         ]
         guard let url = components?.url else { throw PacePushAPIError.invalidURL }
         return url
@@ -1895,10 +1907,10 @@ final class PacePushAPIClient: PacePushClienting {
         )
     }
 
-    func exchangeMobileAuthCode(_ code: String) async throws -> DeviceExchangeResponse {
+    func exchangeMobileAuthCode(_ code: String, codeVerifier: String) async throws -> DeviceExchangeResponse {
         try await post(
             "/api/mobile/auth/exchange",
-            body: MobileAuthExchangeRequest(code: code),
+            body: MobileAuthExchangeRequest(code: code, codeVerifier: codeVerifier),
             authenticated: false,
         )
     }
@@ -2671,6 +2683,28 @@ enum PairingPayloadParser {
     }
 }
 
+enum MobileAuthPKCE {
+    static func generate() throws -> (verifier: String, challenge: String) {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        guard status == errSecSuccess else { throw PacePushAPIError.keychain(status) }
+
+        let verifier = Data(bytes).base64URLEncodedString()
+        let digest = SHA256.hash(data: Data(verifier.utf8))
+        let challenge = Data(digest).base64URLEncodedString()
+        return (verifier, challenge)
+    }
+}
+
+extension Data {
+    func base64URLEncodedString() -> String {
+        base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+}
+
 enum DistanceUnits: String, CaseIterable, Identifiable {
     case metric
     case imperial
@@ -2767,6 +2801,7 @@ struct APIErrorResponse: Decodable {
 
 struct MobileAuthExchangeRequest: Encodable {
     let code: String
+    let codeVerifier: String
 }
 
 struct DevicePairingExchangeRequest: Encodable {

@@ -73,6 +73,16 @@ test("OpenAPI documents mobile request bodies and bearer auth", () => {
     assert.deepEqual(api.paths[path][method].security, [{ mobileBearer: [] }]);
   }
   assert.equal(api.components.securitySchemes.mobileBearer.scheme, "bearer");
+  assert.ok(
+    api.components.schemas.MobileAuthExchangeRequest.required.includes("codeVerifier"),
+    "mobile auth exchanges require a PKCE code verifier",
+  );
+  assert.ok(
+    api.paths["/api/mobile/auth/github/start"].get.parameters.some(
+      (parameter) => parameter.name === "codeChallenge" && parameter.required,
+    ),
+    "mobile auth start requires a PKCE code challenge",
+  );
 });
 
 test("distance-day schemas include server-enforced limits", () => {

@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
       platform: request.nextUrl.searchParams.get("platform"),
       label: request.nextUrl.searchParams.get("label") || "",
       callbackScheme: request.nextUrl.searchParams.get("callbackScheme") || "",
+      codeChallenge: request.nextUrl.searchParams.get("codeChallenge") || "",
     });
 
     return NextResponse.redirect(buildGitHubAuthorizeUrl(state, { redirectUri }));

@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
         userId: user.id,
         platform: mobileState.platform,
         label: mobileState.label,
+        codeChallenge: mobileState.codeChallenge,
       }),
     );
     return NextResponse.redirect(callbackUrl);

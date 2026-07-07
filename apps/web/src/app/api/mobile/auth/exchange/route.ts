@@ -12,7 +12,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json(await exchangeMobileAuthCode({ code: body.code }));
+    if (!body.code || !body.codeVerifier) {
+      return NextResponse.json({ error: "Code and code verifier are required." }, { status: 400 });
+    }
+
+    return NextResponse.json(
+      await exchangeMobileAuthCode({
+        code: body.code,
+        codeVerifier: body.codeVerifier,
+      }),
+    );
   } catch (error) {
     console.error("[mobile-auth-exchange] exchange failed", error);
     return NextResponse.json(

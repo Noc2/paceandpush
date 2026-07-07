@@ -99,6 +99,7 @@ export interface DeviceExchangeResponse {
 
 export interface MobileAuthExchangeRequest {
   code: string;
+  codeVerifier: string;
 }
 
 export interface DistanceDayInput {

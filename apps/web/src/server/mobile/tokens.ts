@@ -16,6 +16,8 @@ interface MobileAuthStatePayload {
   platform: Platform;
   label: string;
   callbackScheme: string;
+  codeChallenge: string;
+  codeChallengeMethod: "S256";
   exp: number;
 }
 
@@ -38,11 +40,13 @@ export function createMobileAuthState({
   platform,
   label,
   callbackScheme,
+  codeChallenge,
   ttlMs = mobileAuthStateTtlMs,
 }: {
   platform: unknown;
   label: string;
   callbackScheme: string;
+  codeChallenge: string;
   ttlMs?: number;
 }): string {
   const normalizedPlatform = assertPlatform(platform);
@@ -50,7 +54,9 @@ export function createMobileAuthState({
     kind: "mobile-auth-state",
     platform: normalizedPlatform,
     label: normalizeDeviceLabel(label, normalizedPlatform),
-    callbackScheme: normalizeCallbackScheme(callbackScheme),
+    callbackScheme: normalizeCallbackScheme(callbackScheme, normalizedPlatform),
+    codeChallenge: normalizePKCECodeChallenge(codeChallenge),
+    codeChallengeMethod: "S256",
     exp: Date.now() + ttlMs,
   } satisfies MobileAuthStatePayload);
 }
@@ -64,7 +70,9 @@ export function verifyMobileAuthState(state: string): MobileAuthStatePayload {
     ...payload,
     platform: assertPlatform(payload.platform),
     label: normalizeDeviceLabel(payload.label, payload.platform),
-    callbackScheme: normalizeCallbackScheme(payload.callbackScheme),
+    callbackScheme: normalizeCallbackScheme(payload.callbackScheme, payload.platform),
+    codeChallenge: normalizePKCECodeChallenge(payload.codeChallenge),
+    codeChallengeMethod: "S256",
   };
 }
 
@@ -116,6 +124,22 @@ export function decodeDeviceToken(
 
 export function hashMobileToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+export function codeChallengeForVerifier(codeVerifier: string): string {
+  if (!isPKCECodeVerifier(codeVerifier)) {
+    throw new Error("Code verifier is invalid.");
+  }
+  return createHash("sha256").update(codeVerifier).digest("base64url");
+}
+
+export function isPKCECodeVerifier(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 43 &&
+    value.length <= 128 &&
+    /^[A-Za-z0-9._~-]+$/.test(value)
+  );
 }
 
 function signToken(prefix: string, payload: object): string {
@@ -177,10 +201,28 @@ export function normalizeDeviceLabel(label: string, platform: Platform): string 
   return platform === "ios" ? "iPhone" : "Android";
 }
 
-function normalizeCallbackScheme(callbackScheme: string): string {
+function normalizeCallbackScheme(callbackScheme: string, platform: Platform): string {
   const trimmed = callbackScheme.trim().toLowerCase();
   if (!/^[a-z][a-z0-9+.-]{1,63}$/.test(trimmed)) {
     throw new Error("Callback scheme is invalid.");
+  }
+
+  const allowedByPlatform: Record<Platform, string[]> = {
+    ios: ["pacepush"],
+    android: ["pacepush"],
+  };
+
+  if (!allowedByPlatform[platform].includes(trimmed)) {
+    throw new Error("Callback scheme is not allowed for this platform.");
+  }
+
+  return trimmed;
+}
+
+function normalizePKCECodeChallenge(codeChallenge: string): string {
+  const trimmed = codeChallenge.trim();
+  if (!/^[A-Za-z0-9_-]{43,128}$/.test(trimmed)) {
+    throw new Error("Code challenge is invalid.");
   }
   return trimmed;
 }

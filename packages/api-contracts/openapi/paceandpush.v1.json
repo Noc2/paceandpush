@@ -209,6 +209,12 @@
             "in": "query",
             "required": true,
             "schema": { "type": "string" }
+          },
+          {
+            "name": "codeChallenge",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "minLength": 43, "maxLength": 128 }
           }
         ],
         "responses": {
@@ -485,9 +491,10 @@
       },
       "MobileAuthExchangeRequest": {
         "type": "object",
-        "required": ["code"],
+        "required": ["code", "codeVerifier"],
         "properties": {
-          "code": { "type": "string" }
+          "code": { "type": "string" },
+          "codeVerifier": { "type": "string", "minLength": 43, "maxLength": 128 }
         }
       },
       "GitHubConnectionSummary": {

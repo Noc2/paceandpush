@@ -86,6 +86,7 @@ export const mobileAuthExchanges = pgTable(
     platform: platformEnum("platform"),
     label: text("label"),
     codeHash: text("code_hash").notNull(),
+    codeChallenge: text("code_challenge"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

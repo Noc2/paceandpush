@@ -251,6 +251,50 @@ test("mobile tokens require a dedicated production secret", () => {
   }
 });
 
+test("mobile OAuth state binds platform callback scheme and PKCE challenge", () => {
+  const previousMobileSecret = process.env.MOBILE_TOKEN_SECRET;
+  process.env.MOBILE_TOKEN_SECRET = "mobile-secret-with-at-least-thirty-two";
+
+  try {
+    const verifier = "a".repeat(43);
+    const codeChallenge = mobileTokens.codeChallengeForVerifier(verifier);
+    const state = mobileTokens.createMobileAuthState({
+      platform: "ios",
+      label: "Test iPhone",
+      callbackScheme: "pacepush",
+      codeChallenge,
+    });
+    const payload = mobileTokens.verifyMobileAuthState(state);
+
+    assert.equal(payload.platform, "ios");
+    assert.equal(payload.callbackScheme, "pacepush");
+    assert.equal(payload.codeChallenge, codeChallenge);
+    assert.equal(payload.codeChallengeMethod, "S256");
+    assert.throws(
+      () =>
+        mobileTokens.createMobileAuthState({
+          platform: "ios",
+          label: "Test iPhone",
+          callbackScheme: "evilapp",
+          codeChallenge,
+        }),
+      /Callback scheme is not allowed/,
+    );
+    assert.throws(
+      () =>
+        mobileTokens.createMobileAuthState({
+          platform: "ios",
+          label: "Test iPhone",
+          callbackScheme: "pacepush",
+          codeChallenge: "too-short",
+        }),
+      /Code challenge is invalid/,
+    );
+  } finally {
+    restoreEnv("MOBILE_TOKEN_SECRET", previousMobileSecret);
+  }
+});
+
 test("account deletion removes mobile auth exchanges before users", async () => {
   const source = await readFile(
     new URL("../src/server/data/accounts.ts", import.meta.url),
@@ -337,6 +381,30 @@ test("mobile GitHub start validates callback and exchange prerequisites", async 
   } finally {
     restoreEnvSnapshot(previous);
   }
+});
+
+test("mobile auth routes require PKCE challenge and verifier", async () => {
+  const startRoute = await readFile(
+    new URL("../src/app/api/mobile/auth/github/start/route.ts", import.meta.url),
+    "utf8",
+  );
+  const callbackRoute = await readFile(
+    new URL("../src/app/api/github/oauth/callback/mobile/route.ts", import.meta.url),
+    "utf8",
+  );
+  const exchangeRoute = await readFile(
+    new URL("../src/app/api/mobile/auth/exchange/route.ts", import.meta.url),
+    "utf8",
+  );
+  const mobileData = await readFile(
+    new URL("../src/server/data/mobile.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(startRoute, /codeChallenge/);
+  assert.match(callbackRoute, /codeChallenge: mobileState\.codeChallenge/);
+  assert.match(exchangeRoute, /body\.codeVerifier/);
+  assert.match(mobileData, /codeChallengeForVerifier\(codeVerifier\) !== exchange\.codeChallenge/);
 });
 
 test("privacy export omits internal token and source hashes", async () => {

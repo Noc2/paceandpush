@@ -20,8 +20,10 @@ import {
 import {
   assertPlatform,
   createDeviceExchange,
+  codeChallengeForVerifier,
   decodeDeviceToken,
   hashMobileToken,
+  isPKCECodeVerifier,
   normalizeDeviceLabel,
 } from "@/server/mobile/tokens";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
@@ -72,10 +74,12 @@ export async function createMobileAuthExchange({
   userId,
   platform,
   label,
+  codeChallenge,
 }: {
   userId: string;
   platform: Platform;
   label: string;
+  codeChallenge: string;
 }): Promise<string> {
   const code = `pp_mob_exchange_${randomBytes(32).toString("base64url")}`;
   await getDb().insert(mobileAuthExchanges).values({
@@ -83,6 +87,7 @@ export async function createMobileAuthExchange({
     platform,
     label,
     codeHash: hashMobileAuthCode(code),
+    codeChallenge,
     expiresAt: new Date(Date.now() + 5 * 60 * 1000),
   });
   return code;
@@ -111,9 +116,15 @@ export async function createMobilePairingCode({
 
 export async function exchangeMobileAuthCode({
   code,
+  codeVerifier,
 }: {
   code: string;
+  codeVerifier: string;
 }): Promise<DeviceExchangeResponse> {
+  if (!isPKCECodeVerifier(codeVerifier)) {
+    throw new Error("Code verifier is invalid.");
+  }
+
   const now = new Date();
   const [exchange] = await getDb()
     .update(mobileAuthExchanges)
@@ -129,10 +140,14 @@ export async function exchangeMobileAuthCode({
       userId: mobileAuthExchanges.userId,
       platform: mobileAuthExchanges.platform,
       label: mobileAuthExchanges.label,
+      codeChallenge: mobileAuthExchanges.codeChallenge,
     });
 
   if (!exchange) {
     throw new Error("Mobile auth code is invalid or expired.");
+  }
+  if (!exchange.codeChallenge || codeChallengeForVerifier(codeVerifier) !== exchange.codeChallenge) {
+    throw new Error("Mobile auth code verifier is invalid.");
   }
 
   const [user] = await getDb()

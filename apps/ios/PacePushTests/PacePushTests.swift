@@ -82,6 +82,16 @@ final class PacePushTests: XCTestCase {
         ))
     }
 
+    func testMobileAuthPKCEGeneratesVerifierAndChallenge() throws {
+        let pkce = try MobileAuthPKCE.generate()
+
+        XCTAssertEqual(pkce.verifier.count, 43)
+        XCTAssertEqual(pkce.challenge.count, 43)
+        XCTAssertNotEqual(pkce.verifier, pkce.challenge)
+        XCTAssertNil(pkce.verifier.range(of: #"[^A-Za-z0-9_-]"#, options: .regularExpression))
+        XCTAssertNil(pkce.challenge.range(of: #"[^A-Za-z0-9_-]"#, options: .regularExpression))
+    }
+
     func testRunningDistanceAggregatorBucketsByUTCDayAndSkipsZeroMeters() {
         let days = RunningDistanceAggregator.distanceDays(from: [
             RunningDistanceSample(startDate: date("2026-07-01T23:30:00.000Z"), meters: 500),
@@ -108,6 +118,23 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(queryValue("period", in: loader.requests.first?.url), "2026-W27")
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "accept"), "application/json")
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
+    }
+
+    func testAPIClientAddsPKCEChallengeToMobileGitHubStartURL() throws {
+        let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: nil)
+
+        let url = try client.mobileGitHubStartURL(
+            platform: "ios",
+            label: "Test iPhone",
+            callbackScheme: "pacepush",
+            codeChallenge: "challenge-123"
+        )
+
+        XCTAssertEqual(url.path, "/api/mobile/auth/github/start")
+        XCTAssertEqual(queryValue("platform", in: url), "ios")
+        XCTAssertEqual(queryValue("label", in: url), "Test iPhone")
+        XCTAssertEqual(queryValue("callbackScheme", in: url), "pacepush")
+        XCTAssertEqual(queryValue("codeChallenge", in: url), "challenge-123")
     }
 
     func testAPIClientTurnsUnauthorizedStatusIntoTypedError() async throws {
@@ -213,6 +240,34 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/me/github/disconnect")
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "accept"), "application/json")
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
+    }
+
+    func testAPIClientExchangesMobileAuthCodeWithPKCEVerifier() async throws {
+        let loader = RecordingDataLoader(json: """
+        {
+          "device": {
+            "id": "device-1",
+            "platform": "ios",
+            "label": "Test iPhone",
+            "lastSeenAt": null,
+            "revoked": false
+          },
+          "token": "device-token"
+        }
+        """)
+        let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: nil, dataLoader: loader)
+
+        let response = try await client.exchangeMobileAuthCode("pp_mob_exchange_test", codeVerifier: "verifier-123")
+        let body = try XCTUnwrap(loader.requests.first?.httpBody)
+        let json = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: body) as? [String: String]
+        )
+
+        XCTAssertEqual(response.token, "device-token")
+        XCTAssertEqual(loader.requests.first?.httpMethod, "POST")
+        XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/auth/exchange")
+        XCTAssertEqual(json["code"], "pp_mob_exchange_test")
+        XCTAssertEqual(json["codeVerifier"], "verifier-123")
     }
 
     @MainActor
@@ -574,11 +629,11 @@ private final class FakePacePushClient: PacePushClienting {
     var disconnectGitHubCallCount = 0
     var disconnectResponse = GitHubDisconnectResponse(login: "noc2", disconnectedAt: "2026-07-07T12:00:00.000Z")
 
-    func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL {
-        URL(string: "https://example.test/start?platform=\(platform)&callbackScheme=\(callbackScheme)")!
+    func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String, codeChallenge: String) throws -> URL {
+        URL(string: "https://example.test/start?platform=\(platform)&callbackScheme=\(callbackScheme)&codeChallenge=\(codeChallenge)")!
     }
 
-    func exchangeMobileAuthCode(_ code: String) async throws -> DeviceExchangeResponse {
+    func exchangeMobileAuthCode(_ code: String, codeVerifier: String) async throws -> DeviceExchangeResponse {
         deviceExchangeResponse
     }
 
