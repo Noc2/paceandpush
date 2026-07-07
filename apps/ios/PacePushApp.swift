@@ -2707,10 +2707,21 @@ private enum BrandAppearance {
         navigationBar.largeTitleTextAttributes = [.foregroundColor: Brand.uiInk]
 
         let tabBar = UITabBar.appearance()
+        let tabBarAppearance = UITabBarAppearance()
+        tabBarAppearance.configureWithTransparentBackground()
+        tabBarAppearance.backgroundColor = .clear
+        tabBarAppearance.backgroundEffect = nil
+        tabBarAppearance.shadowColor = .clear
+
+        tabBar.standardAppearance = tabBarAppearance
+        tabBar.scrollEdgeAppearance = tabBarAppearance
         tabBar.tintColor = Brand.uiInk
         tabBar.unselectedItemTintColor = Brand.uiMuted
-        tabBar.barTintColor = Brand.uiPaper
-        tabBar.backgroundColor = Brand.uiPaper
+        tabBar.barTintColor = .clear
+        tabBar.backgroundColor = .clear
+        tabBar.backgroundImage = UIImage()
+        tabBar.shadowImage = UIImage()
+        tabBar.isTranslucent = true
 
         let segmentedControl = UISegmentedControl.appearance()
         segmentedControl.selectedSegmentTintColor = Brand.uiOrange
