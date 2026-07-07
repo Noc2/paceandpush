@@ -19,20 +19,21 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.buttons["enable-health-button"].exists)
     }
 
-    func testSeededLaunchShowsMainTabsAndSettings() {
+    func testSeededLaunchShowsProfileFirstAndSettings() {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-uiTestingSeeded"]
         app.launch()
 
-        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["period-selector"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Board"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Profile"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Settings"].exists)
-        XCTAssertFalse(app.tabBars.buttons["Today"].exists)
-        XCTAssertFalse(app.tabBars.buttons["Sync"].exists)
+        let tabBar = app.tabBars.firstMatch
+        XCTAssertEqual(tabBar.buttons.element(boundBy: 0).label, "Profile")
+        XCTAssertEqual(tabBar.buttons.element(boundBy: 1).label, "Board")
+        XCTAssertEqual(tabBar.buttons.element(boundBy: 2).label, "Settings")
+        XCTAssertFalse(tabBar.buttons["Today"].exists)
+        XCTAssertFalse(tabBar.buttons["Sync"].exists)
 
-        app.tabBars.buttons["Settings"].tap()
+        tabBar.buttons["Settings"].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["sync-now-button"].exists)
@@ -45,11 +46,26 @@ final class PacePushUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-uiTestingSeeded"]
         app.launch()
 
-        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
-        app.tabBars.buttons["Profile"].tap()
-
         XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["period-selector"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["profile-chart"].exists)
+    }
+
+    func testSeededLeaderboardRowOpensPublicProfile() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingSeeded"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Board"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
+        let row = app.descendants(matching: .any)["leaderboard-row-noc2"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+
+        row.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["public-profile-screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["@noc2"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["profile-chart"].exists)
     }
 }

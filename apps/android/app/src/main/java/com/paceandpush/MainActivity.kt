@@ -62,7 +62,7 @@ class MainActivity : Activity() {
     private val line = Color.argb(56, 33, 30, 26)
     private val currentUserFill = Color.argb(22, 249, 115, 22)
 
-    private var activeTab = Tab.Board
+    private var activeTab = Tab.Profile
     private var board = Board.Balanced
     private var boardSearchQuery = ""
     private var apiBaseUrl = DEFAULT_API_BASE_URL
@@ -1014,8 +1014,8 @@ class MainActivity : Activity() {
 }
 
 private enum class Tab(val title: String) {
-    Board("Board"),
     Profile("Profile"),
+    Board("Board"),
     Settings("Settings"),
 }
 

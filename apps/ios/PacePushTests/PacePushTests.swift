@@ -164,6 +164,33 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
     }
 
+    func testAPIClientFetchesPublicProfileByLoginAndPeriod() async throws {
+        let loader = RecordingDataLoader(json: """
+        {
+          "login": "octocat",
+          "displayName": "Octo Cat",
+          "bio": null,
+          "score": {
+            "period": "2026-07",
+            "score": 51.2,
+            "rank": 2,
+            "commits": 88,
+            "kilometers": 12.3,
+            "lastSyncAt": null
+          },
+          "history": []
+        }
+        """)
+        let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: "token-123", dataLoader: loader)
+
+        let profile = try await client.fetchPublicProfile(login: "octocat", period: "2026-07")
+
+        XCTAssertEqual(profile.login, "octocat")
+        XCTAssertEqual(loader.requests.first?.url?.path, "/api/users/octocat")
+        XCTAssertEqual(queryValue("period", in: loader.requests.first?.url), "2026-07")
+        XCTAssertNil(loader.requests.first?.value(forHTTPHeaderField: "authorization"))
+    }
+
     @MainActor
     func testStoreExchangesPairingPayloadRefreshesAndRunsFirstSync() async throws {
         let keychain = InMemoryKeychain()
@@ -297,6 +324,35 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(client.leaderboardPeriods, ["2026"])
         XCTAssertEqual(client.mePeriods, ["2026"])
         XCTAssertEqual(client.profilePeriods, ["2026"])
+    }
+
+    @MainActor
+    func testStoreFetchesPublicProfileForSelectedLeaderboardUser() async throws {
+        let client = FakePacePushClient()
+        client.publicProfileResponse = PublicProfileResponse(
+            login: "octocat",
+            displayName: "Octo Cat",
+            bio: nil,
+            score: ScoreSummary(period: "2026-07", score: 51.2, rank: 2, commits: 88, kilometers: 12.3, lastSyncAt: nil),
+            history: []
+        )
+        let store = PacePushStore(
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [:]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        let profile = try await store.fetchPublicProfile(
+            login: "octocat",
+            period: try XCTUnwrap(ScorePeriod("2026-07"))
+        )
+
+        XCTAssertEqual(profile.login, "octocat")
+        XCTAssertEqual(client.publicProfileLogins, ["octocat"])
+        XCTAssertEqual(client.publicProfilePeriods, ["2026-07"])
     }
 
     private static let meJSON = """
@@ -446,6 +502,7 @@ private final class FakePacePushClient: PacePushClienting {
     var leaderboardResponse = LeaderboardResponse.seed
     var meResponse = MeResponse.seed
     var profileResponse = PublicProfileResponse.seed
+    var publicProfileResponse = PublicProfileResponse.seed
     var settingsResponse = AccountSettingsResponse(login: "noc2", displayName: "David", publicLeaderboard: true, units: "metric")
     var distanceDaysResponse: DistanceDaysResponse?
     var exchangedPairingCodes: [String] = []
@@ -455,6 +512,8 @@ private final class FakePacePushClient: PacePushClienting {
     var leaderboardPeriods: [String] = []
     var mePeriods: [String] = []
     var profilePeriods: [String] = []
+    var publicProfileLogins: [String] = []
+    var publicProfilePeriods: [String] = []
 
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String) throws -> URL {
         URL(string: "https://example.test/start?platform=\(platform)&callbackScheme=\(callbackScheme)")!
@@ -483,6 +542,12 @@ private final class FakePacePushClient: PacePushClienting {
     func fetchProfile(period: String) async throws -> PublicProfileResponse {
         profilePeriods.append(period)
         return profileResponse
+    }
+
+    func fetchPublicProfile(login: String, period: String) async throws -> PublicProfileResponse {
+        publicProfileLogins.append(login)
+        publicProfilePeriods.append(period)
+        return publicProfileResponse
     }
 
     func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse {

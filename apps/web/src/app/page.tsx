@@ -156,6 +156,8 @@ function LeaderboardTable({
           <Link
             href={`/users/${encodeURIComponent(row.login)}?period=${period}`}
             className={leaderboardRowClassName(displayRank, isSignedInUser)}
+            aria-label={`View ${row.login} profile`}
+            title={`View ${row.login} profile`}
             role="row"
             key={row.login}
           >

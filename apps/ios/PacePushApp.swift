@@ -47,11 +47,11 @@ struct RootView: View {
 struct MainTabsView: View {
     var body: some View {
         TabView {
-            LeaderboardView()
-                .tabItem { Label("Board", systemImage: "list.number") }
-
             ProfileView()
                 .tabItem { Label("Profile", systemImage: "person.crop.square") }
+
+            LeaderboardView()
+                .tabItem { Label("Board", systemImage: "list.number") }
 
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
@@ -291,13 +291,19 @@ struct LeaderboardView: View {
                         }
 
                         ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                            LeaderboardRowView(
-                                rank: index + 1,
-                                row: row,
-                                board: board,
-                                units: store.units,
-                                isCurrentUser: store.isCurrentUser(row)
-                            )
+                            NavigationLink {
+                                PublicProfileView(login: row.login)
+                            } label: {
+                                LeaderboardRowView(
+                                    rank: index + 1,
+                                    row: row,
+                                    board: board,
+                                    units: store.units,
+                                    isCurrentUser: store.isCurrentUser(row)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("leaderboard-row-\(row.login.lowercased())")
                         }
                     }
                 }
@@ -325,74 +331,13 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    ScorePeriodSelector(activePeriod: store.activePeriod) { period in
-                        Task { await store.setActivePeriod(period) }
-                    }
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("@\(store.profile.login)")
-                            .font(.title.bold())
-                        if let bio = store.profile.bio?.trimmingCharacters(in: .whitespacesAndNewlines), !bio.isEmpty {
-                            Text(bio)
-                                .foregroundStyle(Brand.muted)
-                        }
-
-                        HStack(spacing: 12) {
-                            MetricTile(
-                                title: "Score",
-                                value: store.profile.score.score.formatted(.number.precision(.fractionLength(1))),
-                                color: Brand.blue
-                            )
-                            MetricTile(title: "Commits", value: "\(store.profile.score.commits)", color: Brand.green)
-                        }
-
-                        HStack(spacing: 12) {
-                            MetricTile(
-                                title: store.units.title,
-                                value: store.formatDistance(store.profile.score.kilometers),
-                                color: Brand.red
-                            )
-                            MetricTile(
-                                title: "Rank",
-                                value: store.profile.score.rank.map { "#\($0)" } ?? "-",
-                                color: Brand.ink
-                            )
-                        }
-
-                        ScoreExplanationDisclosure()
-                        ProfileChartView(history: store.profile.history, units: store.units)
-
-                        if store.profile.history.isEmpty {
-                            Text("Sync running data to build your profile history.")
-                                .foregroundStyle(Brand.muted)
-                        } else {
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text("\(store.activePeriod.shortLabel) history")
-                                    .font(.headline.weight(.black))
-                                    .padding(.top, 4)
-
-                                ForEach(store.profile.history) { point in
-                                    HStack {
-                                        Text(point.date)
-                                            .font(.system(.body, design: .monospaced))
-                                        Spacer()
-                                        VStack(alignment: .trailing, spacing: 2) {
-                                            Text(point.score.formatted(.number.precision(.fractionLength(1))))
-                                                .foregroundStyle(Brand.blue)
-                                                .fontWeight(.bold)
-                                            Text(store.formatDistance(point.kilometers, includeUnit: true))
-                                                .font(.caption.weight(.semibold))
-                                                .foregroundStyle(Brand.muted)
-                                        }
-                                    }
-                                    .padding(.vertical, 8)
-                                    .borderedRow()
-                                }
-                            }
-                        }
-                    }
-                    .panelStyle()
+                ProfileContentView(
+                    profile: store.profile,
+                    activePeriod: store.activePeriod,
+                    units: store.units,
+                    emptyHistoryMessage: "Sync running data to build your profile history."
+                ) { period in
+                    Task { await store.setActivePeriod(period) }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -402,6 +347,180 @@ struct ProfileView: View {
             .background(Brand.paper)
             .toolbar(.hidden, for: .navigationBar)
         }
+    }
+}
+
+struct PublicProfileView: View {
+    @EnvironmentObject private var store: PacePushStore
+    let login: String
+    @State private var activePeriod: ScorePeriod?
+    @State private var profile: PublicProfileResponse?
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+
+    private var selectedPeriod: ScorePeriod {
+        activePeriod ?? store.activePeriod
+    }
+
+    var body: some View {
+        ScrollView {
+            Group {
+                if let profile {
+                    ProfileContentView(
+                        profile: profile,
+                        activePeriod: selectedPeriod,
+                        units: store.units,
+                        emptyHistoryMessage: "No profile history for this period yet."
+                    ) { period in
+                        activePeriod = period
+                    }
+                } else if isLoading {
+                    LoadingPanel(message: "Loading profile...")
+                } else {
+                    ProfileErrorPanel(message: errorMessage ?? "Profile could not be loaded.") {
+                        Task { await loadProfile(period: selectedPeriod) }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 20)
+        }
+        .accessibilityIdentifier("public-profile-screen")
+        .background(Brand.paper)
+        .navigationTitle("@\(login)")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .task(id: selectedPeriod.rawValue) {
+            await loadProfile(period: selectedPeriod)
+        }
+        .refreshable {
+            await loadProfile(period: selectedPeriod)
+        }
+    }
+
+    @MainActor
+    private func loadProfile(period: ScorePeriod) async {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            profile = try await store.fetchPublicProfile(login: login, period: period)
+        } catch {
+            profile = nil
+            errorMessage = error.localizedDescription
+        }
+
+        isLoading = false
+    }
+}
+
+struct ProfileContentView: View {
+    let profile: PublicProfileResponse
+    let activePeriod: ScorePeriod
+    let units: DistanceUnits
+    let emptyHistoryMessage: String
+    let onSelectPeriod: (ScorePeriod) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ScorePeriodSelector(activePeriod: activePeriod, onSelect: onSelectPeriod)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("@\(profile.login)")
+                    .font(.title.bold())
+                if let bio = profile.bio?.trimmingCharacters(in: .whitespacesAndNewlines), !bio.isEmpty {
+                    Text(bio)
+                        .foregroundStyle(Brand.muted)
+                }
+
+                HStack(spacing: 12) {
+                    MetricTile(
+                        title: "Score",
+                        value: profile.score.score.formatted(.number.precision(.fractionLength(1))),
+                        color: Brand.blue
+                    )
+                    MetricTile(title: "Commits", value: "\(profile.score.commits)", color: Brand.green)
+                }
+
+                HStack(spacing: 12) {
+                    MetricTile(
+                        title: units.title,
+                        value: units.format(profile.score.kilometers),
+                        color: Brand.red
+                    )
+                    MetricTile(
+                        title: "Rank",
+                        value: profile.score.rank.map { "#\($0)" } ?? "-",
+                        color: Brand.ink
+                    )
+                }
+
+                ScoreExplanationDisclosure()
+                ProfileChartView(history: profile.history, units: units)
+
+                if profile.history.isEmpty {
+                    Text(emptyHistoryMessage)
+                        .foregroundStyle(Brand.muted)
+                } else {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("\(activePeriod.shortLabel) history")
+                            .font(.headline.weight(.black))
+                            .padding(.top, 4)
+
+                        ForEach(profile.history) { point in
+                            HStack {
+                                Text(point.date)
+                                    .font(.system(.body, design: .monospaced))
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(point.score.formatted(.number.precision(.fractionLength(1))))
+                                        .foregroundStyle(Brand.blue)
+                                        .fontWeight(.bold)
+                                    Text(units.format(point.kilometers, includeUnit: true))
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Brand.muted)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .borderedRow()
+                        }
+                    }
+                }
+            }
+            .panelStyle()
+        }
+    }
+}
+
+struct LoadingPanel: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProgressView()
+            Text(message)
+                .font(.headline.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .panelStyle()
+    }
+}
+
+struct ProfileErrorPanel: View {
+    let message: String
+    let retry: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(message)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(Brand.red)
+            Button("Retry", action: retry)
+                .buttonStyle(PrimaryButtonStyle())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .panelStyle()
     }
 }
 
@@ -965,6 +1084,7 @@ protocol PacePushClienting {
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse
     func fetchMe(period: String) async throws -> MeResponse
     func fetchProfile(period: String) async throws -> PublicProfileResponse
+    func fetchPublicProfile(login: String, period: String) async throws -> PublicProfileResponse
     func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse
     func uploadDistanceDays(_ days: [HealthKitDistanceDay]) async throws -> DistanceDaysResponse
     func recordSyncRun(_ run: SyncRunRequest) async throws
@@ -1348,6 +1468,13 @@ final class PacePushStore: ObservableObject {
         }
     }
 
+    func fetchPublicProfile(login: String, period: ScorePeriod) async throws -> PublicProfileResponse {
+        guard let baseURL = URL(string: apiBaseURL) else { throw PacePushAPIError.invalidURL }
+
+        let client = apiClientFactory(baseURL, deviceToken)
+        return try await client.fetchPublicProfile(login: login, period: period.rawValue)
+    }
+
     func setActivePeriod(_ period: ScorePeriod, board: Board = .balanced) async {
         guard period != activePeriod else { return }
         activePeriod = period
@@ -1633,6 +1760,23 @@ private final class UITestingPacePushClient: PacePushClienting {
         )
     }
 
+    func fetchPublicProfile(login: String, period: String) async throws -> PublicProfileResponse {
+        PublicProfileResponse(
+            login: login,
+            displayName: login.localizedCaseInsensitiveCompare("noc2") == .orderedSame ? "David" : login,
+            bio: nil,
+            score: ScoreSummary(period: period, score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z"),
+            history: [
+                ProfileHistoryPoint(date: "2026-07-01", commits: 41, kilometers: 8.1, score: 42.8),
+                ProfileHistoryPoint(date: "2026-07-02", commits: 93, kilometers: 23.5, score: 68.4),
+                ProfileHistoryPoint(date: "2026-07-03", commits: 128, kilometers: 31.2, score: 75.6),
+                ProfileHistoryPoint(date: "2026-07-04", commits: 176, kilometers: 43.8, score: 80.9),
+                ProfileHistoryPoint(date: "2026-07-05", commits: 219, kilometers: 58.7, score: 86.3),
+                ProfileHistoryPoint(date: "2026-07-06", commits: 312, kilometers: 86.4, score: 94.2),
+            ]
+        )
+    }
+
     func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse {
         AccountSettingsResponse(
             login: "noc2",
@@ -1746,6 +1890,15 @@ final class PacePushAPIClient: PacePushClienting {
             "/api/mobile/me/profile",
             queryItems: [URLQueryItem(name: "period", value: period)],
             authenticated: true,
+        )
+    }
+
+    func fetchPublicProfile(login: String, period: String) async throws -> PublicProfileResponse {
+        try await fetch(
+            "/api/users/\(login)",
+            queryItems: [URLQueryItem(name: "period", value: period)],
+            authenticated: false,
+            cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
         )
     }
 
