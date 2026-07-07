@@ -8,6 +8,7 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -46,19 +47,35 @@ class HealthConnectDistanceSync(private val context: Context) {
             .filter { session -> session.exerciseType in runningExerciseTypes }
 
         val metersByDate = mutableMapOf<LocalDate, Double>()
+        val sourceMaterialByDate = mutableMapOf<LocalDate, MutableList<String>>()
         for (session in sessions) {
             val meters = distanceMetersFor(session)
             if (meters <= 0.0) continue
 
             val date = session.startTime.atZone(ZoneOffset.UTC).toLocalDate()
             metersByDate[date] = (metersByDate[date] ?: 0.0) + meters
+            sourceMaterialByDate.getOrPut(date) { mutableListOf() }.add(
+                listOf(
+                    session.metadata.id,
+                    session.metadata.dataOrigin.packageName,
+                    session.startTime.toString(),
+                    session.endTime.toString(),
+                    meters.toLong().toString(),
+                ).joinToString("|"),
+            )
         }
 
         val days = metersByDate.toSortedMap().map { (date, meters) ->
+            val sourceHash = stableHash(
+                sourceMaterialByDate[date]
+                    .orEmpty()
+                    .sorted()
+                    .joinToString("\n"),
+            )
             HealthConnectDistanceDay(
                 date = date.toString(),
                 meters = meters,
-                sourceHash = "healthconnect-android-running-$date-${meters.toLong()}",
+                sourceHash = "healthconnect-android-running-$date-$sourceHash",
             )
         }
 
@@ -79,6 +96,12 @@ class HealthConnectDistanceSync(private val context: Context) {
         )
 
         return response[DistanceRecord.DISTANCE_TOTAL]?.inMeters ?: 0.0
+    }
+
+    private fun stableHash(value: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { byte -> "%02x".format(byte) }.take(24)
     }
 
     private companion object {

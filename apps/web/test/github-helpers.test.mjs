@@ -1025,6 +1025,43 @@ test("launch evidence docs cover alerts, rollback, stores, and real devices", as
   assert.match(screenshots, /Leaderboard\/profile loaded from the real API/);
 });
 
+test("Android client is wired to real mobile APIs and Health Connect sync", async () => {
+  const androidSource = await readFile(
+    new URL("../../android/app/src/main/java/com/paceandpush/MainActivity.kt", import.meta.url),
+    "utf8",
+  );
+  const healthConnectSource = await readFile(
+    new URL(
+      "../../android/app/src/main/java/com/paceandpush/HealthConnectDistanceSync.kt",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const androidReadme = await readFile(
+    new URL("../../android/README.md", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(androidSource, /ComponentActivity/);
+  assert.match(androidSource, /createRequestPermissionResultContract/);
+  assert.match(androidSource, /decryptDeviceToken/);
+  assert.match(androidSource, /\/api\/mobile\/me/);
+  assert.match(androidSource, /\/api\/mobile\/me\/profile/);
+  assert.match(androidSource, /\/api\/leaderboard\?board=/);
+  assert.match(androidSource, /\/api\/mobile\/distance-days/);
+  assert.match(androidSource, /\/api\/mobile\/sync-runs/);
+  assert.match(androidSource, /\/api\/mobile\/me\/github\/disconnect/);
+  assert.match(androidSource, /Authorization", "Bearer \$it"/);
+
+  assert.match(healthConnectSource, /ZoneOffset\.UTC/);
+  assert.match(healthConnectSource, /MessageDigest\.getInstance\("SHA-256"\)/);
+  assert.match(healthConnectSource, /session\.metadata\.id/);
+
+  assert.match(androidReadme, /internal-test client/);
+  assert.match(androidReadme, /Health Connect permission UX/);
+  assert.match(androidReadme, /\/api\/mobile\/sync-runs/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");

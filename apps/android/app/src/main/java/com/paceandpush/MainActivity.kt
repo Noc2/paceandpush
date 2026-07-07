@@ -1,6 +1,5 @@
 package com.paceandpush
 
-import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
@@ -21,20 +20,34 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.security.KeyStore
 import java.util.Locale
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
     private companion object {
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
         const val DEFAULT_API_BASE_URL = "https://paceandpush.com"
@@ -50,6 +63,7 @@ class MainActivity : Activity() {
             "Balanced score compares your commits and running distance with the strongest totals in the selected period. Each side becomes a 0-1 ratio, then the two ratios are combined with a geometric mean."
         const val SCORE_NOTE =
             "A zero on either side makes the score 0, so the balanced board rewards people who ship code and run."
+        const val SYNC_LOOKBACK_DAYS = 44L
     }
 
     private val ink = Color.rgb(33, 30, 26)
@@ -72,38 +86,35 @@ class MainActivity : Activity() {
     private var pairingStatusMessage: String? = null
     private var pairingStatusColor = ink
     private var units = DistanceUnits.Metric
+    private var healthAuthorized = false
+    private var healthStatusMessage = "Health Connect status has not been checked yet."
+    private var healthStatusColor = muted
+    private var syncInProgress = false
+    private var dataLoading = false
+    private var dataStatusMessage: String? = null
+    private var dataStatusColor = muted
 
-    private val me = MeSummary(
-        login = "Noc2",
-        displayName = "David Hawig",
-        score = ScoreSummary(
-            period = "2026-07",
-            score = 94.2,
-            rank = 1,
-            commits = 312,
-            kilometers = 86.4,
-            lastSyncAt = "2026-07-03T13:45:00.000Z",
-        ),
-        publicLeaderboard = true,
-    )
+    private var me = emptyMeSummary()
+    private var rows = emptyList<LeaderboardRow>()
+    private var history = emptyList<ProfileHistoryPoint>()
 
-    private val rows = listOf(
-        LeaderboardRow(1, "Noc2", "David Hawig", 94.2, 312, 86.4, 11),
-        LeaderboardRow(2, "alina-dev", "Alina Roth", 88.7, 244, 97.8, 8),
-        LeaderboardRow(3, "mjansen", "Mika Jansen", 77.1, 178, 73.2, 5),
-        LeaderboardRow(4, "ship-patch", "Sam Patel", 71.8, 421, 31.9, 2),
-        LeaderboardRow(5, "irunlint", "Iris Kim", 69.6, 133, 102.0, 9),
-    )
-
-    private val history = listOf(
-        ProfileHistoryPoint("2026-07-01", 41, 8.1, 42.8),
-        ProfileHistoryPoint("2026-07-02", 93, 23.5, 68.4),
-        ProfileHistoryPoint("2026-07-03", 128, 31.2, 75.6),
-        ProfileHistoryPoint("2026-07-04", 176, 43.8, 80.9),
-        ProfileHistoryPoint("2026-07-05", 219, 58.7, 86.3),
-        ProfileHistoryPoint("2026-07-06", 260, 71.5, 90.4),
-        ProfileHistoryPoint("2026-07-07", 312, 86.4, 94.2),
-    )
+    private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val healthSync: HealthConnectDistanceSync by lazy {
+        HealthConnectDistanceSync(this)
+    }
+    private val healthPermissionsLauncher = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { grantedPermissions ->
+        healthAuthorized = grantedPermissions.containsAll(healthSync.permissions)
+        healthStatusMessage = if (healthAuthorized) {
+            "Health Connect access granted. Sync now to upload daily running totals."
+        } else {
+            "Health Connect permission was not granted. You can retry from Settings."
+        }
+        healthStatusColor = if (healthAuthorized) green else red
+        activeTab = Tab.Settings
+        render()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -118,9 +129,18 @@ class MainActivity : Activity() {
         paired = hasStoredDeviceToken(preferences)
         units = DistanceUnits.from(preferences.getString(PREF_DISTANCE_UNITS, null))
         render()
+        refreshHealthConnectStatus()
+        if (paired) {
+            refreshRemoteData()
+        }
         if (savedInstanceState == null) {
             handlePairingIntent(intent)
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        uiScope.cancel()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -223,6 +243,12 @@ class MainActivity : Activity() {
         }
 
         return column {
+            dataStatusMessage?.let { message ->
+                addView(bodyText(message, 16f).apply {
+                    setTextColor(dataStatusColor)
+                    setPadding(0, 0, 0, dp(12))
+                })
+            }
             addView(leaderboardSearchControls())
             addView(
                 LinearLayout(this@MainActivity).apply {
@@ -236,7 +262,11 @@ class MainActivity : Activity() {
                                 setBackgroundColor(if (option == board) orange else paper)
                                 setOnClickListener {
                                     board = option
-                                    render()
+                                    if (paired) {
+                                        refreshRemoteData(showLoading = true)
+                                    } else {
+                                        render()
+                                    }
                                 }
                             },
                             LinearLayout.LayoutParams(0, dp(48), 1f).apply {
@@ -333,20 +363,43 @@ class MainActivity : Activity() {
 
     private fun profileScreen(): View {
         return panel {
+            if (!paired) {
+                addView(titleText("Pair this Android device", 28f))
+                addView(bodyText("Open Settings and scan the web pairing QR to load your GitHub score and sync running distance.", 16f).apply {
+                    setPadding(0, dp(8), 0, dp(12))
+                })
+                return@panel
+            }
+
+            dataStatusMessage?.let { message ->
+                addView(bodyText(message, 16f).apply {
+                    setTextColor(dataStatusColor)
+                    setPadding(0, 0, 0, dp(12))
+                })
+            }
             addView(titleText("@${me.login}", 28f))
+            addView(bodyText(me.displayName, 16f).apply {
+                setPadding(0, dp(4), 0, dp(10))
+            })
             addView(scoreExplanationPanel())
             addView(profileChartPanel())
             addView(labelText("History").apply { setPadding(0, dp(10), 0, 0) })
-            history.forEach { point ->
-                addView(
-                    bodyText(
-                        "${point.date}    ${point.score.toFixed(1)} score    ${formatDistance(point.kilometers, includeUnit = true)}",
-                        15f,
-                    ).apply {
-                        typeface = Typeface.MONOSPACE
-                        setPadding(0, dp(10), 0, dp(6))
-                    },
-                )
+            if (history.isEmpty()) {
+                addView(chartPlaceholder("No profile history yet. Sync after connecting Health Connect.").apply {
+                    setPadding(0, dp(10), 0, 0)
+                })
+            } else {
+                history.forEach { point ->
+                    addView(
+                        bodyText(
+                            "${point.date}    ${point.score.toFixed(1)} score    ${formatDistance(point.kilometers, includeUnit = true)}",
+                            15f,
+                        ).apply {
+                            typeface = Typeface.MONOSPACE
+                            setPadding(0, dp(10), 0, dp(6))
+                        },
+                    )
+                }
             }
         }
     }
@@ -429,6 +482,65 @@ class MainActivity : Activity() {
                     }
                 },
             )
+            if (paired) {
+                addView(
+                    Button(this@MainActivity).apply {
+                        text = if (dataLoading) "Refreshing..." else "Refresh Score"
+                        isAllCaps = false
+                        isEnabled = !dataLoading
+                        setTextColor(ink)
+                        setBackgroundColor(orange)
+                        setOnClickListener {
+                            refreshRemoteData()
+                        }
+                    },
+                )
+            }
+
+            addView(labelText("Health Connect").apply { setPadding(0, dp(12), 0, 0) })
+            addView(bodyText(healthStatusMessage, 16f).apply {
+                setTextColor(healthStatusColor)
+            })
+            if (healthConnectAvailable()) {
+                addView(
+                    Button(this@MainActivity).apply {
+                        text = if (healthAuthorized) "Health Connect Enabled" else "Enable Health Connect"
+                        isAllCaps = false
+                        isEnabled = !syncInProgress
+                        setTextColor(ink)
+                        setBackgroundColor(if (healthAuthorized) yellow else orange)
+                        setOnClickListener {
+                            requestHealthConnectPermissions()
+                        }
+                    },
+                )
+            }
+            addView(
+                Button(this@MainActivity).apply {
+                    text = if (syncInProgress) "Syncing..." else "Sync Now"
+                    isAllCaps = false
+                    isEnabled = paired && healthAuthorized && !syncInProgress
+                    setTextColor(ink)
+                    setBackgroundColor(if (isEnabled) orange else line)
+                    setOnClickListener {
+                        syncHealthConnectNow()
+                    }
+                },
+            )
+            if (paired) {
+                addView(
+                    Button(this@MainActivity).apply {
+                        text = "Disconnect GitHub"
+                        isAllCaps = false
+                        isEnabled = !pairingInProgress && !syncInProgress
+                        setTextColor(ink)
+                        setBackgroundColor(paper)
+                        setOnClickListener {
+                            disconnectGitHub()
+                        }
+                    },
+                )
+            }
             if (allowsApiBaseUrlOverride()) {
                 addView(labelText("API base URL").apply { setPadding(0, dp(12), 0, 0) })
                 val urlInput = EditText(this@MainActivity).apply {
@@ -729,6 +841,8 @@ class MainActivity : Activity() {
                             paired = true
                             pairingStatusMessage = "Device paired."
                             pairingStatusColor = green
+                            refreshHealthConnectStatus()
+                            refreshRemoteData()
                         }.onFailure {
                             paired = false
                             pairingStatusMessage = "Could not store the device token securely."
@@ -783,6 +897,417 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun refreshHealthConnectStatus() {
+        val sdkStatus = healthSync.sdkStatus()
+        if (sdkStatus != HealthConnectClient.SDK_AVAILABLE) {
+            healthAuthorized = false
+            healthStatusMessage = healthConnectAvailabilityMessage(sdkStatus)
+            healthStatusColor = red
+            render()
+            return
+        }
+
+        healthStatusMessage = "Checking Health Connect permissions..."
+        healthStatusColor = ink
+        render()
+
+        uiScope.launch {
+            val hasPermissions = runCatching {
+                withContext(Dispatchers.IO) {
+                    healthSync.hasPermissions()
+                }
+            }
+
+            healthAuthorized = hasPermissions.getOrDefault(false)
+            healthStatusMessage = if (healthAuthorized) {
+                "Health Connect access is enabled for running distance sync."
+            } else {
+                "Health Connect access is not enabled yet."
+            }
+            healthStatusColor = if (healthAuthorized) green else muted
+            render()
+        }
+    }
+
+    private fun healthConnectAvailable(): Boolean {
+        return healthSync.sdkStatus() == HealthConnectClient.SDK_AVAILABLE
+    }
+
+    private fun healthConnectAvailabilityMessage(sdkStatus: Int = healthSync.sdkStatus()): String {
+        return when (sdkStatus) {
+            HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ->
+                "Health Connect needs to be installed or updated before syncing."
+            else -> "Health Connect is not available on this device."
+        }
+    }
+
+    private fun requestHealthConnectPermissions() {
+        val sdkStatus = healthSync.sdkStatus()
+        if (sdkStatus != HealthConnectClient.SDK_AVAILABLE) {
+            healthAuthorized = false
+            healthStatusMessage = healthConnectAvailabilityMessage(sdkStatus)
+            healthStatusColor = red
+            activeTab = Tab.Settings
+            render()
+            return
+        }
+
+        healthStatusMessage = "Opening Health Connect permission request..."
+        healthStatusColor = ink
+        activeTab = Tab.Settings
+        render()
+        healthPermissionsLauncher.launch(healthSync.permissions)
+    }
+
+    private fun syncHealthConnectNow() {
+        if (!paired) {
+            healthStatusMessage = "Pair this Android device before syncing."
+            healthStatusColor = red
+            activeTab = Tab.Settings
+            render()
+            return
+        }
+
+        if (!healthAuthorized) {
+            requestHealthConnectPermissions()
+            return
+        }
+
+        val token = storedDeviceToken(getPreferences(MODE_PRIVATE))
+        if (token.isNullOrBlank()) {
+            paired = false
+            healthStatusMessage = "Pairing credentials are missing. Pair this device again."
+            healthStatusColor = red
+            activeTab = Tab.Settings
+            render()
+            return
+        }
+
+        val baseUrl = apiBaseUrl
+        val startedAt = Instant.now()
+        syncInProgress = true
+        healthStatusMessage = "Syncing running distance from Health Connect..."
+        healthStatusColor = ink
+        activeTab = Tab.Settings
+        render()
+
+        uiScope.launch {
+            try {
+                val outcome = withContext(Dispatchers.IO) {
+                    val endDate = LocalDate.now(ZoneOffset.UTC)
+                    val syncResult = healthSync.collectDistanceDays(
+                        startDate = endDate.minusDays(SYNC_LOOKBACK_DAYS),
+                        endDate = endDate,
+                    )
+                    val upload = uploadDistanceDays(baseUrl, token, syncResult.days)
+                    val status = if (syncResult.days.isEmpty()) "warning" else "success"
+                    recordSyncRun(
+                        baseUrl = baseUrl,
+                        token = token,
+                        status = status,
+                        startedAt = Instant.ofEpochMilli(syncResult.startedAtEpochMillis),
+                        finishedAt = Instant.ofEpochMilli(syncResult.finishedAtEpochMillis),
+                        counters = JSONObject()
+                            .put("daysCollected", syncResult.days.size)
+                            .put("daysAccepted", upload.accepted)
+                            .put("daysFlagged", upload.flagged),
+                    )
+                    HealthSyncOutcome(
+                        collected = syncResult.days.size,
+                        accepted = upload.accepted,
+                        flagged = upload.flagged,
+                        status = status,
+                    )
+                }
+
+                syncInProgress = false
+                healthStatusMessage = if (outcome.collected == 0) {
+                    "Sync finished with no running sessions found. Check Health Connect if distance should be present."
+                } else {
+                    "Sync finished: ${outcome.accepted} day(s) uploaded."
+                }
+                healthStatusColor = if (outcome.status == "success") green else muted
+                if (outcome.flagged > 0) {
+                    healthStatusMessage = "${healthStatusMessage} ${outcome.flagged} day(s) flagged for review."
+                }
+                render()
+                refreshRemoteData(showLoading = false)
+            } catch (error: Throwable) {
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        recordSyncRun(
+                            baseUrl = baseUrl,
+                            token = token,
+                            status = "error",
+                            startedAt = startedAt,
+                            finishedAt = Instant.now(),
+                            counters = JSONObject().put("daysCollected", 0),
+                            errorSummary = error.message?.take(500) ?: "Android sync failed.",
+                        )
+                    }
+                }
+                syncInProgress = false
+                healthAuthorized = false
+                healthStatusMessage = error.message ?: "Health Connect sync failed."
+                healthStatusColor = red
+                render()
+            }
+        }
+    }
+
+    private fun refreshRemoteData(showLoading: Boolean = true) {
+        val token = storedDeviceToken(getPreferences(MODE_PRIVATE))
+        if (token.isNullOrBlank()) {
+            paired = false
+            me = emptyMeSummary()
+            rows = emptyList()
+            history = emptyList()
+            dataStatusMessage = "Pair this device from web Settings to load your score."
+            dataStatusColor = red
+            render()
+            return
+        }
+
+        if (showLoading) {
+            dataLoading = true
+            dataStatusMessage = "Loading your Pace & Push score..."
+            dataStatusColor = ink
+            render()
+        }
+
+        val selectedBoard = board
+        val baseUrl = apiBaseUrl
+        uiScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    fetchRemoteSnapshot(baseUrl, token, selectedBoard)
+                }
+            }
+
+            dataLoading = false
+            result
+                .onSuccess { snapshot ->
+                    paired = true
+                    me = snapshot.me
+                    rows = snapshot.rows
+                    history = snapshot.history
+                    units = snapshot.units
+                    dataStatusMessage = null
+                    dataStatusColor = muted
+                }
+                .onFailure { error ->
+                    dataStatusMessage = error.message ?: "Could not load Pace & Push data."
+                    dataStatusColor = red
+                }
+            render()
+        }
+    }
+
+    private fun disconnectGitHub() {
+        val token = storedDeviceToken(getPreferences(MODE_PRIVATE))
+        if (token.isNullOrBlank()) {
+            clearStoredPairingCredentials()
+            paired = false
+            me = emptyMeSummary()
+            rows = emptyList()
+            history = emptyList()
+            pairingStatusMessage = "This device is already disconnected."
+            pairingStatusColor = muted
+            activeTab = Tab.Settings
+            render()
+            return
+        }
+
+        pairingInProgress = true
+        pairingStatusMessage = "Disconnecting GitHub and revoking this device..."
+        pairingStatusColor = ink
+        activeTab = Tab.Settings
+        render()
+
+        val baseUrl = apiBaseUrl
+        uiScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    jsonRequest("DELETE", baseUrl, "/api/mobile/me/github/disconnect", token)
+                }
+            }
+
+            pairingInProgress = false
+            result
+                .onSuccess {
+                    clearStoredPairingCredentials()
+                    paired = false
+                    me = emptyMeSummary()
+                    rows = emptyList()
+                    history = emptyList()
+                    dataStatusMessage = null
+                    pairingStatusMessage = "GitHub disconnected and this device was revoked."
+                    pairingStatusColor = green
+                }
+                .onFailure { error ->
+                    pairingStatusMessage = error.message ?: "Could not disconnect GitHub."
+                    pairingStatusColor = red
+                }
+            render()
+        }
+    }
+
+    private fun fetchRemoteSnapshot(baseUrl: String, token: String, selectedBoard: Board): RemoteSnapshot {
+        val meJson = jsonRequest("GET", baseUrl, "/api/mobile/me", token)
+        val profileJson = jsonRequest("GET", baseUrl, "/api/mobile/me/profile", token)
+        val leaderboardJson = jsonRequest(
+            "GET",
+            baseUrl,
+            "/api/leaderboard?board=${selectedBoard.apiValue}",
+            null,
+        )
+
+        return RemoteSnapshot(
+            me = parseMe(meJson),
+            units = DistanceUnits.from(meJson.optString("units").takeIf { it.isNotBlank() }),
+            rows = parseLeaderboardRows(leaderboardJson),
+            history = parseHistory(profileJson),
+        )
+    }
+
+    private fun uploadDistanceDays(
+        baseUrl: String,
+        token: String,
+        days: List<HealthConnectDistanceDay>,
+    ): DistanceDaysUploadResult {
+        val payloadDays = JSONArray()
+        days.forEach { day ->
+            payloadDays.put(
+                JSONObject()
+                    .put("date", day.date)
+                    .put("meters", day.meters)
+                    .put("sourcePlatform", day.sourcePlatform)
+                    .put("sourceHash", day.sourceHash),
+            )
+        }
+
+        val response = jsonRequest(
+            "POST",
+            baseUrl,
+            "/api/mobile/distance-days",
+            token,
+            JSONObject().put("days", payloadDays),
+        )
+
+        return DistanceDaysUploadResult(
+            accepted = response.optInt("accepted", 0),
+            flagged = response.optInt("flagged", 0),
+        )
+    }
+
+    private fun recordSyncRun(
+        baseUrl: String,
+        token: String,
+        status: String,
+        startedAt: Instant,
+        finishedAt: Instant,
+        counters: JSONObject,
+        errorSummary: String? = null,
+    ) {
+        val payload = JSONObject()
+            .put("platform", "android")
+            .put("status", status)
+            .put("startedAt", startedAt.toString())
+            .put("finishedAt", finishedAt.toString())
+            .put("counters", counters)
+        if (!errorSummary.isNullOrBlank()) {
+            payload.put("errorSummary", errorSummary)
+        }
+
+        jsonRequest("POST", baseUrl, "/api/mobile/sync-runs", token, payload)
+    }
+
+    private fun jsonRequest(
+        method: String,
+        baseUrl: String,
+        path: String,
+        token: String?,
+        body: JSONObject? = null,
+    ): JSONObject {
+        val connection = (URL("${baseUrl.trimEnd('/')}$path").openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = 15_000
+            readTimeout = 15_000
+            setRequestProperty("Accept", "application/json")
+            token?.let { setRequestProperty("Authorization", "Bearer $it") }
+            if (body != null) {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            }
+        }
+
+        return try {
+            if (body != null) {
+                connection.outputStream.use { output ->
+                    output.write(body.toString().toByteArray(Charsets.UTF_8))
+                }
+            }
+
+            val responseCode = connection.responseCode
+            val responseBody = readResponseBody(connection, responseCode)
+            if (responseCode !in 200..299) {
+                throw IOException("API request failed ($responseCode): ${serverErrorMessage(responseBody)}")
+            }
+            if (responseBody.isBlank()) JSONObject() else JSONObject(responseBody)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun parseMe(json: JSONObject): MeSummary {
+        return MeSummary(
+            login = json.optString("login").ifBlank { "you" },
+            displayName = json.optString("displayName").ifBlank { json.optString("login").ifBlank { "Pace & Push" } },
+            score = parseScore(json.optJSONObject("score") ?: JSONObject()),
+            publicLeaderboard = json.optBoolean("publicLeaderboard", true),
+        )
+    }
+
+    private fun parseScore(json: JSONObject): ScoreSummary {
+        return ScoreSummary(
+            period = json.optString("period"),
+            score = json.optDouble("score", 0.0),
+            rank = if (json.isNull("rank")) null else json.optInt("rank"),
+            commits = json.optInt("commits", 0),
+            kilometers = json.optDouble("kilometers", 0.0),
+            lastSyncAt = json.optString("lastSyncAt").takeIf { it.isNotBlank() },
+        )
+    }
+
+    private fun parseLeaderboardRows(json: JSONObject): List<LeaderboardRow> {
+        val items = json.optJSONArray("rows") ?: JSONArray()
+        return (0 until items.length()).mapNotNull { index ->
+            val row = items.optJSONObject(index) ?: return@mapNotNull null
+            LeaderboardRow(
+                rank = row.optInt("rank", index + 1),
+                login = row.optString("login").ifBlank { "unknown" },
+                displayName = row.optString("displayName").ifBlank { row.optString("login").ifBlank { "Unknown" } },
+                score = row.optDouble("score", 0.0),
+                commits = row.optInt("commits", 0),
+                kilometers = row.optDouble("kilometers", 0.0),
+                streakDays = row.optInt("streakDays", 0),
+            )
+        }
+    }
+
+    private fun parseHistory(json: JSONObject): List<ProfileHistoryPoint> {
+        val items = json.optJSONArray("history") ?: JSONArray()
+        return (0 until items.length()).mapNotNull { index ->
+            val point = items.optJSONObject(index) ?: return@mapNotNull null
+            ProfileHistoryPoint(
+                date = point.optString("date").takeIf { it.isNotBlank() } ?: return@mapNotNull null,
+                commits = point.optInt("commits", 0),
+                kilometers = point.optDouble("kilometers", 0.0),
+                score = point.optDouble("score", 0.0),
+            )
+        }
+    }
+
     private fun storePairingCredentials(baseUrl: String, token: String) {
         val encryptedToken = encryptDeviceToken(token)
         val editor = getPreferences(MODE_PRIVATE)
@@ -798,6 +1323,15 @@ class MainActivity : Activity() {
         }
 
         editor.apply()
+    }
+
+    private fun clearStoredPairingCredentials() {
+        getPreferences(MODE_PRIVATE)
+            .edit()
+            .remove(PREF_DEVICE_TOKEN)
+            .remove(PREF_DEVICE_TOKEN_CIPHERTEXT)
+            .remove(PREF_DEVICE_TOKEN_IV)
+            .apply()
     }
 
     private fun migrateLegacyDeviceToken(preferences: SharedPreferences) {
@@ -826,6 +1360,16 @@ class MainActivity : Activity() {
             !preferences.getString(PREF_DEVICE_TOKEN_IV, null).isNullOrBlank()
     }
 
+    private fun storedDeviceToken(preferences: SharedPreferences): String? {
+        val ciphertext = preferences.getString(PREF_DEVICE_TOKEN_CIPHERTEXT, null)?.trim()
+        val iv = preferences.getString(PREF_DEVICE_TOKEN_IV, null)?.trim()
+        if (ciphertext.isNullOrBlank() || iv.isNullOrBlank()) return null
+
+        return runCatching {
+            decryptDeviceToken(EncryptedDeviceToken(ciphertext = ciphertext, iv = iv))
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
     private fun encryptDeviceToken(token: String): EncryptedDeviceToken {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, deviceTokenSecretKey())
@@ -834,6 +1378,14 @@ class MainActivity : Activity() {
             ciphertext = Base64.encodeToString(ciphertext, Base64.NO_WRAP),
             iv = Base64.encodeToString(cipher.iv, Base64.NO_WRAP),
         )
+    }
+
+    private fun decryptDeviceToken(encryptedToken: EncryptedDeviceToken): String {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        val iv = Base64.decode(encryptedToken.iv, Base64.NO_WRAP)
+        cipher.init(Cipher.DECRYPT_MODE, deviceTokenSecretKey(), GCMParameterSpec(128, iv))
+        val plaintext = cipher.doFinal(Base64.decode(encryptedToken.ciphertext, Base64.NO_WRAP))
+        return plaintext.toString(Charsets.UTF_8)
     }
 
     private fun deviceTokenSecretKey(): SecretKey {
@@ -1042,10 +1594,10 @@ private enum class Tab(val title: String) {
     Settings("Settings"),
 }
 
-private enum class Board(val title: String) {
-    Balanced("Balanced"),
-    Commits("Commits"),
-    Distance("Run"),
+private enum class Board(val title: String, val apiValue: String) {
+    Balanced("Balanced", "balanced"),
+    Commits("Commits", "commits"),
+    Distance("Run", "distance"),
 }
 
 private enum class DistanceUnits(
@@ -1079,7 +1631,7 @@ private data class MeSummary(
 private data class ScoreSummary(
     val period: String,
     val score: Double,
-    val rank: Int,
+    val rank: Int?,
     val commits: Int,
     val kilometers: Double,
     val lastSyncAt: String?,
@@ -1117,7 +1669,42 @@ private data class DeviceExchangeResult(
     val token: String,
 )
 
+private data class RemoteSnapshot(
+    val me: MeSummary,
+    val units: DistanceUnits,
+    val rows: List<LeaderboardRow>,
+    val history: List<ProfileHistoryPoint>,
+)
+
+private data class DistanceDaysUploadResult(
+    val accepted: Int,
+    val flagged: Int,
+)
+
+private data class HealthSyncOutcome(
+    val collected: Int,
+    val accepted: Int,
+    val flagged: Int,
+    val status: String,
+)
+
 private data class EncryptedDeviceToken(
     val ciphertext: String,
     val iv: String,
 )
+
+private fun emptyMeSummary(): MeSummary {
+    return MeSummary(
+        login = "you",
+        displayName = "Pace & Push",
+        score = ScoreSummary(
+            period = "",
+            score = 0.0,
+            rank = null,
+            commits = 0,
+            kilometers = 0.0,
+            lastSyncAt = null,
+        ),
+        publicLeaderboard = true,
+    )
+}
