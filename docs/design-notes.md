@@ -26,14 +26,14 @@ leaderboard experience, not a marketing landing page.
 
 ## Palette
 
-- Paper: `#f7f3ea`
-- Bright surface: `#fffaf0` for QR/code mats and rare low-emphasis raised details.
-- Panel surface: `#f4eee2`
-- High panel surface: `#efe7d8`
-- Inset surface: `#e9dfce`
+- Paper: `#fbf7ef`
+- Bright surface: `#fffdf7` for QR/code mats and rare low-emphasis raised details.
+- Panel surface: `#f8f2e8`
+- High panel surface: `#f4ecde`
+- Inset surface: `#efe4d3`
 - Ink: `#1f1c17`
-- Muted ink: `#746f64`
-- Line: `#d8d0c2`
+- Muted ink: `#5f5a51`
+- Line: `#ddd5c8`
 - Commit green: `#2f9e44`
 - Distance coral: `#f15a3a`
 - Rank blue: `#3277b8`
@@ -43,9 +43,10 @@ The palette intentionally mixes green, coral, blue, and warm yellow so the app
 does not collapse into a single-hue fitness or developer theme.
 
 Use the warm surface scale to show hierarchy without making child panels
-brighter than their parents. Avoid cards inside cards when a row, divider, or
-unframed section will do; when nested surfaces are necessary, move inward from
-paper to panel, high panel, then inset.
+brighter than their parents. The scale should remain light overall: child
+surfaces may step darker, but they should not feel muddy or heavyweight. Avoid
+cards inside cards when a row, divider, or unframed section will do; when nested
+surfaces are necessary, move inward from paper to panel, high panel, then inset.
 
 ## Typography
 

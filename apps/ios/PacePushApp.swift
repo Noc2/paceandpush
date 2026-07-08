@@ -543,135 +543,175 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Account") {
-                    Text("@\(store.me.login)")
-                    Button(role: .destructive) {
-                        store.signOut()
-                    } label: {
-                        Text("Sign out")
-                            .foregroundStyle(Brand.red)
-                    }
-                }
-
-                Section("Sync") {
-                    StatusRow(label: "GitHub", value: store.isGitHubConnected ? "@\(store.me.login)" : "Disconnected")
-                    if store.isGitHubConnected {
-                        Button(role: .destructive) {
-                            isDisconnectConfirmationPresented = true
-                        } label: {
-                            Label("Disconnect GitHub", systemImage: "person.crop.circle.badge.xmark")
-                        }
-                        .accessibilityIdentifier("settings-disconnect-github-button")
-                        .disabled(store.busy)
-                    } else {
-                        Button {
-                            Task { await store.connectGitHub() }
-                        } label: {
-                            Label("Connect GitHub", systemImage: "chevron.right.square")
-                        }
-                        .accessibilityIdentifier("settings-connect-github-button")
-                        .disabled(store.busy)
-                    }
-
-                    StatusRow(label: "Apple Health", value: store.healthAuthorized ? "Enabled" : "Needs permission")
-                    if !store.healthAuthorized {
-                        Button {
-                            Task { await store.requestHealthAccess() }
-                        } label: {
-                            Label("Enable Health", systemImage: "heart.text.square")
-                        }
-                        .accessibilityIdentifier("settings-enable-health-button")
-                        .disabled(store.busy)
-                    }
-
-                    StatusRow(label: "Last sync", value: store.firstSyncAt ?? "Never")
-                    Button {
-                        Task { await store.syncRunningDistance() }
-                    } label: {
-                        Label(store.busy ? "Syncing..." : "Sync Now", systemImage: "arrow.triangle.2.circlepath")
-                    }
-                    .accessibilityIdentifier("sync-now-button")
-                    .disabled(store.busy || !store.healthAuthorized || !store.isGitHubConnected)
-
-                    if let error = store.lastError {
-                        Text(error)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Settings")
+                            .font(.title.bold())
+                        Text("@\(store.me.login)")
+                            .font(.headline.monospaced())
+                            .foregroundStyle(Brand.muted)
+                        Text("Manage sync, units, privacy, and support.")
                             .font(.callout.weight(.semibold))
-                            .foregroundStyle(Brand.red)
+                            .foregroundStyle(Brand.muted)
                     }
-                }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .panelStyle()
 
-                Section("Units") {
-                    Picker("Distance", selection: $store.units) {
-                        ForEach(DistanceUnits.allCases) { units in
-                            Text(units.title).tag(units)
+                    SettingsSectionPanel("Account") {
+                        StatusRow(label: "Developer", value: "@\(store.me.login)")
+                        SettingsActionButton(
+                            "Sign out",
+                            systemImage: "rectangle.portrait.and.arrow.right",
+                            tone: .danger,
+                        ) {
+                            store.signOut()
+                        }
+                        .accessibilityIdentifier("settings-sign-out-button")
+                    }
+
+                    SettingsSectionPanel("Sync") {
+                        StatusRow(
+                            label: "GitHub",
+                            value: store.isGitHubConnected ? "@\(store.me.login)" : "Disconnected",
+                        )
+                        if store.isGitHubConnected {
+                            SettingsActionButton(
+                                "Disconnect GitHub",
+                                systemImage: "person.crop.circle.badge.xmark",
+                                tone: .danger,
+                                isDisabled: store.busy,
+                            ) {
+                                isDisconnectConfirmationPresented = true
+                            }
+                            .accessibilityIdentifier("settings-disconnect-github-button")
+                        } else {
+                            SettingsActionButton(
+                                "Connect GitHub",
+                                systemImage: "chevron.right.square",
+                                tone: .primary,
+                                isDisabled: store.busy,
+                            ) {
+                                Task { await store.connectGitHub() }
+                            }
+                            .accessibilityIdentifier("settings-connect-github-button")
+                        }
+
+                        StatusRow(label: "Apple Health", value: store.healthAuthorized ? "Enabled" : "Needs permission")
+                        if !store.healthAuthorized {
+                            SettingsActionButton(
+                                "Enable Health",
+                                systemImage: "heart.text.square",
+                                tone: .primary,
+                                isDisabled: store.busy,
+                            ) {
+                                Task { await store.requestHealthAccess() }
+                            }
+                            .accessibilityIdentifier("settings-enable-health-button")
+                        }
+
+                        StatusRow(label: "Last sync", value: store.firstSyncAt ?? "Never")
+                        SettingsActionButton(
+                            store.busy ? "Syncing..." : "Sync Now",
+                            systemImage: "arrow.triangle.2.circlepath",
+                            tone: .primary,
+                            isDisabled: store.busy || !store.healthAuthorized || !store.isGitHubConnected,
+                        ) {
+                            Task { await store.syncRunningDistance() }
+                        }
+                        .accessibilityIdentifier("sync-now-button")
+
+                        if let error = store.lastError {
+                            Text(error)
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(Brand.red)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(Brand.surfacePanelHigh)
+                                .overlay(Rectangle().stroke(Brand.ink.opacity(0.24), lineWidth: 1))
                         }
                     }
-                    .pickerStyle(.segmented)
-                }
 
-                Section("Privacy") {
-                    Toggle(
-                        "Public leaderboard",
-                        isOn: Binding(
-                            get: { store.publicLeaderboardPreference },
-                            set: { value in
-                                Task { await store.setPublicLeaderboardPreference(value) }
-                            },
-                        ),
-                    )
-                    .accessibilityIdentifier("settings-public-leaderboard-toggle")
-                    .disabled(store.busy)
-                    ScoreExplanationText()
-                    Text("Running distance summaries are synced by day. Raw workouts and routes are not uploaded.")
-                        .foregroundStyle(Brand.muted)
-                }
+                    SettingsSectionPanel("Units") {
+                        SettingsUnitSelector(units: $store.units)
+                    }
 
-                if store.showsServerSettings {
-                    Section("Advanced") {
-                        Button {
-                            withAnimation(.snappy) {
-                                isServerSettingsExpanded.toggle()
-                            }
-                        } label: {
-                            HStack {
-                                Text("Server")
-                                Spacer()
-                                Image(systemName: isServerSettingsExpanded ? "chevron.up" : "chevron.down")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(Brand.muted)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Server")
-                        .accessibilityIdentifier("advanced-server-disclosure")
-
-                        if isServerSettingsExpanded {
-                            TextField("API base URL", text: $store.apiBaseURL)
-                                .font(Font.system(.body, design: .monospaced))
+                    SettingsSectionPanel("Privacy") {
+                        HStack(spacing: 16) {
+                            Text("Public leaderboard")
                                 .foregroundStyle(Brand.ink)
-                                .accessibilityIdentifier("api-base-url-field")
+                                .fontWeight(.semibold)
+                            Spacer()
+                            Toggle(
+                                "Public leaderboard",
+                                isOn: Binding(
+                                    get: { store.publicLeaderboardPreference },
+                                    set: { value in
+                                        Task { await store.setPublicLeaderboardPreference(value) }
+                                    },
+                                ),
+                            )
+                            .labelsHidden()
+                            .tint(Brand.orange)
+                            .accessibilityIdentifier("settings-public-leaderboard-toggle")
+                            .disabled(store.busy)
+                        }
+                        .padding(.vertical, 12)
+                        .borderedRow()
+
+                        ScoreExplanationText()
+                            .padding(.vertical, 12)
+                            .borderedRow()
+                        Text("Running distance summaries are synced by day. Raw workouts and routes are not uploaded.")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(Brand.muted)
+                            .padding(.top, 2)
+                    }
+
+                    if store.showsServerSettings {
+                        SettingsSectionPanel("Advanced") {
+                            SettingsActionButton(
+                                "Server",
+                                systemImage: isServerSettingsExpanded ? "chevron.up" : "chevron.down",
+                            ) {
+                                withAnimation(.snappy) {
+                                    isServerSettingsExpanded.toggle()
+                                }
+                            }
+                            .accessibilityLabel("Server")
+                            .accessibilityIdentifier("advanced-server-disclosure")
+
+                            if isServerSettingsExpanded {
+                                TextField("API base URL", text: $store.apiBaseURL)
+                                    .font(Font.system(.body, design: .monospaced))
+                                    .foregroundStyle(Brand.ink)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .padding(12)
+                                    .background(Brand.surfacePanelHigh)
+                                    .overlay(Rectangle().stroke(Brand.ink.opacity(0.28), lineWidth: 1))
+                                    .accessibilityIdentifier("api-base-url-field")
+                            }
+                        }
+                    } else {
+                        SettingsSectionPanel("Server") {
+                            StatusRow(label: "API", value: "paceandpush.com")
                         }
                     }
-                } else {
-                    Section("Server") {
-                        StatusRow(label: "API", value: "paceandpush.com")
-                    }
-                }
 
-                Section("Support") {
-                    Link(destination: SupportLinks.feedbackURL) {
-                        Label("Beta feedback", systemImage: "envelope")
+                    SettingsSectionPanel("Support") {
+                        SettingsLinkButton("Beta feedback", systemImage: "envelope", destination: SupportLinks.feedbackURL)
+                            .accessibilityIdentifier("beta-feedback-link")
                     }
-                    .accessibilityIdentifier("beta-feedback-link")
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 20)
             }
             .accessibilityIdentifier("settings-screen")
-            .scrollContentBackground(.hidden)
             .background(Brand.paper)
             .foregroundStyle(Brand.ink)
             .toolbar(.hidden, for: .navigationBar)
-            .contentMargins(.top, 8, for: .scrollContent)
             .confirmationDialog(
                 "Disconnect GitHub?",
                 isPresented: $isDisconnectConfirmationPresented,
@@ -688,17 +728,182 @@ struct SettingsView: View {
     }
 }
 
+struct SettingsSectionPanel<Content: View>: View {
+    let title: String
+    let detail: String?
+    let content: () -> Content
+
+    init(_ title: String, detail: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.detail = detail
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.headline.weight(.black))
+                if let detail {
+                    Text(detail)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(Brand.muted)
+                }
+            }
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .panelStyle()
+    }
+}
+
 struct StatusRow: View {
     let label: String
     let value: String
 
     var body: some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
             Text(label)
                 .foregroundStyle(Brand.muted)
+                .fontWeight(.semibold)
             Spacer()
             Text(value)
-                .fontWeight(.bold)
+                .font(.body.monospaced().weight(.bold))
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 12)
+        .borderedRow()
+    }
+}
+
+enum SettingsActionTone {
+    case neutral
+    case primary
+    case danger
+}
+
+struct SettingsActionButton: View {
+    let title: String
+    let systemImage: String
+    let tone: SettingsActionTone
+    let isDisabled: Bool
+    let action: () -> Void
+
+    init(
+        _ title: String,
+        systemImage: String,
+        tone: SettingsActionTone = .neutral,
+        isDisabled: Bool = false,
+        action: @escaping () -> Void,
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.tone = tone
+        self.isDisabled = isDisabled
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(foreground)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .background(background)
+                .overlay(Rectangle().stroke(stroke, lineWidth: tone == .primary ? 2 : 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.56 : 1)
+    }
+
+    private var foreground: Color {
+        switch tone {
+        case .neutral, .primary:
+            return Brand.ink
+        case .danger:
+            return Brand.red
+        }
+    }
+
+    private var background: Color {
+        switch tone {
+        case .neutral, .danger:
+            return Brand.surfacePanelHigh
+        case .primary:
+            return Brand.orange
+        }
+    }
+
+    private var stroke: Color {
+        switch tone {
+        case .neutral, .danger:
+            return Brand.ink.opacity(0.26)
+        case .primary:
+            return Brand.ink
+        }
+    }
+}
+
+struct SettingsLinkButton: View {
+    let title: String
+    let systemImage: String
+    let destination: URL
+
+    init(_ title: String, systemImage: String, destination: URL) {
+        self.title = title
+        self.systemImage = systemImage
+        self.destination = destination
+    }
+
+    var body: some View {
+        Link(destination: destination) {
+            Label(title, systemImage: systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Brand.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .background(Brand.surfacePanelHigh)
+                .overlay(Rectangle().stroke(Brand.ink.opacity(0.26), lineWidth: 1))
+        }
+    }
+}
+
+struct SettingsUnitSelector: View {
+    @Binding var units: DistanceUnits
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Distance")
+                .font(.caption.weight(.black))
+                .foregroundStyle(Brand.muted)
+                .textCase(.uppercase)
+            HStack(spacing: 0) {
+                ForEach(DistanceUnits.allCases) { option in
+                    Button {
+                        units = option
+                    } label: {
+                        Text(option.title)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(Brand.ink)
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                            .background(option == units ? Brand.orange : Brand.surfacePanelHigh)
+                    }
+                    .buttonStyle(.plain)
+                    .overlay(alignment: .trailing) {
+                        if option.id != DistanceUnits.allCases.last?.id {
+                            Rectangle()
+                                .frame(width: 1)
+                                .foregroundStyle(Brand.ink)
+                        }
+                    }
+                }
+            }
+            .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
         }
     }
 }
@@ -3009,11 +3214,11 @@ struct ProfileHistoryPoint: Decodable, Identifiable {
 }
 
 enum Brand {
-    private static let paperHex: UInt32 = 0xf7f3ea
-    private static let surfaceBrightHex: UInt32 = 0xfffaf0
-    private static let surfacePanelHex: UInt32 = 0xf4eee2
-    private static let surfacePanelHighHex: UInt32 = 0xefe7d8
-    private static let surfaceInsetHex: UInt32 = 0xe9dfce
+    private static let paperHex: UInt32 = 0xfbf7ef
+    private static let surfaceBrightHex: UInt32 = 0xfffdf7
+    private static let surfacePanelHex: UInt32 = 0xf8f2e8
+    private static let surfacePanelHighHex: UInt32 = 0xf4ecde
+    private static let surfaceInsetHex: UInt32 = 0xefe4d3
     private static let inkHex: UInt32 = 0x211e1a
     private static let mutedHex: UInt32 = 0x5f5a51
     private static let orangeHex: UInt32 = 0xf97316
