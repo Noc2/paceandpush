@@ -221,7 +221,7 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(16))
-            background = borderedBackground(surfacePanel, ink)
+            background = borderedBackground(surfacePanel, line)
             Tab.values().forEachIndexed { index, tab ->
                 addView(
                     Button(this@MainActivity).apply {

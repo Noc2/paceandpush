@@ -211,7 +211,7 @@ struct OnboardingStep<Actions: View>: View {
                     .font(.headline.monospaced())
                     .frame(width: 34, height: 34)
                     .background(complete ? Brand.green.opacity(0.18) : Brand.orange)
-                    .overlay(Rectangle().stroke(Brand.ink, lineWidth: Brand.borderWidth))
+                    .overlay(Rectangle().stroke(Brand.line, lineWidth: Brand.borderWidth))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -632,7 +632,7 @@ struct SettingsView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(12)
                                 .background(Brand.surfacePanelHigh)
-                                .overlay(Rectangle().stroke(Brand.ink.opacity(0.24), lineWidth: 1))
+                                .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
                         }
                     }
 
@@ -693,7 +693,7 @@ struct SettingsView: View {
                                     .autocorrectionDisabled()
                                     .padding(12)
                                     .background(Brand.surfacePanelHigh)
-                                    .overlay(Rectangle().stroke(Brand.ink.opacity(0.28), lineWidth: 1))
+                                    .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
                                     .accessibilityIdentifier("api-base-url-field")
                             }
                         }
@@ -817,7 +817,7 @@ struct SettingsActionButton: View {
                 .padding(.vertical, 12)
                 .padding(.horizontal, 12)
                 .background(background)
-                .overlay(Rectangle().stroke(stroke, lineWidth: Brand.borderWidth))
+                .overlay(Rectangle().stroke(Brand.line, lineWidth: Brand.borderWidth))
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
@@ -842,14 +842,6 @@ struct SettingsActionButton: View {
         }
     }
 
-    private var stroke: Color {
-        switch tone {
-        case .neutral, .danger:
-            return Brand.ink.opacity(0.26)
-        case .primary:
-            return Brand.ink
-        }
-    }
 }
 
 struct SettingsLinkButton: View {
@@ -872,7 +864,7 @@ struct SettingsLinkButton: View {
                 .padding(.vertical, 12)
                 .padding(.horizontal, 12)
                 .background(Brand.surfacePanelHigh)
-                .overlay(Rectangle().stroke(Brand.ink.opacity(0.26), lineWidth: 1))
+                .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
         }
     }
 }
@@ -902,12 +894,12 @@ struct SettingsThemeSelector: View {
                         if option.id != BrandThemePreference.allCases.last?.id {
                             Rectangle()
                                 .frame(width: 1)
-                                .foregroundStyle(Brand.ink)
+                                .foregroundStyle(Brand.line)
                         }
                     }
                 }
             }
-            .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
+            .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
         }
     }
 }
@@ -937,12 +929,12 @@ struct SettingsUnitSelector: View {
                         if option.id != DistanceUnits.allCases.last?.id {
                             Rectangle()
                                 .frame(width: 1)
-                                .foregroundStyle(Brand.ink)
+                                .foregroundStyle(Brand.line)
                         }
                     }
                 }
             }
-            .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
+            .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
         }
     }
 }
@@ -955,7 +947,7 @@ struct HeaderView: View {
                 .foregroundStyle(Brand.ink)
                 .frame(width: 48, height: 48)
                 .background(Brand.orange)
-                .overlay(Rectangle().stroke(Brand.ink, lineWidth: Brand.borderWidth))
+                .overlay(Rectangle().stroke(Brand.line, lineWidth: Brand.borderWidth))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Pace & Push")
@@ -984,7 +976,7 @@ struct MetricTile: View {
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .panelStyle(surface: Brand.surfacePanel, stroke: Brand.ink.opacity(0.28), lineWidth: 1)
+        .panelStyle(surface: Brand.surfacePanel, stroke: Brand.line, lineWidth: 1)
     }
 }
 
@@ -1021,7 +1013,7 @@ struct ScoreExplanationDisclosure: View {
         }
         .padding(12)
         .background(Brand.surfacePanelHigh)
-        .overlay(Rectangle().stroke(Brand.ink.opacity(0.26), lineWidth: 1))
+        .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
         .accessibilityIdentifier("score-explanation-disclosure")
     }
 }
@@ -1085,7 +1077,7 @@ struct ScorePeriodSelector: View {
                         .background(Brand.surfacePanelHigh)
                 }
                 .buttonStyle(.plain)
-                .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
+                .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
                 .accessibilityIdentifier("period-previous-button")
 
                 Menu {
@@ -1116,7 +1108,7 @@ struct ScorePeriodSelector: View {
                     .padding(.horizontal, 12)
                     .frame(minHeight: 42)
                     .background(Brand.surfacePanelHigh)
-                    .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
+                    .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
                 }
                 .accessibilityIdentifier("period-menu")
 
@@ -1129,14 +1121,14 @@ struct ScorePeriodSelector: View {
                         .background(Brand.surfacePanelHigh)
                 }
                 .buttonStyle(.plain)
-                .overlay(Rectangle().stroke(nextPeriod.isFuture(comparedTo: now) ? Brand.muted : Brand.ink, lineWidth: 1))
+                .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
                 .disabled(nextPeriod.isFuture(comparedTo: now))
                 .accessibilityIdentifier("period-next-button")
             }
         }
         .padding(12)
         .background(Brand.surfacePanel)
-        .overlay(Rectangle().stroke(Brand.ink.opacity(0.32), lineWidth: 1))
+        .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
         .accessibilityIdentifier("period-selector")
     }
 }
@@ -1162,12 +1154,12 @@ struct ProfileChartView: View {
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(Brand.muted)
                     .frame(maxWidth: .infinity, minHeight: 176, alignment: .center)
-                    .overlay(Rectangle().stroke(Brand.ink.opacity(0.22), lineWidth: 1))
+                    .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
             } else {
                 GeometryReader { geometry in
                     ZStack {
                         chartGrid(in: geometry.size)
-                            .stroke(Brand.ink.opacity(0.14), lineWidth: 1)
+                            .stroke(Brand.line, lineWidth: 1)
 
                         ForEach(ProfileChartSeries.allCases) { series in
                             linePath(for: series, in: geometry.size)
@@ -1186,7 +1178,7 @@ struct ProfileChartView: View {
                 .frame(height: 176)
                 .padding(10)
                 .background(Brand.surfacePanel)
-                .overlay(Rectangle().stroke(Brand.ink.opacity(0.22), lineWidth: 1))
+                .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
 
                 HStack(spacing: 14) {
                     ForEach(ProfileChartSeries.allCases) { series in
@@ -1278,7 +1270,7 @@ struct LeaderboardSearchField: View {
         }
         .padding(.horizontal, 12)
         .frame(minHeight: 44)
-        .overlay(Rectangle().stroke(Brand.ink.opacity(0.36), lineWidth: 1))
+        .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
     }
 }
 
@@ -1302,12 +1294,12 @@ struct BoardSelector: View {
                     if item != .distance {
                         Rectangle()
                             .frame(width: 1)
-                            .foregroundStyle(Brand.ink)
+                            .foregroundStyle(Brand.line)
                     }
                 }
             }
         }
-        .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
+        .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
     }
 }
 
@@ -1351,7 +1343,7 @@ struct LeaderboardRowView: View {
                 .background(rank <= 3 ? Brand.yellow : Color.clear)
                 .overlay {
                     if rank <= 3 {
-                        Rectangle().stroke(Brand.ink, lineWidth: 1)
+                        Rectangle().stroke(Brand.line, lineWidth: 1)
                     }
                 }
 
@@ -3300,6 +3292,7 @@ enum Brand {
     static let surfacePanelHigh = dynamicColor(light: 0xeaeef2, dark: 0x21262d)
     static let ink = dynamicColor(light: 0x1f2328, dark: 0xe6edf3)
     static let muted = dynamicColor(light: 0x59636e, dark: 0x8b949e)
+    static let line = dynamicColor(light: 0xd0d7de, dark: 0x30363d)
     static let orange = Color(hex: orangeHex)
     static let green = dynamicColor(light: 0x1a7f37, dark: 0x3fb950)
     static let red = dynamicColor(light: 0xcf222e, dark: 0xff7b72)
@@ -3371,7 +3364,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(isEnabled ? Brand.ink : Brand.muted)
             .padding(14)
             .background(buttonBackground(isPressed: configuration.isPressed))
-            .overlay(Rectangle().stroke(isEnabled ? Brand.ink : Brand.muted, lineWidth: Brand.borderWidth))
+            .overlay(Rectangle().stroke(Brand.line, lineWidth: Brand.borderWidth))
     }
 
     private func buttonBackground(isPressed: Bool) -> Color {
@@ -3417,7 +3410,7 @@ extension ISO8601DateFormatter {
 extension View {
     func panelStyle(
         surface: Color = Brand.surfacePanel,
-        stroke: Color = Brand.ink,
+        stroke: Color = Brand.line,
         lineWidth: CGFloat = Brand.borderWidth
     ) -> some View {
         padding(18)
@@ -3426,7 +3419,7 @@ extension View {
     }
 
     func borderedRow() -> some View {
-        overlay(Rectangle().frame(height: 1).foregroundStyle(Brand.ink.opacity(0.22)), alignment: .bottom)
+        overlay(Rectangle().frame(height: 1).foregroundStyle(Brand.line), alignment: .bottom)
     }
 }
 

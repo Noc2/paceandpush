@@ -1136,7 +1136,9 @@ test("design borders use a consistent single-pixel weight", async () => {
   );
 
   assert.match(iosSource, /static let borderWidth: CGFloat = 1/);
+  assert.match(iosSource, /static let line = dynamicColor\(light: 0xd0d7de, dark: 0x30363d\)/);
   assert.match(iosSource, /lineWidth: CGFloat = Brand\.borderWidth/);
+  assert.doesNotMatch(iosSource, /stroke\(Brand\.ink/);
   assert.doesNotMatch(iosSource, /lineWidth: [23](?![0-9.])/);
   assert.match(globalCss, /\.logo-mark \{[\s\S]*border: 1px solid var\(--ink\)/);
   assert.doesNotMatch(globalCss, /border(?:-left)?: [24]px solid var/);
