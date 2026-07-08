@@ -211,7 +211,7 @@ struct OnboardingStep<Actions: View>: View {
                     .font(.headline.monospaced())
                     .frame(width: 34, height: 34)
                     .background(complete ? Brand.green.opacity(0.18) : Brand.orange)
-                    .overlay(Rectangle().stroke(Brand.ink, lineWidth: 2))
+                    .overlay(Rectangle().stroke(Brand.ink, lineWidth: Brand.borderWidth))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -817,7 +817,7 @@ struct SettingsActionButton: View {
                 .padding(.vertical, 12)
                 .padding(.horizontal, 12)
                 .background(background)
-                .overlay(Rectangle().stroke(stroke, lineWidth: tone == .primary ? 2 : 1))
+                .overlay(Rectangle().stroke(stroke, lineWidth: Brand.borderWidth))
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
@@ -955,7 +955,7 @@ struct HeaderView: View {
                 .foregroundStyle(Brand.ink)
                 .frame(width: 48, height: 48)
                 .background(Brand.orange)
-                .overlay(Rectangle().stroke(Brand.ink, lineWidth: 3))
+                .overlay(Rectangle().stroke(Brand.ink, lineWidth: Brand.borderWidth))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Pace & Push")
@@ -3306,6 +3306,7 @@ enum Brand {
     static let red = dynamicColor(light: 0xcf222e, dark: 0xff7b72)
     static let blue = dynamicColor(light: 0x0969da, dark: 0x58a6ff)
     static let yellow = dynamicColor(light: 0xfff8c5, dark: 0xd29922)
+    static let borderWidth: CGFloat = 1
 
     static let uiPaper = dynamicUIColor(light: 0xffffff, dark: 0x0d1117)
     static let uiSurfacePanel = dynamicUIColor(light: 0xf6f8fa, dark: 0x161b22)
@@ -3371,7 +3372,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(isEnabled ? Brand.ink : Brand.muted)
             .padding(14)
             .background(buttonBackground(isPressed: configuration.isPressed))
-            .overlay(Rectangle().stroke(isEnabled ? Brand.ink : Brand.muted, lineWidth: 2))
+            .overlay(Rectangle().stroke(isEnabled ? Brand.ink : Brand.muted, lineWidth: Brand.borderWidth))
     }
 
     private func buttonBackground(isPressed: Bool) -> Color {
@@ -3418,7 +3419,7 @@ extension View {
     func panelStyle(
         surface: Color = Brand.surfacePanel,
         stroke: Color = Brand.ink,
-        lineWidth: CGFloat = 2
+        lineWidth: CGFloat = Brand.borderWidth
     ) -> some View {
         padding(18)
             .background(surface)

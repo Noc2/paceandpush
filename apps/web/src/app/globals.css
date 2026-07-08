@@ -87,7 +87,7 @@ textarea {
   place-items: center;
   flex: 0 0 auto;
   background: var(--orange);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 24px;
   font-weight: 900;
@@ -275,7 +275,7 @@ textarea {
   display: block;
   max-width: 100%;
   overflow-x: auto;
-  border-left: 4px solid var(--orange);
+  border-left: 1px solid var(--orange);
   background: var(--accent-wash);
   padding: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -533,7 +533,7 @@ textarea {
   width: fit-content;
   max-width: 100%;
   overflow-x: auto;
-  border-left: 4px solid var(--orange);
+  border-left: 1px solid var(--orange);
   background: var(--accent-wash);
   padding: 10px 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -843,7 +843,7 @@ textarea {
 
 .leaderboard-row.signed-in-user {
   background: var(--accent-wash);
-  box-shadow: inset 4px 0 0 var(--orange);
+  box-shadow: inset 1px 0 0 var(--orange);
 }
 
 .leaderboard-row.top-rank > .rank-cell {
@@ -1156,7 +1156,7 @@ textarea {
   max-width: 100%;
   overflow-x: auto;
   padding: 12px;
-  border-left: 4px solid var(--orange);
+  border-left: 1px solid var(--orange);
   background: var(--accent-wash);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 14px;
@@ -1248,7 +1248,7 @@ textarea {
   overflow-x: auto;
   padding: 12px;
   border: 1px solid var(--line);
-  border-left: 4px solid var(--orange);
+  border-left: 1px solid var(--orange);
   background: var(--accent-wash);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;

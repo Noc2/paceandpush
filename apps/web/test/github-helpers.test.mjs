@@ -1095,6 +1095,26 @@ test("iOS app exposes system light and dark appearance settings", async () => {
   assert.match(iosSource, /dynamicUIColor\(light: 0xffffff, dark: 0x0d1117\)/);
 });
 
+test("design borders use a consistent single-pixel weight", async () => {
+  const iosSource = await readFile(
+    new URL("../../ios/PacePushApp.swift", import.meta.url),
+    "utf8",
+  );
+  const globalCss = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
+  const chartSource = await readFile(
+    new URL("../src/server/charts/profile-chart.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(iosSource, /static let borderWidth: CGFloat = 1/);
+  assert.match(iosSource, /lineWidth: CGFloat = Brand\.borderWidth/);
+  assert.doesNotMatch(iosSource, /lineWidth: [23](?![0-9.])/);
+  assert.match(globalCss, /\.logo-mark \{[\s\S]*border: 1px solid var\(--ink\)/);
+  assert.doesNotMatch(globalCss, /border(?:-left)?: [24]px solid var/);
+  assert.doesNotMatch(globalCss, /box-shadow: inset 4px/);
+  assert.match(chartSource, /stroke-width="1"/);
+});
+
 test("launch evidence docs cover alerts, rollback, stores, and real devices", async () => {
   const runbook = await readFile(
     new URL("../../../docs/launch/release-runbook.md", import.meta.url),
