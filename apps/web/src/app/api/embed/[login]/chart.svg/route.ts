@@ -1,5 +1,5 @@
 import { getPublicProfile, parsePeriod } from "@/server/data/read-model";
-import { renderProfileChartSvg } from "@/server/charts/profile-chart";
+import { parseProfileChartTheme, renderProfileChartSvg } from "@/server/charts/profile-chart";
 import { parseUnitPreference } from "@/lib/distance-units";
 import { rateLimit } from "@/server/api/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
@@ -19,12 +19,13 @@ export async function GET(
   const period = parsePeriod(request.nextUrl.searchParams.get("period"));
   const profile = await getPublicProfile(decodeURIComponent(login), period);
   const units = parseUnitPreference(request.nextUrl.searchParams.get("units"));
+  const theme = parseProfileChartTheme(request.nextUrl.searchParams.get("theme"));
 
   if (!profile) {
     return new NextResponse("Profile not found.", { status: 404 });
   }
 
-  return new NextResponse(renderProfileChartSvg(profile, units), {
+  return new NextResponse(renderProfileChartSvg(profile, units, theme), {
     headers: {
       "content-type": "image/svg+xml; charset=utf-8",
       "cache-control": "public, max-age=300, s-maxage=900, stale-while-revalidate=3600",

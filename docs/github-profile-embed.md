@@ -12,6 +12,17 @@ so it works in Markdown image embeds and stays small enough for profile pages.
 The surrounding Markdown link makes the image open the Pace & Push homepage
 when it is clicked from a GitHub profile README.
 
+The endpoint supports GitHub-friendly light and dark cards. Add `theme=light`
+for GitHub's light profile surface, or `theme=dark` for GitHub's dark surface:
+
+```md
+[![Pace & Push chart](https://paceandpush.com/api/embed/Noc2/chart.svg?theme=light)](https://paceandpush.com/)
+```
+
+```md
+[![Pace & Push chart](https://paceandpush.com/api/embed/Noc2/chart.svg?theme=dark)](https://paceandpush.com/)
+```
+
 The chart includes:
 
 - current period score

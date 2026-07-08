@@ -493,6 +493,17 @@ test("embed svg route has a sandboxed content security policy", async () => {
   assert.match(source, /x-content-type-options/);
 });
 
+test("embed svg route accepts a GitHub theme parameter", async () => {
+  const source = await readFile(
+    new URL("../src/app/api/embed/[login]/chart.svg/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /parseProfileChartTheme/);
+  assert.match(source, /searchParams\.get\("theme"\)/);
+  assert.match(source, /renderProfileChartSvg\(profile, units, theme\)/);
+});
+
 test("embed svg brands the card and truncates the visible login", async () => {
   const source = await readFile(
     new URL("../src/server/charts/profile-chart.ts", import.meta.url),
@@ -546,7 +557,7 @@ test("embed svg keeps long running-distance values inside the canvas", async () 
   );
 
   assert.match(source, /distanceX: chartWidth - 38 - 414/);
-  assert.match(source, /metricText\(metrics\.distanceX,[\s\S]*brandColors\.distanceCoral, "end"\)/);
+  assert.match(source, /metricText\(metrics\.distanceX,[\s\S]*colors\.distanceCoral, colors, "end"\)/);
   assert.match(source, /text-anchor="\$\{anchor\}"/);
 });
 
