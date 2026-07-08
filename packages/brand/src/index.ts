@@ -4,6 +4,10 @@ export const brandTagline = "Run. Commit. Repeat.";
 
 export const brandColors = {
   paper: "#f7f3ea",
+  surfaceBright: "#fffaf0",
+  surfacePanel: "#f4eee2",
+  surfacePanelHigh: "#efe7d8",
+  surfaceInset: "#e9dfce",
   paperRaised: "#fffaf0",
   ink: "#1f1c17",
   mutedInk: "#5f5a51",
@@ -28,7 +32,11 @@ export const promptMark = {
 
 export const cssVariables = `:root {
   --paper: ${brandColors.paper};
-  --paper-2: ${brandColors.paperRaised};
+  --surface-bright: ${brandColors.surfaceBright};
+  --surface-panel: ${brandColors.surfacePanel};
+  --surface-panel-high: ${brandColors.surfacePanelHigh};
+  --surface-inset: ${brandColors.surfaceInset};
+  --paper-2: ${brandColors.surfaceBright};
   --ink: ${brandColors.ink};
   --muted: ${brandColors.mutedInk};
   --line: ${brandColors.line};

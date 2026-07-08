@@ -27,6 +27,10 @@ leaderboard experience, not a marketing landing page.
 ## Palette
 
 - Paper: `#f7f3ea`
+- Bright surface: `#fffaf0` for QR/code mats and rare low-emphasis raised details.
+- Panel surface: `#f4eee2`
+- High panel surface: `#efe7d8`
+- Inset surface: `#e9dfce`
 - Ink: `#1f1c17`
 - Muted ink: `#746f64`
 - Line: `#d8d0c2`
@@ -37,6 +41,11 @@ leaderboard experience, not a marketing landing page.
 
 The palette intentionally mixes green, coral, blue, and warm yellow so the app
 does not collapse into a single-hue fitness or developer theme.
+
+Use the warm surface scale to show hierarchy without making child panels
+brighter than their parents. Avoid cards inside cards when a row, divider, or
+unframed section will do; when nested surfaces are necessary, move inward from
+paper to panel, high panel, then inset.
 
 ## Typography
 
