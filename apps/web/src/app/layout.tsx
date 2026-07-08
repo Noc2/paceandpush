@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cssVariables } from "@paceandpush/brand";
+import Script from "next/script";
 import { SiteFooter } from "./SiteFooter";
 import "./globals.css";
 
@@ -26,7 +27,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <Script
+          id="pace-theme-script"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
         <style
           id="pace-push-brand-tokens"
           dangerouslySetInnerHTML={{ __html: cssVariables }}
