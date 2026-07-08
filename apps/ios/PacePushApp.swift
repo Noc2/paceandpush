@@ -210,8 +210,8 @@ struct OnboardingStep<Actions: View>: View {
                 Text(complete ? "✓" : "\(index)")
                     .font(.headline.monospaced())
                     .frame(width: 34, height: 34)
-                    .background(complete ? Brand.green.opacity(0.18) : Brand.orange)
-                    .overlay(Rectangle().stroke(Brand.line, lineWidth: Brand.borderWidth))
+                    .roundedBackground(complete ? Brand.green.opacity(0.18) : Brand.orange)
+                    .roundedBorder()
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -631,8 +631,8 @@ struct SettingsView: View {
                                 .foregroundStyle(Brand.red)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(12)
-                                .background(Brand.surfacePanelHigh)
-                                .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+                                .roundedBackground(Brand.surfacePanelHigh)
+                                .roundedBorder(lineWidth: 1)
                         }
                     }
 
@@ -692,8 +692,8 @@ struct SettingsView: View {
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
                                     .padding(12)
-                                    .background(Brand.surfacePanelHigh)
-                                    .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+                                    .roundedBackground(Brand.surfacePanelHigh)
+                                    .roundedBorder(lineWidth: 1)
                                     .accessibilityIdentifier("api-base-url-field")
                             }
                         }
@@ -816,8 +816,8 @@ struct SettingsActionButton: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 12)
                 .padding(.horizontal, 12)
-                .background(background)
-                .overlay(Rectangle().stroke(Brand.line, lineWidth: Brand.borderWidth))
+                .roundedBackground(background)
+                .roundedBorder()
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
@@ -863,8 +863,8 @@ struct SettingsLinkButton: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 12)
                 .padding(.horizontal, 12)
-                .background(Brand.surfacePanelHigh)
-                .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+                .roundedBackground(Brand.surfacePanelHigh)
+                .roundedBorder(lineWidth: 1)
         }
     }
 }
@@ -899,7 +899,8 @@ struct SettingsThemeSelector: View {
                     }
                 }
             }
-            .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+            .roundedClip()
+            .roundedBorder(lineWidth: 1)
         }
     }
 }
@@ -934,7 +935,8 @@ struct SettingsUnitSelector: View {
                     }
                 }
             }
-            .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+            .roundedClip()
+            .roundedBorder(lineWidth: 1)
         }
     }
 }
@@ -946,8 +948,8 @@ struct HeaderView: View {
                 .font(.system(size: 34, weight: .black, design: .monospaced))
                 .foregroundStyle(Brand.ink)
                 .frame(width: 48, height: 48)
-                .background(Brand.orange)
-                .overlay(Rectangle().stroke(Brand.line, lineWidth: Brand.borderWidth))
+                .roundedBackground(Brand.orange)
+                .roundedBorder()
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Pace & Push")
@@ -1012,8 +1014,8 @@ struct ScoreExplanationDisclosure: View {
                 .foregroundStyle(Brand.ink)
         }
         .padding(12)
-        .background(Brand.surfacePanelHigh)
-        .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+        .roundedBackground(Brand.surfacePanelHigh)
+        .roundedBorder(lineWidth: 1)
         .accessibilityIdentifier("score-explanation-disclosure")
     }
 }
@@ -1029,7 +1031,7 @@ struct ScoreExplanationText: View {
                 .foregroundStyle(Brand.ink)
                 .padding(.vertical, 6)
                 .padding(.horizontal, 8)
-                .background(Brand.orange.opacity(0.10))
+                .roundedBackground(Brand.orange.opacity(0.10))
             Text(ScoreExplanation.note)
                 .font(.callout)
                 .foregroundStyle(Brand.muted)
@@ -1051,21 +1053,9 @@ struct ScorePeriodSelector: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Picker(
-                "Period type",
-                selection: Binding(
-                    get: { activePeriod.kind },
-                    set: { kind in
-                        onSelect(ScorePeriod(kind: kind, date: activePeriod.referenceDate(now: now)))
-                    },
-                ),
-            ) {
-                ForEach(ScorePeriodKind.allCases) { kind in
-                    Text(kind.title).tag(kind)
-                }
+            PeriodKindSelector(activeKind: activePeriod.kind) { kind in
+                onSelect(ScorePeriod(kind: kind, date: activePeriod.referenceDate(now: now)))
             }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("period-kind-picker")
 
             HStack(spacing: 10) {
                 Button {
@@ -1074,10 +1064,10 @@ struct ScorePeriodSelector: View {
                     Image(systemName: "chevron.left")
                         .font(.headline.weight(.black))
                         .frame(width: 42, height: 42)
-                        .background(Brand.surfacePanelHigh)
+                        .roundedBackground(Brand.surfacePanelHigh)
                 }
                 .buttonStyle(.plain)
-                .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+                .roundedBorder(lineWidth: 1)
                 .accessibilityIdentifier("period-previous-button")
 
                 Menu {
@@ -1107,8 +1097,8 @@ struct ScorePeriodSelector: View {
                     }
                     .padding(.horizontal, 12)
                     .frame(minHeight: 42)
-                    .background(Brand.surfacePanelHigh)
-                    .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+                    .roundedBackground(Brand.surfacePanelHigh)
+                    .roundedBorder(lineWidth: 1)
                 }
                 .accessibilityIdentifier("period-menu")
 
@@ -1118,18 +1108,52 @@ struct ScorePeriodSelector: View {
                     Image(systemName: "chevron.right")
                         .font(.headline.weight(.black))
                         .frame(width: 42, height: 42)
-                        .background(Brand.surfacePanelHigh)
+                        .roundedBackground(Brand.surfacePanelHigh)
                 }
                 .buttonStyle(.plain)
-                .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+                .roundedBorder(lineWidth: 1)
                 .disabled(nextPeriod.isFuture(comparedTo: now))
                 .accessibilityIdentifier("period-next-button")
             }
         }
         .padding(12)
-        .background(Brand.surfacePanel)
-        .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+        .roundedBackground(Brand.surfacePanel)
+        .roundedBorder(lineWidth: 1)
         .accessibilityIdentifier("period-selector")
+    }
+}
+
+struct PeriodKindSelector: View {
+    let activeKind: ScorePeriodKind
+    let onSelect: (ScorePeriodKind) -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(ScorePeriodKind.allCases) { kind in
+                Button {
+                    onSelect(kind)
+                } label: {
+                    Text(kind.title)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(Brand.ink)
+                        .frame(maxWidth: .infinity, minHeight: 42)
+                        .background(kind == activeKind ? Brand.orange : Brand.surfacePanelHigh)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("period-kind-\(kind.rawValue)")
+                .accessibilityAddTraits(kind == activeKind ? .isSelected : [])
+                .overlay(alignment: .trailing) {
+                    if kind.id != ScorePeriodKind.allCases.last?.id {
+                        Rectangle()
+                            .frame(width: 1)
+                            .foregroundStyle(Brand.line)
+                    }
+                }
+            }
+        }
+        .roundedClip()
+        .roundedBorder(lineWidth: 1)
+        .accessibilityIdentifier("period-kind-picker")
     }
 }
 
@@ -1154,7 +1178,7 @@ struct ProfileChartView: View {
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(Brand.muted)
                     .frame(maxWidth: .infinity, minHeight: 176, alignment: .center)
-                    .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+                    .roundedBorder(lineWidth: 1)
             } else {
                 GeometryReader { geometry in
                     ZStack {
@@ -1177,8 +1201,8 @@ struct ProfileChartView: View {
                 }
                 .frame(height: 176)
                 .padding(10)
-                .background(Brand.surfacePanel)
-                .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+                .roundedBackground(Brand.surfacePanel)
+                .roundedBorder(lineWidth: 1)
 
                 HStack(spacing: 14) {
                     ForEach(ProfileChartSeries.allCases) { series in
@@ -1270,7 +1294,7 @@ struct LeaderboardSearchField: View {
         }
         .padding(.horizontal, 12)
         .frame(minHeight: 44)
-        .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+        .roundedBorder(lineWidth: 1)
     }
 }
 
@@ -1299,7 +1323,8 @@ struct BoardSelector: View {
                 }
             }
         }
-        .overlay(Rectangle().stroke(Brand.line, lineWidth: 1))
+        .roundedClip()
+        .roundedBorder(lineWidth: 1)
     }
 }
 
@@ -1340,10 +1365,10 @@ struct LeaderboardRowView: View {
             Text(String(format: "%02d", rank))
                 .font(.system(.headline, design: .monospaced).weight(rank <= 3 ? .black : .regular))
                 .frame(width: 38, height: 28, alignment: rank <= 3 ? .center : .leading)
-                .background(rank <= 3 ? Brand.yellow : Color.clear)
+                .roundedBackground(rank <= 3 ? Brand.yellow : Color.clear)
                 .overlay {
                     if rank <= 3 {
-                        Rectangle().stroke(Brand.line, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: Brand.cornerRadius).stroke(Brand.line, lineWidth: 1)
                     }
                 }
 
@@ -3299,6 +3324,7 @@ enum Brand {
     static let blue = dynamicColor(light: 0x0969da, dark: 0x58a6ff)
     static let yellow = dynamicColor(light: 0xfff8c5, dark: 0xd29922)
     static let borderWidth: CGFloat = 1
+    static let cornerRadius: CGFloat = 6
 
     static let uiPaper = dynamicUIColor(light: 0xffffff, dark: 0x0d1117)
     static let uiSurfacePanel = dynamicUIColor(light: 0xf6f8fa, dark: 0x161b22)
@@ -3343,11 +3369,6 @@ private enum BrandAppearance {
         tabBar.shadowImage = UIImage()
         tabBar.isTranslucent = true
 
-        let segmentedControl = UISegmentedControl.appearance()
-        segmentedControl.selectedSegmentTintColor = Brand.uiOrange
-        segmentedControl.setTitleTextAttributes([.foregroundColor: Brand.uiInk], for: .normal)
-        segmentedControl.setTitleTextAttributes([.foregroundColor: Brand.uiInk], for: .selected)
-
         UITableView.appearance().backgroundColor = Brand.uiPaper
         UITableViewCell.appearance().backgroundColor = Brand.uiSurfacePanel
         UITextField.appearance().textColor = Brand.uiInk
@@ -3363,8 +3384,8 @@ struct PrimaryButtonStyle: ButtonStyle {
             .font(.headline.weight(.bold))
             .foregroundStyle(isEnabled ? Brand.ink : Brand.muted)
             .padding(14)
-            .background(buttonBackground(isPressed: configuration.isPressed))
-            .overlay(Rectangle().stroke(Brand.line, lineWidth: Brand.borderWidth))
+            .roundedBackground(buttonBackground(isPressed: configuration.isPressed))
+            .roundedBorder()
     }
 
     private func buttonBackground(isPressed: Bool) -> Color {
@@ -3408,14 +3429,29 @@ extension ISO8601DateFormatter {
 }
 
 extension View {
+    func roundedBackground(_ surface: Color) -> some View {
+        background(RoundedRectangle(cornerRadius: Brand.cornerRadius).fill(surface))
+    }
+
+    func roundedBorder(
+        _ stroke: Color = Brand.line,
+        lineWidth: CGFloat = Brand.borderWidth
+    ) -> some View {
+        overlay(RoundedRectangle(cornerRadius: Brand.cornerRadius).stroke(stroke, lineWidth: lineWidth))
+    }
+
+    func roundedClip() -> some View {
+        clipShape(RoundedRectangle(cornerRadius: Brand.cornerRadius))
+    }
+
     func panelStyle(
         surface: Color = Brand.surfacePanel,
         stroke: Color = Brand.line,
         lineWidth: CGFloat = Brand.borderWidth
     ) -> some View {
         padding(18)
-            .background(surface)
-            .overlay(Rectangle().stroke(stroke, lineWidth: lineWidth))
+            .roundedBackground(surface)
+            .roundedBorder(stroke, lineWidth: lineWidth)
     }
 
     func borderedRow() -> some View {

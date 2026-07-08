@@ -59,6 +59,11 @@ export type BrandThemeColors = (typeof brandThemes)[BrandThemeName];
 
 export const brandColors = brandThemes.light;
 
+export const brandRadius = {
+  github: 6,
+  css: "6px",
+} as const;
+
 export function getBrandTheme(theme: string | null | undefined): BrandThemeColors {
   return theme === "dark" ? brandThemes.dark : brandThemes.light;
 }
@@ -120,5 +125,6 @@ function themeCssDeclarations(colorScheme: BrandThemeName, colors: BrandThemeCol
     `  --hover-wash: ${colors.hoverWash};`,
     `  --accent-wash: ${colors.accentWash};`,
     `  --success-wash: ${colors.successWash};`,
+    `  --corner-radius: ${brandRadius.css};`,
   ].join("\n");
 }

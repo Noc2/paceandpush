@@ -48,6 +48,51 @@ textarea {
   font: inherit;
 }
 
+:where(
+  .logo-mark,
+  .theme-toggle,
+  .download-modal,
+  .download-modal-close,
+  .download-qr,
+  .button,
+  .period-mode-tabs,
+  .leaderboard-search input[type="search"],
+  .score-explainer,
+  .score-explainer summary::before,
+  .score-explainer code,
+  .period-step,
+  .period-menu summary,
+  .period-popover,
+  .period-popover-tabs,
+  .period-option-grid,
+  .period-option-list,
+  .status-pill,
+  .leaderboard-row.top-rank > .rank-cell,
+  .segmented-control,
+  .switch-control span,
+  .switch-control span::after,
+  .pairing-code-card,
+  .pairing-code-result,
+  .pairing-code-qr,
+  .pairing-code-copy code,
+  .device-row,
+  .chart-panel code,
+  .profile-chart
+) {
+  border-radius: var(--corner-radius);
+}
+
+:where(
+  .theme-toggle,
+  .period-mode-tabs,
+  .period-popover-tabs,
+  .period-option-grid,
+  .period-option-list,
+  .segmented-control
+) {
+  overflow: hidden;
+}
+
 ::placeholder {
   color: var(--muted);
   opacity: 1;
@@ -462,7 +507,6 @@ textarea {
   width: min(360px, 100%);
   min-height: 38px;
   border: 1px solid var(--ink);
-  border-radius: 0;
   background: var(--surface-panel);
   color: var(--ink);
   padding: 8px 12px;
@@ -503,7 +547,6 @@ textarea {
   place-items: center;
   flex: 0 0 auto;
   border: 1px solid var(--ink);
-  border-radius: 999px;
   background: var(--orange);
   content: "?";
   font-size: 14px;

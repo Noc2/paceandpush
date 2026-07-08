@@ -1,5 +1,6 @@
 import type { ProfileHistoryPoint, PublicProfileResponse } from "@paceandpush/api-contracts";
 import {
+  brandRadius,
   brandName,
   getBrandTheme,
   promptMark,
@@ -14,6 +15,7 @@ import {
 
 const chartWidth = 720;
 const chartHeight = 360;
+const cornerRadius = brandRadius.github;
 const homepageUrl = "https://paceandpush.com/";
 const plot = {
   x: 38,
@@ -43,11 +45,11 @@ export function renderProfileChartSvg(
 <svg xmlns="http://www.w3.org/2000/svg" width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-labelledby="title desc">
   <title id="title">${escapeXml(brandName)} chart for ${escapeXml(profile.login)}</title>
   <desc id="desc">Monthly Pace and Push score, commit, and running distance summary for ${escapeXml(profile.login)}.</desc>
-  <rect width="${chartWidth}" height="${chartHeight}" rx="18" fill="${colors.surfacePanel}"/>
-  <rect x="0.5" y="0.5" width="${chartWidth - 1}" height="${chartHeight - 1}" rx="17.5" fill="none" stroke="${colors.lineStrong}" stroke-opacity="0.7"/>
+  <rect width="${chartWidth}" height="${chartHeight}" rx="${cornerRadius}" fill="${colors.surfacePanel}"/>
+  <rect x="0.5" y="0.5" width="${chartWidth - 1}" height="${chartHeight - 1}" rx="${cornerRadius}" fill="none" stroke="${colors.lineStrong}" stroke-opacity="0.7"/>
 
   <g transform="translate(30 28)">
-    <rect width="34" height="34" fill="${colors.secondaryOrange}" stroke="${colors.ink}" stroke-width="1"/>
+    <rect width="34" height="34" rx="${cornerRadius}" fill="${colors.secondaryOrange}" stroke="${colors.ink}" stroke-width="1"/>
     <text x="17" y="25" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="24" font-weight="900" fill="${colors.ink}">${escapeXml(promptMark.character)}</text>
     <text x="48" y="16" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="800" fill="${colors.ink}">${escapeXml(brandName)}</text>
     <text x="48" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="650" fill="${colors.mutedInk}">${escapeXml(visibleLogin)}</text>
@@ -132,14 +134,13 @@ function buildCommitBars(
   const count = Math.max(dailyCommits.length, 1);
   const slotWidth = plot.width / count;
   const barWidth = Math.min(8, slotWidth >= 2 ? slotWidth * 0.62 : slotWidth);
-  const cornerRadius = Math.min(2, barWidth / 2);
 
   return dailyCommits
     .map((value, index) => {
       const height = Math.max(3, (value / maxDailyCommits) * (plot.height * 0.52));
       const x = plot.x + index * slotWidth + (slotWidth - barWidth) / 2;
       const y = plot.y + plot.height - height;
-      return `<rect x="${round(x)}" y="${round(y)}" width="${round(barWidth)}" height="${round(height)}" rx="${round(cornerRadius)}" fill="${colors.commitGreen}" fill-opacity="0.28"/>`;
+      return `<rect x="${round(x)}" y="${round(y)}" width="${round(barWidth)}" height="${round(height)}" rx="${cornerRadius}" fill="${colors.commitGreen}" fill-opacity="0.28"/>`;
     })
     .join("");
 }

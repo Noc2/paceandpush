@@ -1131,7 +1131,15 @@ test("design borders use a consistent single-pixel weight", async () => {
     new URL("../../ios/PacePushApp.swift", import.meta.url),
     "utf8",
   );
+  const androidSource = await readFile(
+    new URL("../../android/app/src/main/java/com/paceandpush/MainActivity.kt", import.meta.url),
+    "utf8",
+  );
   const globalCss = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
+  const brandSource = await readFile(
+    new URL("../../../packages/brand/src/index.ts", import.meta.url),
+    "utf8",
+  );
   const chartSource = await readFile(
     new URL("../src/server/charts/profile-chart.ts", import.meta.url),
     "utf8",
@@ -1139,13 +1147,25 @@ test("design borders use a consistent single-pixel weight", async () => {
 
   assert.match(iosSource, /static let borderWidth: CGFloat = 1/);
   assert.match(iosSource, /static let line = dynamicColor\(light: 0xd0d7de, dark: 0x30363d\)/);
+  assert.match(iosSource, /static let cornerRadius: CGFloat = 6/);
+  assert.match(androidSource, /const val CORNER_RADIUS_DP = 6/);
+  assert.match(androidSource, /cornerRadius = dp\(CORNER_RADIUS_DP\)\.toFloat\(\)/);
+  assert.match(brandSource, /github: 6/);
+  assert.match(brandSource, /css: "6px"/);
   assert.match(iosSource, /lineWidth: CGFloat = Brand\.borderWidth/);
   assert.doesNotMatch(iosSource, /stroke\(Brand\.ink/);
+  assert.doesNotMatch(iosSource, /\.pickerStyle\(\.segmented\)/);
+  assert.doesNotMatch(iosSource, /UISegmentedControl\.appearance/);
   assert.doesNotMatch(iosSource, /lineWidth: [23](?![0-9.])/);
   assert.match(globalCss, /\.logo-mark \{[\s\S]*border: 1px solid var\(--ink\)/);
   assert.doesNotMatch(globalCss, /border(?:-left)?: [24]px solid var/);
+  assert.match(globalCss, /border-radius: var\(--corner-radius\)/);
+  assert.doesNotMatch(globalCss, /^\s*border-radius:(?!\s*(?:var\(--corner-radius\)|0\b))[^;]+;/m);
   assert.doesNotMatch(globalCss, /box-shadow: inset 4px/);
   assert.match(chartSource, /stroke-width="1"/);
+  assert.match(chartSource, /const cornerRadius = brandRadius\.github/);
+  assert.match(chartSource, /rx="\$\{cornerRadius\}"/);
+  assert.doesNotMatch(chartSource, /rx="1[78]/);
 });
 
 test("launch evidence docs cover alerts, rollback, stores, and real devices", async () => {

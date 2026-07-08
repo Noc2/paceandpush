@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
         const val SCORE_NOTE =
             "A zero on either side makes the score 0, so the balanced board rewards people who ship code and run."
         const val SYNC_LOOKBACK_DAYS = 44L
+        const val CORNER_RADIUS_DP = 6
     }
 
     private val isDarkTheme: Boolean
@@ -199,7 +200,7 @@ class MainActivity : ComponentActivity() {
                     gravity = Gravity.CENTER
                     typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
                     setTextColor(ink)
-                    setBackgroundColor(orange)
+                    background = solidBackground(orange)
                     layoutParams = LinearLayout.LayoutParams(dp(52), dp(52)).apply {
                         rightMargin = dp(16)
                     }
@@ -276,7 +277,7 @@ class MainActivity : ComponentActivity() {
                                 text = option.title
                                 isAllCaps = false
                                 setTextColor(ink)
-                                setBackgroundColor(if (option == board) orange else surfacePanel)
+                                background = solidBackground(if (option == board) orange else surfacePanel)
                                 setOnClickListener {
                                     board = option
                                     if (paired) {
@@ -474,7 +475,7 @@ class MainActivity : ComponentActivity() {
                     isAllCaps = false
                     isEnabled = !pairingInProgress
                     setTextColor(ink)
-                    setBackgroundColor(orange)
+                    background = solidBackground(orange)
                     setOnClickListener {
                         startQrScan()
                     }
@@ -496,7 +497,7 @@ class MainActivity : ComponentActivity() {
                     isAllCaps = false
                     isEnabled = !pairingInProgress
                     setTextColor(ink)
-                    setBackgroundColor(orange)
+                    background = solidBackground(orange)
                     setOnClickListener {
                         pairFromPayload(codeInput.text.toString())
                     }
@@ -509,7 +510,7 @@ class MainActivity : ComponentActivity() {
                         isAllCaps = false
                         isEnabled = !dataLoading
                         setTextColor(ink)
-                        setBackgroundColor(orange)
+                        background = solidBackground(orange)
                         setOnClickListener {
                             refreshRemoteData()
                         }
@@ -528,7 +529,7 @@ class MainActivity : ComponentActivity() {
                         isAllCaps = false
                         isEnabled = !syncInProgress
                         setTextColor(ink)
-                        setBackgroundColor(if (healthAuthorized) yellow else orange)
+                        background = solidBackground(if (healthAuthorized) yellow else orange)
                         setOnClickListener {
                             requestHealthConnectPermissions()
                         }
@@ -541,7 +542,7 @@ class MainActivity : ComponentActivity() {
                     isAllCaps = false
                     isEnabled = paired && healthAuthorized && !syncInProgress
                     setTextColor(ink)
-                    setBackgroundColor(if (isEnabled) orange else line)
+                    background = solidBackground(if (isEnabled) orange else line)
                     setOnClickListener {
                         syncHealthConnectNow()
                     }
@@ -554,7 +555,7 @@ class MainActivity : ComponentActivity() {
                         isAllCaps = false
                         isEnabled = !pairingInProgress && !syncInProgress
                         setTextColor(ink)
-                        setBackgroundColor(surfacePanelHigh)
+                        background = solidBackground(surfacePanelHigh)
                         setOnClickListener {
                             disconnectGitHub()
                         }
@@ -566,7 +567,7 @@ class MainActivity : ComponentActivity() {
                     text = "Beta Feedback"
                     isAllCaps = false
                     setTextColor(ink)
-                    setBackgroundColor(surfacePanelHigh)
+                    background = solidBackground(surfacePanelHigh)
                     setOnClickListener {
                         openSupportEmail()
                     }
@@ -589,7 +590,7 @@ class MainActivity : ComponentActivity() {
                         text = "Save Server"
                         isAllCaps = false
                         setTextColor(ink)
-                        setBackgroundColor(orange)
+                        background = solidBackground(orange)
                         setOnClickListener {
                             val normalizedUrl = normalizeBaseUrl(urlInput.text.toString())
                             if (normalizedUrl == null) {
@@ -656,7 +657,7 @@ class MainActivity : ComponentActivity() {
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(0, dp(14), 0, dp(14))
                     if (row.login.equals(me.login, ignoreCase = true)) {
-                        setBackgroundColor(currentUserFill)
+                        background = solidBackground(currentUserFill)
                     }
 
                     addView(
@@ -666,7 +667,7 @@ class MainActivity : ComponentActivity() {
                                 typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
                                 gravity = Gravity.CENTER
                                 setTextColor(ink)
-                                setBackgroundColor(yellow)
+                                background = solidBackground(yellow)
                                 setPadding(dp(4), dp(3), dp(4), dp(3))
                             }
                         },
@@ -713,7 +714,7 @@ class MainActivity : ComponentActivity() {
                         text = option.title
                         isAllCaps = false
                         setTextColor(ink)
-                        setBackgroundColor(if (option == themePreference) orange else surfacePanelHigh)
+                        background = solidBackground(if (option == themePreference) orange else surfacePanelHigh)
                         setOnClickListener {
                             themePreference = option
                             getPreferences(MODE_PRIVATE)
@@ -741,7 +742,7 @@ class MainActivity : ComponentActivity() {
                         text = option.title
                         isAllCaps = false
                         setTextColor(ink)
-                        setBackgroundColor(if (option == units) orange else surfacePanelHigh)
+                        background = solidBackground(if (option == units) orange else surfacePanelHigh)
                         setOnClickListener {
                             units = option
                             getPreferences(MODE_PRIVATE)
@@ -1596,7 +1597,7 @@ class MainActivity : ComponentActivity() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(16))
-            setBackgroundColor(fillColor)
+            background = solidBackground(fillColor)
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
                 bottomMargin = dp(12)
             }
@@ -1655,6 +1656,7 @@ class MainActivity : ComponentActivity() {
     private fun solidBackground(fillColor: Int): GradientDrawable {
         return GradientDrawable().apply {
             setColor(fillColor)
+            cornerRadius = dp(CORNER_RADIUS_DP).toFloat()
         }
     }
 
@@ -1662,6 +1664,7 @@ class MainActivity : ComponentActivity() {
         return GradientDrawable().apply {
             setColor(fillColor)
             setStroke(dp(1), strokeColor)
+            cornerRadius = dp(CORNER_RADIUS_DP).toFloat()
         }
     }
 
