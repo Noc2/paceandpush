@@ -1323,7 +1323,6 @@ textarea {
 .profile-chart {
   display: block;
   width: 100%;
-  aspect-ratio: 2 / 1;
   height: auto;
   border: 1px solid var(--line);
   background: var(--surface-panel);

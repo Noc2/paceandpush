@@ -479,6 +479,7 @@ test("web security headers are configured", async () => {
   ]) {
     assert.match(nextConfig, new RegExp(header));
   }
+  assert.match(nextConfig, /object-src 'none'/);
 });
 
 test("embed svg route has a sandboxed content security policy", async () => {
@@ -571,7 +572,7 @@ test("profile page renders one theme-aware embed chart preview", async () => {
   );
 
   assert.ok(page.includes("<ProfileChartEmbed"));
-  assert.equal((component.match(/<object/g) ?? []).length, 1);
+  assert.equal((component.match(/<object/g) ?? []).length, 0);
   assert.equal((component.match(/<img/g) ?? []).length, 1);
   assert.match(
     component,
@@ -581,8 +582,8 @@ test("profile page renders one theme-aware embed chart preview", async () => {
     component,
     /const embedMarkdown = resolvedTheme === "dark" \? darkEmbedMarkdown : lightEmbedMarkdown;/,
   );
-  assert.match(component, /<object[\s\S]*data=\{chartPath\}[\s\S]*type="image\/svg\+xml"/);
-  assert.match(component, /<img[\s\S]*src=\{chartPath\}/);
+  assert.match(component, /<img[\s\S]*className="profile-chart"[\s\S]*src=\{chartPath\}/);
+  assert.doesNotMatch(component, /type="image\/svg\+xml"/);
   assert.match(
     component,
     /<p className="section-label">Profile chart<\/p>[\s\S]*<h2>Embed it on GitHub<\/h2>/,
