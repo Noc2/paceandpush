@@ -14,6 +14,11 @@ const plot = {
   width: 644,
   height: 164,
 };
+const metrics = {
+  x: 414,
+  commitsX: 92,
+  distanceX: chartWidth - 38 - 414,
+};
 
 export function renderProfileChartSvg(
   profile: PublicProfileResponse,
@@ -40,10 +45,10 @@ export function renderProfileChartSvg(
     <text x="48" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="650" fill="${brandColors.mutedInk}">${escapeXml(visibleDisplayName)}</text>
   </g>
 
-  <g transform="translate(442 28)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+  <g transform="translate(${metrics.x} 28)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
     ${metricText(0, "Score", profile.score.score.toFixed(1), brandColors.rankBlue)}
-    ${metricText(92, "Commits", String(profile.score.commits), brandColors.commitGreen)}
-    ${metricText(206, `Run ${distanceUnitAbbreviation(units)}`, formatDistance(profile.score.kilometers, units), brandColors.distanceCoral)}
+    ${metricText(metrics.commitsX, "Commits", String(profile.score.commits), brandColors.commitGreen)}
+    ${metricText(metrics.distanceX, `Run ${distanceUnitAbbreviation(units)}`, formatDistance(profile.score.kilometers, units), brandColors.distanceCoral, "end")}
   </g>
 
   <g>
@@ -62,10 +67,16 @@ export function renderProfileChartSvg(
 </svg>`;
 }
 
-function metricText(x: number, label: string, value: string, color: string): string {
+function metricText(
+  x: number,
+  label: string,
+  value: string,
+  color: string,
+  anchor: "start" | "end" = "start",
+): string {
   return `<g transform="translate(${x} 0)">
-    <text x="0" y="12" font-size="11" font-weight="800" fill="${brandColors.mutedInk}">${escapeXml(label.toUpperCase())}</text>
-    <text x="0" y="36" font-size="25" font-weight="900" fill="${color}">${escapeXml(value)}</text>
+    <text x="0" y="12" text-anchor="${anchor}" font-size="11" font-weight="800" fill="${brandColors.mutedInk}">${escapeXml(label.toUpperCase())}</text>
+    <text x="0" y="36" text-anchor="${anchor}" font-size="25" font-weight="900" fill="${color}">${escapeXml(value)}</text>
   </g>`;
 }
 

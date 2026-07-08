@@ -504,6 +504,17 @@ test("embed svg truncates visible profile names", async () => {
   assert.match(source, /function truncateSvgText/);
 });
 
+test("embed svg keeps long running-distance values inside the canvas", async () => {
+  const source = await readFile(
+    new URL("../src/server/charts/profile-chart.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /distanceX: chartWidth - 38 - 414/);
+  assert.match(source, /metricText\(metrics\.distanceX,[\s\S]*brandColors\.distanceCoral, "end"\)/);
+  assert.match(source, /text-anchor="\$\{anchor\}"/);
+});
+
 test("public snapshot refreshes are limited to current and previous periods", () => {
   const now = new Date("2026-07-06T12:00:00.000Z");
 
