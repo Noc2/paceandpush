@@ -14,6 +14,7 @@ const callbackErrors = await loadTypeScriptModule("../src/server/mobile/callback
 const oauth = await loadTypeScriptModule("../src/server/github/oauth.ts");
 const payloads = await loadTypeScriptModule("../src/server/api/payloads.ts");
 const periods = await loadTypeScriptModule("../src/lib/periods.ts");
+const timelineTicks = await loadTypeScriptModule("../src/server/charts/timeline-ticks.ts");
 const streaks = await loadTypeScriptModule("../src/lib/streaks.ts");
 const tokenCrypto = await loadTypeScriptModule("../src/server/github/token-crypto.ts");
 
@@ -605,10 +606,47 @@ test("embed svg keeps long running-distance values inside the canvas", async () 
   assert.match(source, /<title>\$\{escapeXml\(title\(value, index\)\)\}<\/title>/);
   assert.match(source, /scoreHoverPoints\(history, maxScore\)/);
   assert.match(source, /pointer-events="all"/);
+  assert.match(source, /profileTimelineTicks\(history\)/);
+  assert.match(source, /font-weight="500"/);
   assert.match(source, /\{ label: "Score", color: "secondaryOrange" \}/);
   assert.match(source, /\{ label: "Run", color: "rankBlue" \}/);
   assert.match(source, /const seriesLegend = \[/);
   assert.match(source, /text-anchor="\$\{anchor\}"/);
+});
+
+test("profile chart timeline labels use calendar anchors for longer ranges", () => {
+  const history = [
+    "2026-01-01",
+    "2026-01-15",
+    "2026-02-01",
+    "2026-03-01",
+    "2026-04-01",
+    "2026-05-01",
+    "2026-06-01",
+    "2026-07-01",
+    "2026-07-08",
+  ].map((date, index) => ({
+    date,
+    commits: index,
+    kilometers: index,
+    score: index,
+  }));
+
+  assert.deepEqual(
+    plain(timelineTicks.profileTimelineTicks(history)).map(({ label, anchor }) => ({
+      label,
+      anchor,
+    })),
+    [
+      { label: "01-01", anchor: "start" },
+      { label: "02-01", anchor: "middle" },
+      { label: "03-01", anchor: "middle" },
+      { label: "04-01", anchor: "middle" },
+      { label: "05-01", anchor: "middle" },
+      { label: "06-01", anchor: "middle" },
+      { label: "07-08", anchor: "end" },
+    ],
+  );
 });
 
 test("public snapshot refreshes are limited to current and previous periods", () => {

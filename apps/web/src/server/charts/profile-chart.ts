@@ -12,6 +12,7 @@ import {
   formatDistance,
   type UnitPreference,
 } from "@/lib/distance-units";
+import { profileTimelineTicks } from "./timeline-ticks";
 
 const chartWidth = 720;
 const chartHeight = 360;
@@ -95,10 +96,8 @@ export function renderProfileChartSvg(
     ${legendItems(colors, units)}
   </g>
 
-  <g font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="700" fill="${colors.mutedInk}">
-    <text x="${plot.x}" y="320">${escapeXml(history[0]?.date.slice(5) ?? "")}</text>
-    <text x="${plot.x + plot.width / 2}" y="320" text-anchor="middle">${escapeXml(history[Math.floor((history.length - 1) / 2)]?.date.slice(5) ?? "")}</text>
-    <text x="${plot.x + plot.width}" y="320" text-anchor="end">${escapeXml(history[history.length - 1]?.date.slice(5) ?? "")}</text>
+  <g font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" fill="${colors.mutedInk}">
+    ${timelineLabels(history)}
   </g>
   <a href="${homepageUrl}" target="_blank" rel="noopener noreferrer">
     <text x="${plot.x + plot.width}" y="344" text-anchor="end" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="750" fill="${colors.secondaryOrange}">${escapeXml(homepageLabel)}</text>
@@ -182,11 +181,24 @@ function buildMetricBars({
 }
 
 function scaledScorePoints(history: ProfileHistoryPoint[], maxScore: number) {
-  const denominator = Math.max(history.length - 1, 1);
   return history.map((point, index) => ({
-    x: round(plot.x + (index / denominator) * plot.width),
+    x: timelineX(index, history.length),
     y: round(plot.y + plot.height - (point.score / maxScore) * plot.height),
   }));
+}
+
+function timelineLabels(history: ProfileHistoryPoint[]): string {
+  return profileTimelineTicks(history)
+    .map(
+      (tick) =>
+        `<text x="${timelineX(tick.index, history.length)}" y="320" text-anchor="${tick.anchor}">${escapeXml(tick.label)}</text>`,
+    )
+    .join("");
+}
+
+function timelineX(index: number, total: number): number {
+  const denominator = Math.max(total - 1, 1);
+  return round(plot.x + (index / denominator) * plot.width);
 }
 
 function legendItems(colors: BrandThemeColors, units: UnitPreference): string {
