@@ -517,6 +517,28 @@ test("embed svg includes a visible homepage link", async () => {
   assert.match(source, /text-anchor="end"[\s\S]*\$\{homepageUrl\}<\/text>/);
 });
 
+test("profile page generates clickable GitHub embed markdown", async () => {
+  const source = await readFile(
+    new URL("../src/app/users/[login]/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const docs = await readFile(
+    new URL("../../../docs/github-profile-embed.md", import.meta.url),
+    "utf8",
+  );
+
+  assert.ok(source.includes('const homepageUrl = "https://paceandpush.com/";'));
+  assert.ok(
+    source.includes(
+      'const embedMarkdown = `[![${brandName} chart](https://paceandpush.com${chartPath})](${homepageUrl})`;',
+    ),
+  );
+  assert.match(
+    docs,
+    /\[!\[Pace & Push chart\]\(https:\/\/paceandpush\.com\/api\/embed\/Noc2\/chart\.svg\)\]\(https:\/\/paceandpush\.com\/\)/,
+  );
+});
+
 test("embed svg keeps long running-distance values inside the canvas", async () => {
   const source = await readFile(
     new URL("../src/server/charts/profile-chart.ts", import.meta.url),

@@ -4,11 +4,13 @@ Pace & Push exposes an SVG chart endpoint that can be embedded in a GitHub
 profile README:
 
 ```md
-![Pace & Push chart](https://paceandpush.com/api/embed/Noc2/chart.svg)
+[![Pace & Push chart](https://paceandpush.com/api/embed/Noc2/chart.svg)](https://paceandpush.com/)
 ```
 
 Replace `Noc2` with any public Pace & Push login. The chart is rendered as SVG
 so it works in Markdown image embeds and stays small enough for profile pages.
+The surrounding Markdown link makes the image open the Pace & Push homepage
+when it is clicked from a GitHub profile README.
 
 The chart includes:
 

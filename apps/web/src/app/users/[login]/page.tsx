@@ -36,7 +36,8 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   );
   const chartParams = new URLSearchParams({ period: profile.score.period, units });
   const chartPath = `/api/embed/${encodeURIComponent(profile.login)}/chart.svg?${chartParams}`;
-  const embedMarkdown = `![${brandName} chart](https://paceandpush.com${chartPath})`;
+  const homepageUrl = "https://paceandpush.com/";
+  const embedMarkdown = `[![${brandName} chart](https://paceandpush.com${chartPath})](${homepageUrl})`;
   const periodLabel = formatPeriodLabel(profile.score.period);
 
   return (
