@@ -69,7 +69,10 @@ class MainActivity : ComponentActivity() {
 
     private val ink = Color.rgb(33, 30, 26)
     private val muted = Color.rgb(95, 90, 81)
-    private val paper = Color.rgb(248, 242, 230)
+    private val paper = Color.rgb(247, 243, 234)
+    private val surfacePanel = Color.rgb(244, 238, 226)
+    private val surfacePanelHigh = Color.rgb(239, 231, 216)
+    private val surfaceInset = Color.rgb(233, 223, 206)
     private val orange = Color.rgb(249, 115, 22)
     private val green = Color.rgb(22, 101, 52)
     private val red = Color.rgb(180, 35, 24)
@@ -205,14 +208,14 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(16))
-            background = borderedBackground(paper, ink)
+            background = borderedBackground(surfacePanel, ink)
             Tab.values().forEachIndexed { index, tab ->
                 addView(
                     Button(this@MainActivity).apply {
                         text = tab.title
                         isAllCaps = false
                         setTextColor(ink)
-                        background = solidBackground(if (tab == activeTab) orange else paper)
+                        background = solidBackground(if (tab == activeTab) orange else surfacePanel)
                         setOnClickListener {
                             activeTab = tab
                             render()
@@ -260,7 +263,7 @@ class MainActivity : ComponentActivity() {
                                 text = option.title
                                 isAllCaps = false
                                 setTextColor(ink)
-                                setBackgroundColor(if (option == board) orange else paper)
+                                setBackgroundColor(if (option == board) orange else surfacePanel)
                                 setOnClickListener {
                                     board = option
                                     if (paired) {
@@ -312,6 +315,7 @@ class MainActivity : ComponentActivity() {
             setTextColor(ink)
             setHintTextColor(muted)
             setPadding(dp(10), 0, dp(10), 0)
+            background = borderedBackground(surfacePanel, line)
         }
 
         return LinearLayout(this).apply {
@@ -406,7 +410,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun profileChartPanel(): View {
-        return panel {
+        return panel(surfacePanelHigh) {
             addView(labelText("Profile chart"))
             if (history.isEmpty()) {
                 addView(chartPlaceholder("No chart data yet.").apply {
@@ -434,7 +438,7 @@ class MainActivity : ComponentActivity() {
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(muted)
-            background = borderedBackground(paper, line)
+            background = borderedBackground(surfaceInset, line)
             layoutParams = LinearLayout.LayoutParams(-1, dp(144))
         }
     }
@@ -535,7 +539,7 @@ class MainActivity : ComponentActivity() {
                         isAllCaps = false
                         isEnabled = !pairingInProgress && !syncInProgress
                         setTextColor(ink)
-                        setBackgroundColor(paper)
+                        setBackgroundColor(surfacePanelHigh)
                         setOnClickListener {
                             disconnectGitHub()
                         }
@@ -547,7 +551,7 @@ class MainActivity : ComponentActivity() {
                     text = "Beta Feedback"
                     isAllCaps = false
                     setTextColor(ink)
-                    setBackgroundColor(paper)
+                    setBackgroundColor(surfacePanelHigh)
                     setOnClickListener {
                         openSupportEmail()
                     }
@@ -562,6 +566,7 @@ class MainActivity : ComponentActivity() {
                     setSingleLine(true)
                     setTextColor(ink)
                     setHintTextColor(muted)
+                    background = borderedBackground(surfacePanelHigh, line)
                 }
                 addView(urlInput)
                 addView(
@@ -693,7 +698,7 @@ class MainActivity : ComponentActivity() {
                         text = option.title
                         isAllCaps = false
                         setTextColor(ink)
-                        setBackgroundColor(if (option == units) orange else paper)
+                        setBackgroundColor(if (option == units) orange else surfacePanelHigh)
                         setOnClickListener {
                             units = option
                             getPreferences(MODE_PRIVATE)
@@ -712,7 +717,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun scoreExplanationPanel(): View {
-        return panel {
+        return panel(surfacePanelHigh) {
             addView(labelText("How score works"))
             addView(bodyText(SCORE_EXPLANATION, 15f).apply {
                 setPadding(0, dp(6), 0, dp(6))
@@ -1543,11 +1548,11 @@ class MainActivity : ComponentActivity() {
         return (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
 
-    private fun panel(build: LinearLayout.() -> Unit): LinearLayout {
+    private fun panel(fillColor: Int = surfacePanel, build: LinearLayout.() -> Unit): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(16))
-            setBackgroundColor(paper)
+            setBackgroundColor(fillColor)
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
                 bottomMargin = dp(12)
             }
