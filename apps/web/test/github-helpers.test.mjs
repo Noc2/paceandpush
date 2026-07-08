@@ -713,6 +713,20 @@ test("health endpoint checks database availability", async () => {
   assert.match(source, /503/);
 });
 
+test("authenticated mobile profile responses are not cached", async () => {
+  const mobileMeRoute = await readFile(
+    new URL("../src/app/api/mobile/me/route.ts", import.meta.url),
+    "utf8",
+  );
+  const mobileProfileRoute = await readFile(
+    new URL("../src/app/api/mobile/me/profile/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(mobileMeRoute, /"cache-control": "no-store"/);
+  assert.match(mobileProfileRoute, /"cache-control": "no-store"/);
+});
+
 test("distance uploads recompute week month and year score periods", async () => {
   const source = await readFile(
     new URL("../src/app/api/mobile/distance-days/route.ts", import.meta.url),

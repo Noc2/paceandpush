@@ -9,5 +9,9 @@ export async function GET(request: NextRequest) {
   }
 
   const period = parsePeriod(request.nextUrl.searchParams.get("period"));
-  return NextResponse.json(await getMe(auth.user, period));
+  return NextResponse.json(await getMe(auth.user, period), {
+    headers: {
+      "cache-control": "no-store",
+    },
+  });
 }

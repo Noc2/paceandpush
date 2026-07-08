@@ -24,5 +24,10 @@ export async function GET(request: NextRequest) {
       bio: account.bio,
       period,
     }),
+    {
+      headers: {
+        "cache-control": "no-store",
+      },
+    },
   );
 }

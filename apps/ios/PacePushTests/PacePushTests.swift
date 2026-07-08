@@ -116,6 +116,9 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(me.login, "noc2")
         XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/me")
         XCTAssertEqual(queryValue("period", in: loader.requests.first?.url), "2026-W27")
+        XCTAssertNotNil(queryValue("_appRefresh", in: loader.requests.first?.url))
+        XCTAssertEqual(loader.requests.first?.cachePolicy, .reloadIgnoringLocalAndRemoteCacheData)
+        XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "cache-control"), "no-cache")
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "accept"), "application/json")
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
     }
@@ -188,6 +191,9 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(profile.login, "noc2")
         XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/me/profile")
         XCTAssertEqual(queryValue("period", in: loader.requests.first?.url), "2026-07")
+        XCTAssertNotNil(queryValue("_appRefresh", in: loader.requests.first?.url))
+        XCTAssertEqual(loader.requests.first?.cachePolicy, .reloadIgnoringLocalAndRemoteCacheData)
+        XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "cache-control"), "no-cache")
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
     }
 

@@ -2023,16 +2023,24 @@ final class PacePushAPIClient: PacePushClienting {
     func fetchMe(period: String) async throws -> MeResponse {
         try await fetch(
             "/api/mobile/me",
-            queryItems: [URLQueryItem(name: "period", value: period)],
+            queryItems: [
+                URLQueryItem(name: "period", value: period),
+                URLQueryItem(name: "_appRefresh", value: String(Int(Date().timeIntervalSince1970 * 1000))),
+            ],
             authenticated: true,
+            cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
         )
     }
 
     func fetchProfile(period: String) async throws -> PublicProfileResponse {
         try await fetch(
             "/api/mobile/me/profile",
-            queryItems: [URLQueryItem(name: "period", value: period)],
+            queryItems: [
+                URLQueryItem(name: "period", value: period),
+                URLQueryItem(name: "_appRefresh", value: String(Int(Date().timeIntervalSince1970 * 1000))),
+            ],
             authenticated: true,
+            cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
         )
     }
 
