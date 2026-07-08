@@ -652,7 +652,7 @@ test("mobile GitHub disconnect revokes social credentials and device access", as
   assert.match(nativeApp, /\/api\/mobile\/me\/github\/disconnect/);
 });
 
-test("authenticated profile reads repair stale zero-commit distance snapshots", async () => {
+test("authenticated profile reads repair historical zero-commit distance snapshots", async () => {
   const source = await readFile(
     new URL("../src/server/data/read-model.ts", import.meta.url),
     "utf8",
@@ -670,7 +670,7 @@ test("authenticated profile reads repair stale zero-commit distance snapshots", 
   assert.match(refreshBlock, /shouldRefreshAccountScoreSnapshot\(account\.id, period\)/);
   assert.match(refreshBlock, /refreshGitHubCommitsForUser/);
   assert.match(refreshBlock, /recomputeScoreSnapshots\(period\)/);
-  assert.match(refreshBlock, /isCurrentOrPreviousPeriod\(period\)/);
+  assert.doesNotMatch(refreshBlock, /isCurrentOrPreviousPeriod\(period\)/);
   assert.match(refreshBlock, /snapshot\.commits === 0/);
   assert.match(refreshBlock, /snapshot\.distanceMeters > 0/);
 });

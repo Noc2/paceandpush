@@ -410,11 +410,7 @@ async function shouldRefreshAccountScoreSnapshot(
   const snapshot = await getScoreSnapshot(userId, period);
   if (!snapshot) return true;
 
-  return (
-    isCurrentOrPreviousPeriod(period) &&
-    snapshot.commits === 0 &&
-    snapshot.distanceMeters > 0
-  );
+  return snapshot.commits === 0 && snapshot.distanceMeters > 0;
 }
 
 async function hasScoreSnapshot(userId: string, period: string): Promise<boolean> {
