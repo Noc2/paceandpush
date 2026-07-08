@@ -4,7 +4,11 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import android.content.res.Configuration
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -437,11 +441,38 @@ class MainActivity : ComponentActivity() {
                     setPadding(0, dp(6), 0, dp(6))
                     typeface = Typeface.DEFAULT_BOLD
                 })
+                addView(ProfileTrendChartView(history).apply {
+                    layoutParams = LinearLayout.LayoutParams(-1, dp(176)).apply {
+                        topMargin = dp(10)
+                        bottomMargin = dp(10)
+                    }
+                })
+                addView(profileChartLegend())
                 addView(bodyText(
                     "Score ${last.score.toFixed(1)} / ${last.commits} commits / ${formatDistance(last.kilometers, includeUnit = true)}",
                     15f,
                 ))
             }
+        }
+    }
+
+    private fun profileChartLegend(): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(chartLegendText("Score", orange))
+            addView(chartLegendText("Commits", green))
+            addView(chartLegendText("Run ${units.abbreviation}", blue))
+        }
+    }
+
+    private fun chartLegendText(label: String, color: Int): TextView {
+        return TextView(this).apply {
+            text = label
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(color)
+            setPadding(0, 0, dp(18), 0)
         }
     }
 
@@ -1321,6 +1352,126 @@ class MainActivity : ComponentActivity() {
             if (responseBody.isBlank()) JSONObject() else JSONObject(responseBody)
         } finally {
             connection.disconnect()
+        }
+    }
+
+    private inner class ProfileTrendChartView(
+        private val points: List<ProfileHistoryPoint>,
+    ) : View(this@MainActivity) {
+        private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+        }
+        private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+        }
+        private val scorePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            if (points.isEmpty()) return
+
+            val chartWidth = width.toFloat().coerceAtLeast(1f)
+            val chartTop = dp(6).toFloat()
+            val chartBottom = height.toFloat() - dp(6).toFloat()
+            val chartHeight = (chartBottom - chartTop).coerceAtLeast(1f)
+            val baseline = chartTop + chartHeight
+
+            gridPaint.color = line
+            gridPaint.strokeWidth = dp(1).toFloat()
+            for (row in 0..4) {
+                val y = chartTop + chartHeight * row / 4f
+                canvas.drawLine(0f, y, chartWidth, y, gridPaint)
+            }
+
+            drawBars(
+                canvas = canvas,
+                values = dailyDeltas(points.map { it.commits.toDouble() }),
+                fillColor = green,
+                offset = 0,
+                chartHeight = chartHeight,
+                baseline = baseline,
+            )
+            drawBars(
+                canvas = canvas,
+                values = dailyDeltas(points.map { it.kilometers }),
+                fillColor = blue,
+                offset = 1,
+                chartHeight = chartHeight,
+                baseline = baseline,
+            )
+            drawScoreLine(canvas, chartWidth, chartHeight, baseline)
+        }
+
+        private fun drawBars(
+            canvas: Canvas,
+            values: List<Double>,
+            fillColor: Int,
+            offset: Int,
+            chartHeight: Float,
+            baseline: Float,
+        ) {
+            val maxValue = maxValue(values)
+            val slotWidth = width.toFloat().coerceAtLeast(1f) / values.size.coerceAtLeast(1)
+            val groupWidth = minOf(dp(14).toFloat(), maxOf(dp(2).toFloat(), slotWidth * 0.74f))
+            val barWidth = maxOf(1f, groupWidth / 2f)
+            val radius = dp(2).toFloat()
+            barPaint.color = fillColor
+            barPaint.alpha = 112
+
+            values.forEachIndexed { index, value ->
+                val height = maxOf(dp(2).toFloat(), chartHeight * (value / maxValue).toFloat() * 0.52f)
+                val centerX = slotWidth * index + slotWidth / 2f
+                val x = centerX - groupWidth / 2f + offset * barWidth
+                canvas.drawRoundRect(
+                    RectF(x, baseline - height, x + barWidth, baseline),
+                    radius,
+                    radius,
+                    barPaint,
+                )
+            }
+            barPaint.alpha = 255
+        }
+
+        private fun drawScoreLine(
+            canvas: Canvas,
+            chartWidth: Float,
+            chartHeight: Float,
+            baseline: Float,
+        ) {
+            val scoreMax = maxValue(points.map { it.score })
+            val scorePath = Path()
+            val denominator = (points.size - 1).coerceAtLeast(1)
+
+            points.forEachIndexed { index, point ->
+                val x = if (points.size == 1) chartWidth else chartWidth * index / denominator.toFloat()
+                val y = baseline - chartHeight * (point.score / scoreMax).toFloat()
+                if (index == 0) {
+                    scorePath.moveTo(x, y)
+                } else {
+                    scorePath.lineTo(x, y)
+                }
+            }
+
+            scorePaint.color = orange
+            scorePaint.strokeWidth = dp(4).toFloat()
+            canvas.drawPath(scorePath, scorePaint)
+        }
+
+        private fun dailyDeltas(values: List<Double>): List<Double> {
+            var previous = 0.0
+            return values.map { value ->
+                val delta = maxOf(0.0, value - previous)
+                previous = value
+                delta
+            }
+        }
+
+        private fun maxValue(values: List<Double>): Double {
+            return values.fold(1.0) { current, value -> maxOf(current, value) }
         }
     }
 

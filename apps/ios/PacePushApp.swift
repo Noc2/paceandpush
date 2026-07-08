@@ -1185,24 +1185,28 @@ struct ProfileChartView: View {
                         chartGrid(in: geometry.size)
                             .stroke(Brand.line, lineWidth: 1)
 
-                        ForEach(ProfileChartSeries.allCases) { series in
-                            linePath(for: series, in: geometry.size)
-                                .stroke(
-                                    series.color,
-                                    style: StrokeStyle(
-                                        lineWidth: series.lineWidth,
-                                        lineCap: .round,
-                                        lineJoin: .round,
-                                        dash: series.dash,
-                                    ),
-                                )
+                        ForEach(ProfileChartSeries.barSeries) { series in
+                            barPath(for: series, in: geometry.size)
+                                .fill(series.color.opacity(0.42))
                         }
+
+                        linePath(for: .score, in: geometry.size)
+                            .stroke(
+                                ProfileChartSeries.score.color,
+                                style: StrokeStyle(
+                                    lineWidth: ProfileChartSeries.score.lineWidth,
+                                    lineCap: .round,
+                                    lineJoin: .round,
+                                    dash: ProfileChartSeries.score.dash,
+                                ),
+                            )
                     }
                 }
                 .frame(height: 176)
                 .padding(10)
                 .roundedBackground(Brand.surfacePanel)
                 .roundedBorder(lineWidth: 1)
+                .accessibilityLabel("Score line with daily commit and running distance bars")
 
                 HStack(spacing: 14) {
                     ForEach(ProfileChartSeries.allCases) { series in
@@ -1242,6 +1246,33 @@ struct ProfileChartView: View {
         return path
     }
 
+    private func barPath(for series: ProfileChartSeries, in size: CGSize) -> Path {
+        let values = dailyValues(for: series)
+        guard let maxValue = values.max(), maxValue > 0 else { return Path() }
+
+        var path = Path()
+        let usableWidth = max(size.width, 1)
+        let usableHeight = max(size.height, 1)
+        let count = max(values.count, 1)
+        let slotWidth = usableWidth / CGFloat(count)
+        let groupWidth = min(14, max(2, slotWidth * 0.74))
+        let barWidth = max(1, groupWidth / 2)
+        let offset = series == .commits ? CGFloat(0) : barWidth
+
+        for (index, value) in values.enumerated() {
+            let height = max(2, usableHeight * CGFloat(value / maxValue) * 0.52)
+            let centerX = slotWidth * CGFloat(index) + slotWidth / 2
+            let x = centerX - groupWidth / 2 + offset
+            let y = usableHeight - height
+            path.addRoundedRect(
+                in: CGRect(x: x, y: y, width: barWidth, height: height),
+                cornerSize: CGSize(width: 2, height: 2)
+            )
+        }
+
+        return path
+    }
+
     private func linePath(for series: ProfileChartSeries, in size: CGSize) -> Path {
         let values = history.map { series.value(from: $0) }
         guard let maxValue = values.max(), maxValue > 0 else { return Path() }
@@ -1264,6 +1295,16 @@ struct ProfileChartView: View {
         }
 
         return path
+    }
+
+    private func dailyValues(for series: ProfileChartSeries) -> [Double] {
+        var previous = 0.0
+        return history.map { point in
+            let value = series.value(from: point)
+            let delta = max(0, value - previous)
+            previous = value
+            return delta
+        }
     }
 }
 
@@ -2857,6 +2898,8 @@ private enum ProfileChartSeries: CaseIterable, Identifiable {
     case distance
     case score
 
+    static let barSeries: [ProfileChartSeries] = [.commits, .distance]
+
     var id: String {
         switch self {
         case .commits:
@@ -2889,12 +2932,7 @@ private enum ProfileChartSeries: CaseIterable, Identifiable {
     }
 
     var dash: [CGFloat] {
-        switch self {
-        case .score:
-            return [7, 6]
-        case .commits, .distance:
-            return []
-        }
+        []
     }
 
     func legendTitle(units: DistanceUnits) -> String {

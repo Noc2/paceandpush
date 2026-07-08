@@ -571,6 +571,7 @@ test("profile page renders one theme-aware embed chart preview", async () => {
   );
 
   assert.ok(page.includes("<ProfileChartEmbed"));
+  assert.equal((component.match(/<object/g) ?? []).length, 1);
   assert.equal((component.match(/<img/g) ?? []).length, 1);
   assert.match(
     component,
@@ -580,6 +581,7 @@ test("profile page renders one theme-aware embed chart preview", async () => {
     component,
     /const embedMarkdown = resolvedTheme === "dark" \? darkEmbedMarkdown : lightEmbedMarkdown;/,
   );
+  assert.match(component, /<object[\s\S]*data=\{chartPath\}[\s\S]*type="image\/svg\+xml"/);
   assert.match(component, /<img[\s\S]*src=\{chartPath\}/);
   assert.match(
     component,
@@ -596,9 +598,12 @@ test("embed svg keeps long running-distance values inside the canvas", async () 
   assert.match(source, /distanceX: chartWidth - 38 - 414/);
   assert.match(source, /metricText\(0, "Score"[\s\S]*colors\.secondaryOrange, colors\)/);
   assert.match(source, /metricText\(metrics\.distanceX,[\s\S]*colors\.rankBlue, colors, "end"\)/);
-  assert.match(source, /maxDistance = Math\.max\(\.\.\.history\.map\(\(point\) => point\.kilometers\), 1\)/);
-  assert.match(source, /buildDistanceLinePath\(history, maxDistance\)/);
-  assert.match(source, /stroke="\$\{colors\.rankBlue\}"[\s\S]*stroke-dasharray="8 7"/);
+  assert.match(source, /dailyDistances = toDailyValues\(history\.map\(\(point\) => point\.kilometers\)\)/);
+  assert.match(source, /buildMetricBars\(\{[\s\S]*values: dailyCommits[\s\S]*color: colors\.commitGreen/);
+  assert.match(source, /buildMetricBars\(\{[\s\S]*values: dailyDistances[\s\S]*color: colors\.rankBlue/);
+  assert.match(source, /<title>\$\{escapeXml\(title\(value, index\)\)\}<\/title>/);
+  assert.match(source, /scoreHoverPoints\(history, maxScore\)/);
+  assert.match(source, /pointer-events="all"/);
   assert.match(source, /\{ label: "Score", color: "secondaryOrange" \}/);
   assert.match(source, /\{ label: "Run", color: "rankBlue" \}/);
   assert.match(source, /const seriesLegend = \[/);
@@ -1166,7 +1171,13 @@ test("design borders use a consistent single-pixel weight", async () => {
   assert.match(brandSource, /--distance: \$\{colors\.rankBlue\}/);
   assert.match(iosSource, /color: Brand\.orange[\s\S]*MetricTile\(title: "Commits"/);
   assert.match(iosSource, /title: units\.title,[\s\S]*color: Brand\.blue/);
+  assert.match(iosSource, /ForEach\(ProfileChartSeries\.barSeries\)/);
+  assert.match(iosSource, /linePath\(for: \.score, in: geometry\.size\)/);
+  assert.match(iosSource, /private func barPath\(for series: ProfileChartSeries/);
   assert.match(iosSource, /\.foregroundStyle\(series\.color\)/);
+  assert.match(androidSource, /ProfileTrendChartView\(history\)/);
+  assert.match(androidSource, /dailyDeltas\(points\.map \{ it\.kilometers \}\)/);
+  assert.match(androidSource, /drawScoreLine\(canvas, chartWidth, chartHeight, baseline\)/);
   assert.match(androidSource, /Board\.Balanced -> LeaderboardMetric\([\s\S]*color = orange/);
   assert.match(androidSource, /Board\.Distance -> LeaderboardMetric\([\s\S]*color = blue/);
   assert.match(iosSource, /lineWidth: CGFloat = Brand\.borderWidth/);

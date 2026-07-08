@@ -43,9 +43,10 @@ export function renderProfileChartSvg(
   const colors = getBrandTheme(theme);
   const history = profile.history.length > 0 ? profile.history : [emptyPoint()];
   const maxScore = Math.max(...history.map((point) => point.score), 1);
-  const maxDistance = Math.max(...history.map((point) => point.kilometers), 1);
   const dailyCommits = toDailyValues(history.map((point) => point.commits));
+  const dailyDistances = toDailyValues(history.map((point) => point.kilometers));
   const maxDailyCommits = Math.max(...dailyCommits, 1);
+  const maxDailyDistance = Math.max(...dailyDistances, 1);
   const visibleLogin = truncateSvgText(profile.login, 34);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -70,11 +71,24 @@ export function renderProfileChartSvg(
 
   <g>
     ${gridLines(colors)}
-    ${buildCommitBars(dailyCommits, maxDailyCommits, colors)}
     <path d="${buildAreaPath(history, maxScore)}" fill="${colors.secondaryOrange}" fill-opacity="0.22"/>
+    ${buildMetricBars({
+      values: dailyCommits,
+      maxValue: maxDailyCommits,
+      color: colors.commitGreen,
+      offset: 0,
+      title: (value, index) => `${history[index]?.date ?? ""}: ${value} commits`,
+    })}
+    ${buildMetricBars({
+      values: dailyDistances,
+      maxValue: maxDailyDistance,
+      color: colors.rankBlue,
+      offset: 1,
+      title: (value, index) => `${history[index]?.date ?? ""}: ${formatDistance(value, units)} ${distanceUnitAbbreviation(units)}`,
+    })}
     <path d="${buildLinePath(history, maxScore)}" fill="none" stroke="${colors.secondaryOrange}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
     <path d="${buildLinePath(history, maxScore)}" fill="none" stroke="${colors.ink}" stroke-width="1.2" stroke-opacity="0.35" stroke-linejoin="round" stroke-linecap="round"/>
-    <path d="${buildDistanceLinePath(history, maxDistance)}" fill="none" stroke="${colors.rankBlue}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+    ${scoreHoverPoints(history, maxScore)}
   </g>
 
   <g transform="translate(${plot.x} 302)" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="800">
@@ -138,27 +152,31 @@ function buildLinePath(history: ProfileHistoryPoint[], maxScore: number): string
     .join(" ");
 }
 
-function buildDistanceLinePath(history: ProfileHistoryPoint[], maxDistance: number): string {
-  return scaledDistancePoints(history, maxDistance)
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-    .join(" ");
-}
-
-function buildCommitBars(
-  dailyCommits: number[],
-  maxDailyCommits: number,
-  colors: BrandThemeColors,
-): string {
-  const count = Math.max(dailyCommits.length, 1);
+function buildMetricBars({
+  values,
+  maxValue,
+  color,
+  offset,
+  title,
+}: {
+  values: number[];
+  maxValue: number;
+  color: string;
+  offset: 0 | 1;
+  title: (value: number, index: number) => string;
+}): string {
+  const count = Math.max(values.length, 1);
   const slotWidth = plot.width / count;
-  const barWidth = Math.min(8, slotWidth >= 2 ? slotWidth * 0.62 : slotWidth);
+  const groupWidth = Math.min(10, slotWidth >= 2 ? slotWidth * 0.74 : slotWidth);
+  const barWidth = Math.max(1, groupWidth / 2);
+  const barRadius = Math.min(cornerRadius, barWidth / 2);
 
-  return dailyCommits
+  return values
     .map((value, index) => {
-      const height = Math.max(3, (value / maxDailyCommits) * (plot.height * 0.52));
-      const x = plot.x + index * slotWidth + (slotWidth - barWidth) / 2;
+      const height = Math.max(3, (value / maxValue) * (plot.height * 0.52));
+      const x = plot.x + index * slotWidth + (slotWidth - groupWidth) / 2 + offset * barWidth;
       const y = plot.y + plot.height - height;
-      return `<rect x="${round(x)}" y="${round(y)}" width="${round(barWidth)}" height="${round(height)}" rx="${cornerRadius}" fill="${colors.commitGreen}" fill-opacity="0.28"/>`;
+      return `<rect x="${round(x)}" y="${round(y)}" width="${round(barWidth)}" height="${round(height)}" rx="${round(barRadius)}" fill="${color}" fill-opacity="0.34"><title>${escapeXml(title(value, index))}</title></rect>`;
     })
     .join("");
 }
@@ -168,14 +186,6 @@ function scaledScorePoints(history: ProfileHistoryPoint[], maxScore: number) {
   return history.map((point, index) => ({
     x: round(plot.x + (index / denominator) * plot.width),
     y: round(plot.y + plot.height - (point.score / maxScore) * plot.height),
-  }));
-}
-
-function scaledDistancePoints(history: ProfileHistoryPoint[], maxDistance: number) {
-  const denominator = Math.max(history.length - 1, 1);
-  return history.map((point, index) => ({
-    x: round(plot.x + (index / denominator) * plot.width),
-    y: round(plot.y + plot.height - (point.kilometers / maxDistance) * plot.height),
   }));
 }
 
@@ -190,6 +200,17 @@ function legendItems(colors: BrandThemeColors, units: UnitPreference): string {
     </g>`;
       x += label.length * 7 + 42;
       return text;
+    })
+    .join("");
+}
+
+function scoreHoverPoints(history: ProfileHistoryPoint[], maxScore: number): string {
+  return scaledScorePoints(history, maxScore)
+    .map((point, index) => {
+      const historyPoint = history[index] ?? emptyPoint();
+      return `<circle cx="${point.x}" cy="${point.y}" r="6" fill="transparent" pointer-events="all">
+      <title>${escapeXml(`${historyPoint.date}: score ${historyPoint.score.toFixed(1)}`)}</title>
+    </circle>`;
     })
     .join("");
 }

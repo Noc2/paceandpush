@@ -37,11 +37,17 @@ export function ProfileChartEmbed({
   return (
     <>
       <div className="profile-chart-previews">
-        <img
+        <object
+          aria-label={`${brandName} ${resolvedTheme} chart for ${login}`}
           className="profile-chart"
-          src={chartPath}
-          alt={`${brandName} ${resolvedTheme} chart for ${login}`}
-        />
+          data={chartPath}
+          type="image/svg+xml"
+        >
+          <img
+            src={chartPath}
+            alt={`${brandName} ${resolvedTheme} chart for ${login}`}
+          />
+        </object>
       </div>
       <div className="chart-panel-copy">
         <p className="section-label">Profile chart</p>
