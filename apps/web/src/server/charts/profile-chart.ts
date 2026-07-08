@@ -8,6 +8,7 @@ import {
 
 const chartWidth = 720;
 const chartHeight = 360;
+const homepageUrl = "https://paceandpush.com/";
 const plot = {
   x: 38,
   y: 124,
@@ -28,21 +29,20 @@ export function renderProfileChartSvg(
   const maxScore = Math.max(...history.map((point) => point.score), 1);
   const dailyCommits = toDailyValues(history.map((point) => point.commits));
   const maxDailyCommits = Math.max(...dailyCommits, 1);
-  const visibleLogin = truncateSvgText(profile.login, 28);
-  const visibleDisplayName = truncateSvgText(profile.displayName, 34);
+  const visibleLogin = truncateSvgText(profile.login, 34);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-labelledby="title desc">
   <title id="title">${escapeXml(brandName)} chart for ${escapeXml(profile.login)}</title>
-  <desc id="desc">Monthly Pace and Push score, commit, and running distance summary for ${escapeXml(profile.displayName)}.</desc>
+  <desc id="desc">Monthly Pace and Push score, commit, and running distance summary for ${escapeXml(profile.login)}.</desc>
   <rect width="${chartWidth}" height="${chartHeight}" rx="18" fill="${brandColors.surfacePanel}"/>
   <rect x="0.5" y="0.5" width="${chartWidth - 1}" height="${chartHeight - 1}" rx="17.5" fill="none" stroke="${brandColors.ink}" stroke-opacity="0.12"/>
 
   <g transform="translate(30 28)">
     <rect width="34" height="34" fill="${brandColors.secondaryOrange}" stroke="${brandColors.ink}" stroke-width="2"/>
     <text x="17" y="25" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="24" font-weight="900" fill="${brandColors.ink}">${escapeXml(promptMark.character)}</text>
-    <text x="48" y="16" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="800" fill="${brandColors.ink}">@${escapeXml(visibleLogin)}</text>
-    <text x="48" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="650" fill="${brandColors.mutedInk}">${escapeXml(visibleDisplayName)}</text>
+    <text x="48" y="16" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="800" fill="${brandColors.ink}">${escapeXml(brandName)}</text>
+    <text x="48" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="650" fill="${brandColors.mutedInk}">${escapeXml(visibleLogin)}</text>
   </g>
 
   <g transform="translate(${metrics.x} 28)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
@@ -64,6 +64,9 @@ export function renderProfileChartSvg(
     <text x="${plot.x + plot.width / 2}" y="320" text-anchor="middle">${escapeXml(history[Math.floor((history.length - 1) / 2)]?.date.slice(5) ?? "")}</text>
     <text x="${plot.x + plot.width}" y="320" text-anchor="end">${escapeXml(history[history.length - 1]?.date.slice(5) ?? "")}</text>
   </g>
+  <a href="${homepageUrl}" target="_blank" rel="noopener noreferrer">
+    <text x="${plot.x + plot.width}" y="344" text-anchor="end" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="750" fill="${brandColors.rankBlue}">${homepageUrl}</text>
+  </a>
 </svg>`;
 }
 

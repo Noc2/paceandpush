@@ -493,15 +493,28 @@ test("embed svg route has a sandboxed content security policy", async () => {
   assert.match(source, /x-content-type-options/);
 });
 
-test("embed svg truncates visible profile names", async () => {
+test("embed svg brands the card and truncates the visible login", async () => {
   const source = await readFile(
     new URL("../src/server/charts/profile-chart.ts", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /const visibleLogin = truncateSvgText\(profile\.login, 28\)/);
-  assert.match(source, /const visibleDisplayName = truncateSvgText\(profile\.displayName, 34\)/);
+  assert.match(source, /const visibleLogin = truncateSvgText\(profile\.login, 34\)/);
+  assert.match(source, /\$\{escapeXml\(brandName\)\}<\/text>/);
+  assert.match(source, /\$\{escapeXml\(visibleLogin\)\}<\/text>/);
+  assert.doesNotMatch(source, /visibleDisplayName/);
   assert.match(source, /function truncateSvgText/);
+});
+
+test("embed svg includes a visible homepage link", async () => {
+  const source = await readFile(
+    new URL("../src/server/charts/profile-chart.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /const homepageUrl = "https:\/\/paceandpush\.com\/"/);
+  assert.match(source, /<a href="\$\{homepageUrl\}"/);
+  assert.match(source, /text-anchor="end"[\s\S]*\$\{homepageUrl\}<\/text>/);
 });
 
 test("embed svg keeps long running-distance values inside the canvas", async () => {
