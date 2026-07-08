@@ -1047,8 +1047,10 @@ test("web layout consumes shared brand CSS variables", async () => {
   assert.match(layoutSource, /localStorage\.getItem\("pace-theme"\)/);
   assert.match(layoutSource, /document\.documentElement\.dataset\.theme = theme/);
   assert.match(layoutSource, /dangerouslySetInnerHTML=\{\{ __html: cssVariables \}\}/);
+  assert.match(themeControlSource, /const preferences: SelectableThemePreference\[] = \["light", "dark"\]/);
   assert.match(themeControlSource, /window\.addEventListener\("pace-theme-change", syncPreference\)/);
   assert.match(themeControlSource, /window\.removeEventListener\("pace-theme-change", syncPreference\)/);
+  assert.match(globalCss, /grid-template-columns: repeat\(2, minmax\(78px, 1fr\)\)/);
   assert.doesNotMatch(globalCss, /^:root \{/m);
 });
 

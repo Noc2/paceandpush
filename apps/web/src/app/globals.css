@@ -139,13 +139,13 @@ textarea {
   width: fit-content;
   max-width: 100%;
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(78px, 1fr));
+  grid-template-columns: repeat(2, minmax(78px, 1fr));
   border: 1px solid var(--ink);
   background: var(--surface-panel);
 }
 
 .theme-toggle.compact {
-  grid-template-columns: repeat(3, minmax(64px, 1fr));
+  grid-template-columns: repeat(2, minmax(64px, 1fr));
 }
 
 .theme-toggle button {
