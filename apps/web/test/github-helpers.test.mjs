@@ -523,9 +523,10 @@ test("embed svg includes a visible homepage link", async () => {
     "utf8",
   );
 
-  assert.match(source, /const homepageUrl = "https:\/\/paceandpush\.com\/"/);
+  assert.match(source, /const homepageUrl = "https:\/\/paceandpush\.com"/);
+  assert.match(source, /const homepageLabel = "paceandpush\.com"/);
   assert.match(source, /<a href="\$\{homepageUrl\}"/);
-  assert.match(source, /text-anchor="end"[\s\S]*\$\{homepageUrl\}<\/text>/);
+  assert.match(source, /text-anchor="end"[\s\S]*fill="\$\{colors\.secondaryOrange\}"[\s\S]*\$\{escapeXml\(homepageLabel\)\}<\/text>/);
 });
 
 test("profile page generates clickable GitHub embed markdown", async () => {

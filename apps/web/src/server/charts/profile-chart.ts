@@ -16,7 +16,8 @@ import {
 const chartWidth = 720;
 const chartHeight = 360;
 const cornerRadius = brandRadius.github;
-const homepageUrl = "https://paceandpush.com/";
+const homepageUrl = "https://paceandpush.com";
+const homepageLabel = "paceandpush.com";
 const plot = {
   x: 38,
   y: 124,
@@ -75,7 +76,7 @@ export function renderProfileChartSvg(
     <text x="${plot.x + plot.width}" y="320" text-anchor="end">${escapeXml(history[history.length - 1]?.date.slice(5) ?? "")}</text>
   </g>
   <a href="${homepageUrl}" target="_blank" rel="noopener noreferrer">
-    <text x="${plot.x + plot.width}" y="344" text-anchor="end" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="750" fill="${colors.rankBlue}">${homepageUrl}</text>
+    <text x="${plot.x + plot.width}" y="344" text-anchor="end" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="750" fill="${colors.secondaryOrange}">${escapeXml(homepageLabel)}</text>
   </a>
 </svg>`;
 }
