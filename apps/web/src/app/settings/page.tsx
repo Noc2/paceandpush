@@ -9,6 +9,7 @@ import { MobileConnectPanel } from "./MobileConnectPanel";
 import { ScoreExplainer } from "../ScoreExplainer";
 import { SiteHeader } from "../SiteHeader";
 import { SignOutControl } from "./SignOutControl";
+import { ThemePreferenceControl } from "../ThemePreferenceControl";
 import { UnitPreferenceControl } from "./UnitPreferenceControl";
 
 type SettingsPageProps = {
@@ -73,6 +74,10 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
         </section>
 
         <div className="settings-list">
+          <div className="settings-row">
+            <span>Theme</span>
+            <ThemePreferenceControl />
+          </div>
           {me.login === "guest" ? (
             <Link className="button button-primary settings-cta" href="/api/github/oauth/start">
               Connect GitHub

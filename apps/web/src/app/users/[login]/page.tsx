@@ -34,10 +34,13 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   const row = leaderboard.rows.find(
     (leader) => leader.login.toLowerCase() === profile.login.toLowerCase(),
   );
-  const chartParams = new URLSearchParams({ period: profile.score.period, units });
-  const chartPath = `/api/embed/${encodeURIComponent(profile.login)}/chart.svg?${chartParams}`;
+  const lightChartParams = new URLSearchParams({ period: profile.score.period, units, theme: "light" });
+  const darkChartParams = new URLSearchParams({ period: profile.score.period, units, theme: "dark" });
+  const lightChartPath = `/api/embed/${encodeURIComponent(profile.login)}/chart.svg?${lightChartParams}`;
+  const darkChartPath = `/api/embed/${encodeURIComponent(profile.login)}/chart.svg?${darkChartParams}`;
   const homepageUrl = "https://paceandpush.com/";
-  const embedMarkdown = `[![${brandName} chart](https://paceandpush.com${chartPath})](${homepageUrl})`;
+  const lightEmbedMarkdown = `[![${brandName} chart](https://paceandpush.com${lightChartPath})](${homepageUrl})`;
+  const darkEmbedMarkdown = `[![${brandName} chart](https://paceandpush.com${darkChartPath})](${homepageUrl})`;
   const periodLabel = formatPeriodLabel(profile.score.period);
 
   return (
@@ -76,13 +79,29 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
               A lightweight SVG card for profile READMEs with your score trend,
               commits, and {runningDistanceShortLabel(units).toLowerCase()}.
             </p>
-            <code>{embedMarkdown}</code>
+            <div className="embed-code-list">
+              <div>
+                <span>Light</span>
+                <code>{lightEmbedMarkdown}</code>
+              </div>
+              <div>
+                <span>Dark</span>
+                <code>{darkEmbedMarkdown}</code>
+              </div>
+            </div>
           </div>
-          <img
-            className="profile-chart"
-            src={chartPath}
-            alt={`${brandName} chart for ${profile.login}`}
-          />
+          <div className="profile-chart-previews">
+            <img
+              className="profile-chart"
+              src={lightChartPath}
+              alt={`${brandName} light chart for ${profile.login}`}
+            />
+            <img
+              className="profile-chart"
+              src={darkChartPath}
+              alt={`${brandName} dark chart for ${profile.login}`}
+            />
+          </div>
         </section>
 
         <section className="history-list" aria-label={`${periodLabel} history`}>

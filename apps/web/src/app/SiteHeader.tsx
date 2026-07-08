@@ -1,6 +1,7 @@
 import { brandName, brandTagline, promptMark } from "@paceandpush/brand";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ThemePreferenceControl } from "./ThemePreferenceControl";
 
 export function SiteHeader({
   children,
@@ -25,7 +26,10 @@ export function SiteHeader({
         </span>
       </Link>
 
-      {children}
+      <div className="site-header-actions">
+        <ThemePreferenceControl compact />
+        {children}
+      </div>
     </header>
   );
 }

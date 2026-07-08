@@ -3,6 +3,7 @@
 import QRCode from "qrcode";
 import { useEffect, useId, useState } from "react";
 import { brandColors } from "@paceandpush/brand";
+import { useThemeSignature } from "./useThemeSignature";
 
 type DownloadTarget = {
   id: "ios" | "android";
@@ -32,6 +33,7 @@ export function AppDownloadActions() {
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const themeSignature = useThemeSignature();
 
   useEffect(() => {
     if (!activeTarget?.url) {
@@ -45,8 +47,8 @@ export function AppDownloadActions() {
 
     QRCode.toDataURL(activeTarget.url, {
       color: {
-        dark: brandColors.ink,
-        light: brandColors.surfaceBright,
+        dark: readCssColor("--ink", brandColors.ink),
+        light: readCssColor("--surface-bright", brandColors.surfaceBright),
       },
       errorCorrectionLevel: "M",
       margin: 2,
@@ -62,7 +64,7 @@ export function AppDownloadActions() {
     return () => {
       cancelled = true;
     };
-  }, [activeTarget]);
+  }, [activeTarget, themeSignature]);
 
   useEffect(() => {
     if (!activeTarget) return;
@@ -176,4 +178,8 @@ export function AppDownloadActions() {
       ) : null}
     </>
   );
+}
+
+function readCssColor(name: string, fallback: string): string {
+  return window.getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }

@@ -541,12 +541,21 @@ test("profile page generates clickable GitHub embed markdown", async () => {
   assert.ok(source.includes('const homepageUrl = "https://paceandpush.com/";'));
   assert.ok(
     source.includes(
-      'const embedMarkdown = `[![${brandName} chart](https://paceandpush.com${chartPath})](${homepageUrl})`;',
+      'const lightEmbedMarkdown = `[![${brandName} chart](https://paceandpush.com${lightChartPath})](${homepageUrl})`;',
+    ),
+  );
+  assert.ok(
+    source.includes(
+      'const darkEmbedMarkdown = `[![${brandName} chart](https://paceandpush.com${darkChartPath})](${homepageUrl})`;',
     ),
   );
   assert.match(
     docs,
-    /\[!\[Pace & Push chart\]\(https:\/\/paceandpush\.com\/api\/embed\/Noc2\/chart\.svg\)\]\(https:\/\/paceandpush\.com\/\)/,
+    /\[!\[Pace & Push chart\]\(https:\/\/paceandpush\.com\/api\/embed\/Noc2\/chart\.svg\?theme=light\)\]\(https:\/\/paceandpush\.com\/\)/,
+  );
+  assert.match(
+    docs,
+    /\[!\[Pace & Push chart\]\(https:\/\/paceandpush\.com\/api\/embed\/Noc2\/chart\.svg\?theme=dark\)\]\(https:\/\/paceandpush\.com\/\)/,
   );
 });
 
@@ -1004,6 +1013,8 @@ test("web layout consumes shared brand CSS variables", async () => {
   const globalCss = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
 
   assert.match(layoutSource, /import \{ cssVariables \} from "@paceandpush\/brand"/);
+  assert.match(layoutSource, /localStorage\.getItem\("pace-theme"\)/);
+  assert.match(layoutSource, /document\.documentElement\.dataset\.theme = theme/);
   assert.match(layoutSource, /dangerouslySetInnerHTML=\{\{ __html: cssVariables \}\}/);
   assert.doesNotMatch(globalCss, /^:root \{/m);
 });

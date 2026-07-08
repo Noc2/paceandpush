@@ -8,14 +8,25 @@ export const metadata: Metadata = {
   description: "A leaderboard for runners who ship.",
 };
 
+const themeScript = `(() => {
+  try {
+    const theme = window.localStorage.getItem("pace-theme");
+    if (theme === "light" || theme === "dark") {
+      document.documentElement.dataset.theme = theme;
+    }
+  } catch {
+  }
+})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <style
           id="pace-push-brand-tokens"
           dangerouslySetInnerHTML={{ __html: cssVariables }}

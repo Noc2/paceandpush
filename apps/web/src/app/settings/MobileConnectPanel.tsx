@@ -7,6 +7,7 @@ import type {
 import { brandColors } from "@paceandpush/brand";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
+import { useThemeSignature } from "../useThemeSignature";
 
 type ApiError = {
   error?: string;
@@ -25,6 +26,7 @@ export function MobileConnectPanel({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const themeSignature = useThemeSignature();
 
   useEffect(() => {
     if (!pairingCode) {
@@ -40,8 +42,8 @@ export function MobileConnectPanel({
 
     QRCode.toDataURL(payload, {
       color: {
-        dark: brandColors.ink,
-        light: brandColors.surfaceBright,
+        dark: readCssColor("--ink", brandColors.ink),
+        light: readCssColor("--surface-bright", brandColors.surfaceBright),
       },
       errorCorrectionLevel: "M",
       margin: 2,
@@ -59,7 +61,7 @@ export function MobileConnectPanel({
     return () => {
       cancelled = true;
     };
-  }, [pairingCode]);
+  }, [pairingCode, themeSignature]);
 
   async function createPairingCode() {
     setBusy(true);
@@ -203,4 +205,8 @@ function buildPairingDeepLink(code: string, baseUrl: string): string {
   payload.searchParams.set("code", code);
   payload.searchParams.set("baseUrl", baseUrl);
   return payload.toString();
+}
+
+function readCssColor(name: string, fallback: string): string {
+  return window.getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
