@@ -3,6 +3,7 @@ package com.paceandpush
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
         const val PREF_DEVICE_TOKEN_CIPHERTEXT = "mobile_device_token_ciphertext"
         const val PREF_DEVICE_TOKEN_IV = "mobile_device_token_iv"
         const val PREF_DISTANCE_UNITS = "distance_units"
+        const val PREF_THEME = "theme_preference"
         const val SUPPORT_EMAIL = "hawigxyz@proton.me"
         const val SCORE_FORMULA = "score = sqrt(commit ratio x running ratio) x 100"
         const val SCORE_EXPLANATION =
@@ -67,19 +69,29 @@ class MainActivity : ComponentActivity() {
         const val SYNC_LOOKBACK_DAYS = 44L
     }
 
-    private val ink = Color.rgb(33, 30, 26)
-    private val muted = Color.rgb(95, 90, 81)
-    private val paper = Color.rgb(251, 247, 239)
-    private val surfacePanel = Color.rgb(248, 242, 232)
-    private val surfacePanelHigh = Color.rgb(244, 236, 222)
-    private val surfaceInset = Color.rgb(239, 228, 211)
+    private val isDarkTheme: Boolean
+        get() = when (themePreference) {
+            AppThemePreference.System -> {
+                val mode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                mode == Configuration.UI_MODE_NIGHT_YES
+            }
+            AppThemePreference.Light -> false
+            AppThemePreference.Dark -> true
+        }
+
+    private val ink: Int get() = if (isDarkTheme) Color.rgb(230, 237, 243) else Color.rgb(31, 35, 40)
+    private val muted: Int get() = if (isDarkTheme) Color.rgb(139, 148, 158) else Color.rgb(89, 99, 110)
+    private val paper: Int get() = if (isDarkTheme) Color.rgb(13, 17, 23) else Color.WHITE
+    private val surfacePanel: Int get() = if (isDarkTheme) Color.rgb(22, 27, 34) else Color.rgb(246, 248, 250)
+    private val surfacePanelHigh: Int get() = if (isDarkTheme) Color.rgb(33, 38, 45) else Color.rgb(234, 238, 242)
+    private val surfaceInset: Int get() = if (isDarkTheme) Color.rgb(48, 54, 61) else Color.rgb(216, 222, 228)
     private val orange = Color.rgb(249, 115, 22)
-    private val green = Color.rgb(22, 101, 52)
-    private val red = Color.rgb(180, 35, 24)
-    private val blue = Color.rgb(11, 92, 173)
-    private val yellow = Color.rgb(246, 200, 95)
-    private val line = Color.argb(56, 33, 30, 26)
-    private val currentUserFill = Color.argb(22, 249, 115, 22)
+    private val green: Int get() = if (isDarkTheme) Color.rgb(63, 185, 80) else Color.rgb(26, 127, 55)
+    private val red: Int get() = if (isDarkTheme) Color.rgb(255, 123, 114) else Color.rgb(207, 34, 46)
+    private val blue: Int get() = if (isDarkTheme) Color.rgb(88, 166, 255) else Color.rgb(9, 105, 218)
+    private val yellow: Int get() = if (isDarkTheme) Color.rgb(210, 153, 34) else Color.rgb(255, 248, 197)
+    private val line: Int get() = if (isDarkTheme) Color.rgb(48, 54, 61) else Color.rgb(208, 215, 222)
+    private val currentUserFill: Int get() = Color.argb(if (isDarkTheme) 42 else 26, 249, 115, 22)
 
     private var activeTab = Tab.Profile
     private var board = Board.Balanced
@@ -87,6 +99,7 @@ class MainActivity : ComponentActivity() {
     private var apiBaseUrl = DEFAULT_API_BASE_URL
     private var paired = false
     private var pairingInProgress = false
+    private var themePreference = AppThemePreference.System
     private var pairingStatusMessage: String? = null
     private var pairingStatusColor = ink
     private var units = DistanceUnits.Metric
@@ -122,8 +135,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        applyBrandSystemBars()
         val preferences = getPreferences(MODE_PRIVATE)
+        themePreference = AppThemePreference.from(preferences.getString(PREF_THEME, null))
+        applyBrandSystemBars()
         apiBaseUrl = if (allowsApiBaseUrlOverride()) {
             normalizeBaseUrl(preferences.getString(PREF_API_BASE_URL, null)) ?: DEFAULT_API_BASE_URL
         } else {
@@ -446,6 +460,8 @@ class MainActivity : ComponentActivity() {
     private fun settingsScreen(): View {
         return panel {
             addView(titleText("Settings", 24f))
+            addView(labelText("Appearance").apply { setPadding(0, dp(12), 0, 0) })
+            addView(themeSelector())
             addView(labelText("Device sync"))
             val statusMessage = pairingStatusMessage
                 ?: if (paired) "Device paired for local sync." else "Scan QR or paste a pairing code from the web app."
@@ -686,6 +702,34 @@ class MainActivity : ComponentActivity() {
                 },
             )
             addView(divider(), LinearLayout.LayoutParams(-1, dp(1)))
+        }
+    }
+
+    private fun themeSelector(): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            AppThemePreference.values().forEach { option ->
+                addView(
+                    Button(this@MainActivity).apply {
+                        text = option.title
+                        isAllCaps = false
+                        setTextColor(ink)
+                        setBackgroundColor(if (option == themePreference) orange else surfacePanelHigh)
+                        setOnClickListener {
+                            themePreference = option
+                            getPreferences(MODE_PRIVATE)
+                                .edit()
+                                .putString(PREF_THEME, option.rawValue)
+                                .apply()
+                            applyBrandSystemBars()
+                            render()
+                        }
+                    },
+                    LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                        rightMargin = dp(6)
+                    },
+                )
+            }
         }
     }
 
@@ -1457,13 +1501,14 @@ class MainActivity : ComponentActivity() {
         window.statusBarColor = paper
         window.navigationBarColor = paper
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            var flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                flags = flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-            }
-            window.decorView.systemUiVisibility = flags
+        var flags = 0
+        if (!isDarkTheme && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
         }
+        if (!isDarkTheme && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            flags = flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        }
+        window.decorView.systemUiVisibility = flags
     }
 
     private fun openPublicProfile(login: String) {
@@ -1642,6 +1687,18 @@ private enum class Board(val title: String, val apiValue: String) {
     Balanced("Balanced", "balanced"),
     Commits("Commits", "commits"),
     Distance("Run", "distance"),
+}
+
+private enum class AppThemePreference(val rawValue: String, val title: String) {
+    System("system", "System"),
+    Light("light", "Light"),
+    Dark("dark", "Dark");
+
+    companion object {
+        fun from(value: String?): AppThemePreference {
+            return values().firstOrNull { it.rawValue == value } ?: System
+        }
+    }
 }
 
 private enum class DistanceUnits(

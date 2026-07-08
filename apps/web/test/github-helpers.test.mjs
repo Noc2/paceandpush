@@ -1185,6 +1185,11 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidSource, /\/api\/mobile\/sync-runs/);
   assert.match(androidSource, /\/api\/mobile\/me\/github\/disconnect/);
   assert.match(androidSource, /Authorization", "Bearer \$it"/);
+  assert.match(androidSource, /PREF_THEME = "theme_preference"/);
+  assert.match(androidSource, /enum class AppThemePreference/);
+  assert.match(androidSource, /Configuration\.UI_MODE_NIGHT_MASK/);
+  assert.match(androidSource, /themeSelector\(\)/);
+  assert.match(androidSource, /applyBrandSystemBars\(\)/);
 
   assert.match(androidManifest, /android:icon="@mipmap\/ic_launcher"/);
   assert.match(androidManifest, /android:roundIcon="@mipmap\/ic_launcher_round"/);
