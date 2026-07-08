@@ -450,7 +450,7 @@ struct ProfileContentView: View {
                     MetricTile(
                         title: "Score",
                         value: profile.score.score.formatted(.number.precision(.fractionLength(1))),
-                        color: Brand.blue
+                        color: Brand.orange
                     )
                     MetricTile(title: "Commits", value: "\(profile.score.commits)", color: Brand.green)
                 }
@@ -459,7 +459,7 @@ struct ProfileContentView: View {
                     MetricTile(
                         title: units.title,
                         value: units.format(profile.score.kilometers),
-                        color: Brand.red
+                        color: Brand.blue
                     )
                     MetricTile(
                         title: "Rank",
@@ -487,11 +487,11 @@ struct ProfileContentView: View {
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 2) {
                                     Text(point.score.formatted(.number.precision(.fractionLength(1))))
-                                        .foregroundStyle(Brand.blue)
+                                        .foregroundStyle(Brand.orange)
                                         .fontWeight(.bold)
                                     Text(units.format(point.kilometers, includeUnit: true))
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Brand.muted)
+                                        .foregroundStyle(Brand.blue)
                                 }
                             }
                             .padding(.vertical, 8)
@@ -1212,7 +1212,7 @@ struct ProfileChartView: View {
                                 .frame(width: 8, height: 8)
                             Text(series.legendTitle(units: units))
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(Brand.muted)
+                                .foregroundStyle(series.color)
                         }
                     }
                 }
@@ -2873,9 +2873,9 @@ private enum ProfileChartSeries: CaseIterable, Identifiable {
         case .commits:
             return Brand.green
         case .distance:
-            return Brand.red
-        case .score:
             return Brand.blue
+        case .score:
+            return Brand.orange
         }
     }
 
@@ -3140,7 +3140,7 @@ enum Board: String, CaseIterable, Decodable, Identifiable {
             return LeaderboardMetric(
                 value: row.score.formatted(.number.precision(.fractionLength(1))),
                 detail: "\(row.commits) commits / \(units.format(row.kilometers, includeUnit: true))",
-                color: Brand.blue,
+                color: Brand.orange,
             )
         case .commits:
             return LeaderboardMetric(
@@ -3152,7 +3152,7 @@ enum Board: String, CaseIterable, Decodable, Identifiable {
             return LeaderboardMetric(
                 value: units.format(row.kilometers),
                 detail: nil,
-                color: Brand.red,
+                color: Brand.blue,
             )
         }
     }

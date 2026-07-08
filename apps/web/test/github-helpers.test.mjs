@@ -594,7 +594,14 @@ test("embed svg keeps long running-distance values inside the canvas", async () 
   );
 
   assert.match(source, /distanceX: chartWidth - 38 - 414/);
-  assert.match(source, /metricText\(metrics\.distanceX,[\s\S]*colors\.distanceCoral, colors, "end"\)/);
+  assert.match(source, /metricText\(0, "Score"[\s\S]*colors\.secondaryOrange, colors\)/);
+  assert.match(source, /metricText\(metrics\.distanceX,[\s\S]*colors\.rankBlue, colors, "end"\)/);
+  assert.match(source, /maxDistance = Math\.max\(\.\.\.history\.map\(\(point\) => point\.kilometers\), 1\)/);
+  assert.match(source, /buildDistanceLinePath\(history, maxDistance\)/);
+  assert.match(source, /stroke="\$\{colors\.rankBlue\}"[\s\S]*stroke-dasharray="8 7"/);
+  assert.match(source, /\{ label: "Score", color: "secondaryOrange" \}/);
+  assert.match(source, /\{ label: "Run", color: "rankBlue" \}/);
+  assert.match(source, /const seriesLegend = \[/);
   assert.match(source, /text-anchor="\$\{anchor\}"/);
 });
 
@@ -1052,6 +1059,8 @@ test("web layout consumes shared brand CSS variables", async () => {
   assert.match(themeControlSource, /window\.addEventListener\("pace-theme-change", syncPreference\)/);
   assert.match(themeControlSource, /window\.removeEventListener\("pace-theme-change", syncPreference\)/);
   assert.match(globalCss, /grid-template-columns: repeat\(2, minmax\(78px, 1fr\)\)/);
+  assert.match(globalCss, /\.metric-score \{[\s\S]*color: var\(--score\)/);
+  assert.match(globalCss, /\.metric-distance \{[\s\S]*color: var\(--distance\)/);
   assert.doesNotMatch(globalCss, /^:root \{/m);
 });
 
@@ -1153,6 +1162,13 @@ test("design borders use a consistent single-pixel weight", async () => {
   assert.match(androidSource, /cornerRadius = dp\(CORNER_RADIUS_DP\)\.toFloat\(\)/);
   assert.match(brandSource, /github: 6/);
   assert.match(brandSource, /css: "6px"/);
+  assert.match(brandSource, /--score: \$\{colors\.secondaryOrange\}/);
+  assert.match(brandSource, /--distance: \$\{colors\.rankBlue\}/);
+  assert.match(iosSource, /color: Brand\.orange[\s\S]*MetricTile\(title: "Commits"/);
+  assert.match(iosSource, /title: units\.title,[\s\S]*color: Brand\.blue/);
+  assert.match(iosSource, /\.foregroundStyle\(series\.color\)/);
+  assert.match(androidSource, /Board\.Balanced -> LeaderboardMetric\([\s\S]*color = orange/);
+  assert.match(androidSource, /Board\.Distance -> LeaderboardMetric\([\s\S]*color = blue/);
   assert.match(iosSource, /lineWidth: CGFloat = Brand\.borderWidth/);
   assert.doesNotMatch(iosSource, /stroke\(Brand\.ink/);
   assert.doesNotMatch(iosSource, /\.pickerStyle\(\.segmented\)/);

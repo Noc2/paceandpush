@@ -18,6 +18,11 @@ const chartHeight = 360;
 const cornerRadius = brandRadius.github;
 const homepageUrl = "https://paceandpush.com";
 const homepageLabel = "paceandpush.com";
+const seriesLegend = [
+  { label: "Score", color: "secondaryOrange" },
+  { label: "Commits", color: "commitGreen" },
+  { label: "Run", color: "rankBlue" },
+] as const;
 const plot = {
   x: 38,
   y: 124,
@@ -38,6 +43,7 @@ export function renderProfileChartSvg(
   const colors = getBrandTheme(theme);
   const history = profile.history.length > 0 ? profile.history : [emptyPoint()];
   const maxScore = Math.max(...history.map((point) => point.score), 1);
+  const maxDistance = Math.max(...history.map((point) => point.kilometers), 1);
   const dailyCommits = toDailyValues(history.map((point) => point.commits));
   const maxDailyCommits = Math.max(...dailyCommits, 1);
   const visibleLogin = truncateSvgText(profile.login, 34);
@@ -57,9 +63,9 @@ export function renderProfileChartSvg(
   </g>
 
   <g transform="translate(${metrics.x} 28)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
-    ${metricText(0, "Score", profile.score.score.toFixed(1), colors.rankBlue, colors)}
+    ${metricText(0, "Score", profile.score.score.toFixed(1), colors.secondaryOrange, colors)}
     ${metricText(metrics.commitsX, "Commits", String(profile.score.commits), colors.commitGreen, colors)}
-    ${metricText(metrics.distanceX, `Run ${distanceUnitAbbreviation(units)}`, formatDistance(profile.score.kilometers, units), colors.distanceCoral, colors, "end")}
+    ${metricText(metrics.distanceX, `Run ${distanceUnitAbbreviation(units)}`, formatDistance(profile.score.kilometers, units), colors.rankBlue, colors, "end")}
   </g>
 
   <g>
@@ -68,6 +74,11 @@ export function renderProfileChartSvg(
     <path d="${buildAreaPath(history, maxScore)}" fill="${colors.secondaryOrange}" fill-opacity="0.22"/>
     <path d="${buildLinePath(history, maxScore)}" fill="none" stroke="${colors.secondaryOrange}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
     <path d="${buildLinePath(history, maxScore)}" fill="none" stroke="${colors.ink}" stroke-width="1.2" stroke-opacity="0.35" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="${buildDistanceLinePath(history, maxDistance)}" fill="none" stroke="${colors.rankBlue}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 7"/>
+  </g>
+
+  <g transform="translate(${plot.x} 302)" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="800">
+    ${legendItems(colors, units)}
   </g>
 
   <g font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="700" fill="${colors.mutedInk}">
@@ -127,6 +138,12 @@ function buildLinePath(history: ProfileHistoryPoint[], maxScore: number): string
     .join(" ");
 }
 
+function buildDistanceLinePath(history: ProfileHistoryPoint[], maxDistance: number): string {
+  return scaledDistancePoints(history, maxDistance)
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+}
+
 function buildCommitBars(
   dailyCommits: number[],
   maxDailyCommits: number,
@@ -152,6 +169,29 @@ function scaledScorePoints(history: ProfileHistoryPoint[], maxScore: number) {
     x: round(plot.x + (index / denominator) * plot.width),
     y: round(plot.y + plot.height - (point.score / maxScore) * plot.height),
   }));
+}
+
+function scaledDistancePoints(history: ProfileHistoryPoint[], maxDistance: number) {
+  const denominator = Math.max(history.length - 1, 1);
+  return history.map((point, index) => ({
+    x: round(plot.x + (index / denominator) * plot.width),
+    y: round(plot.y + plot.height - (point.kilometers / maxDistance) * plot.height),
+  }));
+}
+
+function legendItems(colors: BrandThemeColors, units: UnitPreference): string {
+  let x = 0;
+  return seriesLegend
+    .map((item) => {
+      const label = item.label === "Run" ? `Run ${distanceUnitAbbreviation(units)}` : item.label;
+      const text = `<g transform="translate(${x} 0)">
+      <circle cx="4" cy="4" r="4" fill="${colors[item.color]}"/>
+      <text x="14" y="8" fill="${colors[item.color]}">${escapeXml(label)}</text>
+    </g>`;
+      x += label.length * 7 + 42;
+      return text;
+    })
+    .join("");
 }
 
 function toDailyValues(cumulativeValues: number[]): number[] {

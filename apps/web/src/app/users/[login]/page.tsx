@@ -60,9 +60,13 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
         </section>
 
         <div className="stats-list">
-          <Stat label="Score" value={profile.score.score.toFixed(1)} />
-          <Stat label="Commits" value={String(profile.score.commits)} />
-          <Stat label={runningDistanceLabel(units)} value={formatDistance(profile.score.kilometers, units)} />
+          <Stat label="Score" metric="score" value={profile.score.score.toFixed(1)} />
+          <Stat label="Commits" metric="commits" value={String(profile.score.commits)} />
+          <Stat
+            label={runningDistanceLabel(units)}
+            metric="distance"
+            value={formatDistance(profile.score.kilometers, units)}
+          />
           <Stat label="Streak" value={`${row?.streakDays ?? 0}d`} />
         </div>
         <ScoreExplainer />
@@ -88,9 +92,9 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
           {profile.history.map((point) => (
             <div key={point.date}>
               <span>{point.date}</span>
-              <strong>{point.score.toFixed(1)}</strong>
-              <span>{point.commits} commits</span>
-              <span>
+              <strong className="metric-score">{point.score.toFixed(1)}</strong>
+              <span className="metric-commits">{point.commits} commits</span>
+              <span className="metric-distance">
                 {formatDistance(point.kilometers, units)} {distanceUnitAbbreviation(units)}
               </span>
             </div>
@@ -101,11 +105,19 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  metric,
+  value,
+}: {
+  label: string;
+  metric?: "score" | "commits" | "distance";
+  value: string;
+}) {
   return (
     <div className="stat">
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong className={metric ? `metric-${metric}` : undefined}>{value}</strong>
     </div>
   );
 }

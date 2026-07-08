@@ -788,7 +788,7 @@ class MainActivity : ComponentActivity() {
             Board.Balanced -> LeaderboardMetric(
                 value = row.score.toFixed(1),
                 detail = "${row.commits} commits / ${formatDistance(row.kilometers, includeUnit = true)}",
-                color = blue,
+                color = orange,
             )
             Board.Commits -> LeaderboardMetric(
                 value = row.commits.toString(),
@@ -798,7 +798,7 @@ class MainActivity : ComponentActivity() {
             Board.Distance -> LeaderboardMetric(
                 value = units.format(row.kilometers),
                 detail = null,
-                color = red,
+                color = blue,
             )
         }
     }

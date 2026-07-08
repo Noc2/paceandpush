@@ -430,6 +430,18 @@ textarea {
   line-height: 1;
 }
 
+.metric-score {
+  color: var(--score);
+}
+
+.metric-commits {
+  color: var(--commits);
+}
+
+.metric-distance {
+  color: var(--distance);
+}
+
 .period-selector {
   display: grid;
   grid-template-columns: auto auto minmax(260px, 1fr);

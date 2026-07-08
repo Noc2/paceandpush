@@ -168,9 +168,15 @@ function LeaderboardTable({
               <strong>{row.login}</strong>
               <small>{row.displayName}</small>
             </span>
-            <strong role="cell">{row.score.toFixed(1)}</strong>
-            <span role="cell">{row.commits}</span>
-            <span role="cell">{formatDistance(row.kilometers, units)}</span>
+            <strong className="metric-score" role="cell">
+              {row.score.toFixed(1)}
+            </strong>
+            <span className="metric-commits" role="cell">
+              {row.commits}
+            </span>
+            <span className="metric-distance" role="cell">
+              {formatDistance(row.kilometers, units)}
+            </span>
             <span role="cell">{row.streakDays}d</span>
           </Link>
         );
