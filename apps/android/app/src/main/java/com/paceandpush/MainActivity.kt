@@ -84,7 +84,6 @@ class MainActivity : ComponentActivity() {
     private val paper: Int get() = if (isDarkTheme) Color.rgb(13, 17, 23) else Color.WHITE
     private val surfacePanel: Int get() = if (isDarkTheme) Color.rgb(22, 27, 34) else Color.rgb(246, 248, 250)
     private val surfacePanelHigh: Int get() = if (isDarkTheme) Color.rgb(33, 38, 45) else Color.rgb(234, 238, 242)
-    private val surfaceInset: Int get() = if (isDarkTheme) Color.rgb(48, 54, 61) else Color.rgb(216, 222, 228)
     private val orange = Color.rgb(249, 115, 22)
     private val green: Int get() = if (isDarkTheme) Color.rgb(63, 185, 80) else Color.rgb(26, 127, 55)
     private val red: Int get() = if (isDarkTheme) Color.rgb(255, 123, 114) else Color.rgb(207, 34, 46)
@@ -222,7 +221,7 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(16))
-            background = borderedBackground(surfacePanel, ink)
+            background = borderedBackground(surfacePanel, line)
             Tab.values().forEachIndexed { index, tab ->
                 addView(
                     Button(this@MainActivity).apply {
@@ -452,7 +451,7 @@ class MainActivity : ComponentActivity() {
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(muted)
-            background = borderedBackground(surfaceInset, line)
+            background = borderedBackground(surfacePanel, line)
             layoutParams = LinearLayout.LayoutParams(-1, dp(144))
         }
     }
