@@ -1206,11 +1206,15 @@ textarea {
 
 .chart-panel {
   display: grid;
-  grid-template-columns: minmax(220px, 0.46fr) minmax(0, 1fr);
-  gap: 24px;
-  align-items: center;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  align-items: stretch;
   padding: 30px 0;
   border-bottom: 1px solid var(--line);
+}
+
+.chart-panel-copy {
+  max-width: 620px;
 }
 
 .chart-panel h2 {
@@ -1258,6 +1262,7 @@ textarea {
 .profile-chart-previews {
   display: grid;
   gap: 12px;
+  width: 100%;
 }
 
 .profile-chart {

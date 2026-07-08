@@ -559,6 +559,33 @@ test("profile page generates clickable GitHub embed markdown", async () => {
   );
 });
 
+test("profile page renders one theme-aware embed chart preview", async () => {
+  const page = await readFile(
+    new URL("../src/app/users/[login]/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const component = await readFile(
+    new URL("../src/app/users/[login]/ProfileChartEmbed.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.ok(page.includes("<ProfileChartEmbed"));
+  assert.equal((component.match(/<img/g) ?? []).length, 1);
+  assert.match(
+    component,
+    /const chartPath = resolvedTheme === "dark" \? darkChartPath : lightChartPath;/,
+  );
+  assert.match(
+    component,
+    /const embedMarkdown = resolvedTheme === "dark" \? darkEmbedMarkdown : lightEmbedMarkdown;/,
+  );
+  assert.match(component, /<img[\s\S]*src=\{chartPath\}/);
+  assert.match(
+    component,
+    /<p className="section-label">Profile chart<\/p>[\s\S]*<h2>Embed it on GitHub<\/h2>/,
+  );
+});
+
 test("embed svg keeps long running-distance values inside the canvas", async () => {
   const source = await readFile(
     new URL("../src/server/charts/profile-chart.ts", import.meta.url),

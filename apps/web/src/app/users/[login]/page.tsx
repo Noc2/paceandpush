@@ -12,6 +12,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PeriodSelector } from "@/app/PeriodSelector";
 import { formatPeriodLabel } from "@/lib/periods";
+import { ProfileChartEmbed } from "./ProfileChartEmbed";
 
 type UserPageProps = {
   params: Promise<{
@@ -72,36 +73,14 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
         />
 
         <section className="chart-panel" aria-label="Embeddable profile chart">
-          <div className="chart-panel-copy">
-            <p className="section-label">Profile chart</p>
-            <h2>Embed it on GitHub</h2>
-            <p>
-              A lightweight SVG card for profile READMEs with your score trend,
-              commits, and {runningDistanceShortLabel(units).toLowerCase()}.
-            </p>
-            <div className="embed-code-list">
-              <div>
-                <span>Light</span>
-                <code>{lightEmbedMarkdown}</code>
-              </div>
-              <div>
-                <span>Dark</span>
-                <code>{darkEmbedMarkdown}</code>
-              </div>
-            </div>
-          </div>
-          <div className="profile-chart-previews">
-            <img
-              className="profile-chart"
-              src={lightChartPath}
-              alt={`${brandName} light chart for ${profile.login}`}
-            />
-            <img
-              className="profile-chart"
-              src={darkChartPath}
-              alt={`${brandName} dark chart for ${profile.login}`}
-            />
-          </div>
+          <ProfileChartEmbed
+            darkChartPath={darkChartPath}
+            darkEmbedMarkdown={darkEmbedMarkdown}
+            distanceLabel={runningDistanceShortLabel(units).toLowerCase()}
+            lightChartPath={lightChartPath}
+            lightEmbedMarkdown={lightEmbedMarkdown}
+            login={profile.login}
+          />
         </section>
 
         <section className="history-list" aria-label={`${periodLabel} history`}>
