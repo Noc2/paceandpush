@@ -740,7 +740,7 @@ struct MetricTile: View {
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .panelStyle()
+        .panelStyle(surface: Brand.surfaceInset, stroke: Brand.ink.opacity(0.28), lineWidth: 1)
     }
 }
 
@@ -776,7 +776,7 @@ struct ScoreExplanationDisclosure: View {
                 .foregroundStyle(Brand.ink)
         }
         .padding(12)
-        .background(Brand.paper)
+        .background(Brand.surfacePanelHigh)
         .overlay(Rectangle().stroke(Brand.ink.opacity(0.26), lineWidth: 1))
         .accessibilityIdentifier("score-explanation-disclosure")
     }
@@ -838,6 +838,7 @@ struct ScorePeriodSelector: View {
                     Image(systemName: "chevron.left")
                         .font(.headline.weight(.black))
                         .frame(width: 42, height: 42)
+                        .background(Brand.surfacePanelHigh)
                 }
                 .buttonStyle(.plain)
                 .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
@@ -870,6 +871,7 @@ struct ScorePeriodSelector: View {
                     }
                     .padding(.horizontal, 12)
                     .frame(minHeight: 42)
+                    .background(Brand.surfacePanelHigh)
                     .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
                 }
                 .accessibilityIdentifier("period-menu")
@@ -880,6 +882,7 @@ struct ScorePeriodSelector: View {
                     Image(systemName: "chevron.right")
                         .font(.headline.weight(.black))
                         .frame(width: 42, height: 42)
+                        .background(Brand.surfacePanelHigh)
                 }
                 .buttonStyle(.plain)
                 .overlay(Rectangle().stroke(nextPeriod.isFuture(comparedTo: now) ? Brand.muted : Brand.ink, lineWidth: 1))
@@ -888,7 +891,7 @@ struct ScorePeriodSelector: View {
             }
         }
         .padding(12)
-        .background(Brand.paper)
+        .background(Brand.surfacePanel)
         .overlay(Rectangle().stroke(Brand.ink.opacity(0.32), lineWidth: 1))
         .accessibilityIdentifier("period-selector")
     }
@@ -938,6 +941,7 @@ struct ProfileChartView: View {
                 }
                 .frame(height: 176)
                 .padding(10)
+                .background(Brand.surfaceInset)
                 .overlay(Rectangle().stroke(Brand.ink.opacity(0.22), lineWidth: 1))
 
                 HStack(spacing: 14) {
@@ -1047,7 +1051,7 @@ struct BoardSelector: View {
                         .font(.headline.weight(.bold))
                         .frame(maxWidth: .infinity, minHeight: 38)
                         .foregroundStyle(Brand.ink)
-                        .background(item == board ? Brand.orange : Brand.paper)
+                        .background(item == board ? Brand.orange : Brand.surfacePanel)
                 }
                 .buttonStyle(.plain)
                 .overlay(alignment: .trailing) {
@@ -3005,7 +3009,11 @@ struct ProfileHistoryPoint: Decodable, Identifiable {
 }
 
 enum Brand {
-    private static let paperHex: UInt32 = 0xf8f2e6
+    private static let paperHex: UInt32 = 0xf7f3ea
+    private static let surfaceBrightHex: UInt32 = 0xfffaf0
+    private static let surfacePanelHex: UInt32 = 0xf4eee2
+    private static let surfacePanelHighHex: UInt32 = 0xefe7d8
+    private static let surfaceInsetHex: UInt32 = 0xe9dfce
     private static let inkHex: UInt32 = 0x211e1a
     private static let mutedHex: UInt32 = 0x5f5a51
     private static let orangeHex: UInt32 = 0xf97316
@@ -3015,6 +3023,10 @@ enum Brand {
     private static let yellowHex: UInt32 = 0xf6c85f
 
     static let paper = Color(hex: paperHex)
+    static let surfaceBright = Color(hex: surfaceBrightHex)
+    static let surfacePanel = Color(hex: surfacePanelHex)
+    static let surfacePanelHigh = Color(hex: surfacePanelHighHex)
+    static let surfaceInset = Color(hex: surfaceInsetHex)
     static let ink = Color(hex: inkHex)
     static let muted = Color(hex: mutedHex)
     static let orange = Color(hex: orangeHex)
@@ -3024,6 +3036,7 @@ enum Brand {
     static let yellow = Color(hex: yellowHex)
 
     static let uiPaper = UIColor(hex: paperHex)
+    static let uiSurfacePanel = UIColor(hex: surfacePanelHex)
     static let uiInk = UIColor(hex: inkHex)
     static let uiMuted = UIColor(hex: mutedHex)
     static let uiOrange = UIColor(hex: orangeHex)
@@ -3061,6 +3074,7 @@ private enum BrandAppearance {
         segmentedControl.setTitleTextAttributes([.foregroundColor: Brand.uiInk], for: .selected)
 
         UITableView.appearance().backgroundColor = Brand.uiPaper
+        UITableViewCell.appearance().backgroundColor = Brand.uiSurfacePanel
         UITextField.appearance().textColor = Brand.uiInk
         UITextField.appearance().tintColor = Brand.uiInk
     }
@@ -3119,10 +3133,14 @@ extension ISO8601DateFormatter {
 }
 
 extension View {
-    func panelStyle() -> some View {
+    func panelStyle(
+        surface: Color = Brand.surfacePanel,
+        stroke: Color = Brand.ink,
+        lineWidth: CGFloat = 2
+    ) -> some View {
         padding(18)
-            .background(Brand.paper)
-            .overlay(Rectangle().stroke(Brand.ink, lineWidth: 2))
+            .background(surface)
+            .overlay(Rectangle().stroke(stroke, lineWidth: lineWidth))
     }
 
     func borderedRow() -> some View {
