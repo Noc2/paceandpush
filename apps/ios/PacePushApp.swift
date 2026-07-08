@@ -38,7 +38,7 @@ struct RootView: View {
         }
         .tint(Brand.orange)
         .foregroundStyle(Brand.ink)
-        .preferredColorScheme(.light)
+        .preferredColorScheme(store.themePreference.colorScheme)
         .task {
             await store.bootstrap()
         }
@@ -570,6 +570,10 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settings-sign-out-button")
                     }
 
+                    SettingsSectionPanel("Appearance") {
+                        SettingsThemeSelector(themePreference: $store.themePreference)
+                    }
+
                     SettingsSectionPanel("Sync") {
                         StatusRow(
                             label: "GitHub",
@@ -869,6 +873,41 @@ struct SettingsLinkButton: View {
                 .padding(.horizontal, 12)
                 .background(Brand.surfacePanelHigh)
                 .overlay(Rectangle().stroke(Brand.ink.opacity(0.26), lineWidth: 1))
+        }
+    }
+}
+
+struct SettingsThemeSelector: View {
+    @Binding var themePreference: BrandThemePreference
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Theme")
+                .font(.caption.weight(.black))
+                .foregroundStyle(Brand.muted)
+                .textCase(.uppercase)
+            HStack(spacing: 0) {
+                ForEach(BrandThemePreference.allCases) { option in
+                    Button {
+                        themePreference = option
+                    } label: {
+                        Text(option.title)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(Brand.ink)
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                            .background(option == themePreference ? Brand.orange : Brand.surfacePanelHigh)
+                    }
+                    .buttonStyle(.plain)
+                    .overlay(alignment: .trailing) {
+                        if option.id != BrandThemePreference.allCases.last?.id {
+                            Rectangle()
+                                .frame(width: 1)
+                                .foregroundStyle(Brand.ink)
+                        }
+                    }
+                }
+            }
+            .overlay(Rectangle().stroke(Brand.ink, lineWidth: 1))
         }
     }
 }
@@ -1391,6 +1430,7 @@ final class PacePushStore: ObservableObject {
     private let tokenKey = "mobileDeviceToken"
     private let healthKey = "healthAuthorized"
     private let firstSyncKey = "firstSyncAt"
+    private let themePreferenceKey = "themePreference"
     private let unitsKey = "distanceUnits"
     private let activePeriodKey = "activeScorePeriod"
     private let publicLeaderboardPreferenceKey = "publicLeaderboardPreference"
@@ -1426,6 +1466,11 @@ final class PacePushStore: ObservableObject {
     @Published var lastError: String?
     @Published var lastSuccess: String?
     @Published var busy = false
+    @Published var themePreference: BrandThemePreference {
+        didSet {
+            preferences.set(themePreference.rawValue, forKey: themePreferenceKey)
+        }
+    }
     @Published var units: DistanceUnits {
         didSet {
             preferences.set(units.rawValue, forKey: unitsKey)
@@ -1480,6 +1525,9 @@ final class PacePushStore: ObservableObject {
 
         let savedUnits = preferences.string(forKey: unitsKey)
         units = DistanceUnits(rawValue: savedUnits ?? "") ?? .metric
+        themePreference = preferences.string(forKey: themePreferenceKey)
+            .flatMap { BrandThemePreference(rawValue: $0) }
+            ?? .system
         healthAuthorized = preferences.bool(forKey: healthKey)
         firstSyncAt = preferences.string(forKey: firstSyncKey)
         publicLeaderboardPreference = preferences.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? true
@@ -2979,6 +3027,36 @@ extension Data {
     }
 }
 
+enum BrandThemePreference: String, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system:
+            return "System"
+        case .light:
+            return "Light"
+        case .dark:
+            return "Dark"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system:
+            return nil
+        case .light:
+            return .light
+        case .dark:
+            return .dark
+        }
+    }
+}
+
 enum DistanceUnits: String, CaseIterable, Identifiable {
     case metric
     case imperial
@@ -3214,37 +3292,36 @@ struct ProfileHistoryPoint: Decodable, Identifiable {
 }
 
 enum Brand {
-    private static let paperHex: UInt32 = 0xfbf7ef
-    private static let surfaceBrightHex: UInt32 = 0xfffdf7
-    private static let surfacePanelHex: UInt32 = 0xf8f2e8
-    private static let surfacePanelHighHex: UInt32 = 0xf4ecde
-    private static let surfaceInsetHex: UInt32 = 0xefe4d3
-    private static let inkHex: UInt32 = 0x211e1a
-    private static let mutedHex: UInt32 = 0x5f5a51
     private static let orangeHex: UInt32 = 0xf97316
-    private static let greenHex: UInt32 = 0x166534
-    private static let redHex: UInt32 = 0xb42318
-    private static let blueHex: UInt32 = 0x0b5cad
-    private static let yellowHex: UInt32 = 0xf6c85f
 
-    static let paper = Color(hex: paperHex)
-    static let surfaceBright = Color(hex: surfaceBrightHex)
-    static let surfacePanel = Color(hex: surfacePanelHex)
-    static let surfacePanelHigh = Color(hex: surfacePanelHighHex)
-    static let surfaceInset = Color(hex: surfaceInsetHex)
-    static let ink = Color(hex: inkHex)
-    static let muted = Color(hex: mutedHex)
+    static let paper = dynamicColor(light: 0xffffff, dark: 0x0d1117)
+    static let surfaceBright = dynamicColor(light: 0xffffff, dark: 0x161b22)
+    static let surfacePanel = dynamicColor(light: 0xf6f8fa, dark: 0x161b22)
+    static let surfacePanelHigh = dynamicColor(light: 0xeaeef2, dark: 0x21262d)
+    static let surfaceInset = dynamicColor(light: 0xd8dee4, dark: 0x30363d)
+    static let ink = dynamicColor(light: 0x1f2328, dark: 0xe6edf3)
+    static let muted = dynamicColor(light: 0x59636e, dark: 0x8b949e)
     static let orange = Color(hex: orangeHex)
-    static let green = Color(hex: greenHex)
-    static let red = Color(hex: redHex)
-    static let blue = Color(hex: blueHex)
-    static let yellow = Color(hex: yellowHex)
+    static let green = dynamicColor(light: 0x1a7f37, dark: 0x3fb950)
+    static let red = dynamicColor(light: 0xcf222e, dark: 0xff7b72)
+    static let blue = dynamicColor(light: 0x0969da, dark: 0x58a6ff)
+    static let yellow = dynamicColor(light: 0xfff8c5, dark: 0xd29922)
 
-    static let uiPaper = UIColor(hex: paperHex)
-    static let uiSurfacePanel = UIColor(hex: surfacePanelHex)
-    static let uiInk = UIColor(hex: inkHex)
-    static let uiMuted = UIColor(hex: mutedHex)
+    static let uiPaper = dynamicUIColor(light: 0xffffff, dark: 0x0d1117)
+    static let uiSurfacePanel = dynamicUIColor(light: 0xf6f8fa, dark: 0x161b22)
+    static let uiInk = dynamicUIColor(light: 0x1f2328, dark: 0xe6edf3)
+    static let uiMuted = dynamicUIColor(light: 0x59636e, dark: 0x8b949e)
     static let uiOrange = UIColor(hex: orangeHex)
+
+    private static func dynamicColor(light: UInt32, dark: UInt32) -> Color {
+        Color(dynamicUIColor(light: light, dark: dark))
+    }
+
+    private static func dynamicUIColor(light: UInt32, dark: UInt32) -> UIColor {
+        UIColor { traits in
+            UIColor(hex: traits.userInterfaceStyle == .dark ? dark : light)
+        }
+    }
 }
 
 private enum BrandAppearance {

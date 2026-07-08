@@ -1073,6 +1073,22 @@ test("native API base URL editing is debug-only", async () => {
   assert.match(androidSource, /DEFAULT_API_BASE_URL/);
 });
 
+test("iOS app exposes system light and dark appearance settings", async () => {
+  const iosSource = await readFile(
+    new URL("../../ios/PacePushApp.swift", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(iosSource, /enum BrandThemePreference: String, CaseIterable, Identifiable/);
+  assert.match(iosSource, /case system/);
+  assert.match(iosSource, /case light/);
+  assert.match(iosSource, /case dark/);
+  assert.match(iosSource, /\.preferredColorScheme\(store\.themePreference\.colorScheme\)/);
+  assert.doesNotMatch(iosSource, /\.preferredColorScheme\(\.light\)/);
+  assert.match(iosSource, /SettingsThemeSelector\(themePreference: \$store\.themePreference\)/);
+  assert.match(iosSource, /dynamicUIColor\(light: 0xffffff, dark: 0x0d1117\)/);
+});
+
 test("launch evidence docs cover alerts, rollback, stores, and real devices", async () => {
   const runbook = await readFile(
     new URL("../../../docs/launch/release-runbook.md", import.meta.url),
