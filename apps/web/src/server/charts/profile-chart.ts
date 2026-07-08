@@ -35,7 +35,7 @@ export function renderProfileChartSvg(
 <svg xmlns="http://www.w3.org/2000/svg" width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-labelledby="title desc">
   <title id="title">${escapeXml(brandName)} chart for ${escapeXml(profile.login)}</title>
   <desc id="desc">Monthly Pace and Push score, commit, and running distance summary for ${escapeXml(profile.displayName)}.</desc>
-  <rect width="${chartWidth}" height="${chartHeight}" rx="18" fill="${brandColors.paper}"/>
+  <rect width="${chartWidth}" height="${chartHeight}" rx="18" fill="${brandColors.surfacePanel}"/>
   <rect x="0.5" y="0.5" width="${chartWidth - 1}" height="${chartHeight - 1}" rx="17.5" fill="none" stroke="${brandColors.ink}" stroke-opacity="0.12"/>
 
   <g transform="translate(30 28)">

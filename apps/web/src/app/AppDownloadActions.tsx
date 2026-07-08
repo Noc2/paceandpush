@@ -2,6 +2,7 @@
 
 import QRCode from "qrcode";
 import { useEffect, useId, useState } from "react";
+import { brandColors } from "@paceandpush/brand";
 
 type DownloadTarget = {
   id: "ios" | "android";
@@ -44,8 +45,8 @@ export function AppDownloadActions() {
 
     QRCode.toDataURL(activeTarget.url, {
       color: {
-        dark: "#211e1a",
-        light: "#fffaf0",
+        dark: brandColors.ink,
+        light: brandColors.surfaceBright,
       },
       errorCorrectionLevel: "M",
       margin: 2,

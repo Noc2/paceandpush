@@ -4,6 +4,7 @@ import type {
   MobileDeviceSummary,
   PairingCodeResponse,
 } from "@paceandpush/api-contracts";
+import { brandColors } from "@paceandpush/brand";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 
@@ -39,8 +40,8 @@ export function MobileConnectPanel({
 
     QRCode.toDataURL(payload, {
       color: {
-        dark: "#211e1a",
-        light: "#fffaf0",
+        dark: brandColors.ink,
+        light: brandColors.surfaceBright,
       },
       errorCorrectionLevel: "M",
       margin: 2,
