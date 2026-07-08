@@ -15,7 +15,18 @@ export function ThemePreferenceControl({
   const [preference, setPreference] = useState<ThemePreference>("system");
 
   useEffect(() => {
-    setPreference(readStoredPreference());
+    function syncPreference() {
+      setPreference(readStoredPreference());
+    }
+
+    syncPreference();
+    window.addEventListener("storage", syncPreference);
+    window.addEventListener("pace-theme-change", syncPreference);
+
+    return () => {
+      window.removeEventListener("storage", syncPreference);
+      window.removeEventListener("pace-theme-change", syncPreference);
+    };
   }, []);
 
   function chooseTheme(nextPreference: ThemePreference) {

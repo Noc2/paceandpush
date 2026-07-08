@@ -1010,12 +1010,18 @@ test("web layout consumes shared brand CSS variables", async () => {
     new URL("../src/app/layout.tsx", import.meta.url),
     "utf8",
   );
+  const themeControlSource = await readFile(
+    new URL("../src/app/ThemePreferenceControl.tsx", import.meta.url),
+    "utf8",
+  );
   const globalCss = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
 
   assert.match(layoutSource, /import \{ cssVariables \} from "@paceandpush\/brand"/);
   assert.match(layoutSource, /localStorage\.getItem\("pace-theme"\)/);
   assert.match(layoutSource, /document\.documentElement\.dataset\.theme = theme/);
   assert.match(layoutSource, /dangerouslySetInnerHTML=\{\{ __html: cssVariables \}\}/);
+  assert.match(themeControlSource, /window\.addEventListener\("pace-theme-change", syncPreference\)/);
+  assert.match(themeControlSource, /window\.removeEventListener\("pace-theme-change", syncPreference\)/);
   assert.doesNotMatch(globalCss, /^:root \{/m);
 });
 
