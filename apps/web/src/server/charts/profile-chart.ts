@@ -108,15 +108,16 @@ function buildLinePath(history: ProfileHistoryPoint[], maxScore: number): string
 
 function buildCommitBars(dailyCommits: number[], maxDailyCommits: number): string {
   const count = Math.max(dailyCommits.length, 1);
-  const gap = 6;
-  const barWidth = Math.max(8, (plot.width - gap * (count - 1)) / count);
+  const slotWidth = plot.width / count;
+  const barWidth = Math.min(8, slotWidth >= 2 ? slotWidth * 0.62 : slotWidth);
+  const cornerRadius = Math.min(2, barWidth / 2);
 
   return dailyCommits
     .map((value, index) => {
       const height = Math.max(3, (value / maxDailyCommits) * (plot.height * 0.52));
-      const x = plot.x + index * (barWidth + gap);
+      const x = plot.x + index * slotWidth + (slotWidth - barWidth) / 2;
       const y = plot.y + plot.height - height;
-      return `<rect x="${round(x)}" y="${round(y)}" width="${round(barWidth)}" height="${round(height)}" rx="2" fill="${brandColors.commitGreen}" fill-opacity="0.28"/>`;
+      return `<rect x="${round(x)}" y="${round(y)}" width="${round(barWidth)}" height="${round(height)}" rx="${round(cornerRadius)}" fill="${brandColors.commitGreen}" fill-opacity="0.28"/>`;
     })
     .join("");
 }
