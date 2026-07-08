@@ -1068,6 +1068,8 @@ test("homepage has accessible heading cells and app download actions", async () 
   assert.doesNotMatch(pageSource, /Mobile apps/);
   assert.match(downloadActionsSource, /NEXT_PUBLIC_IOS_APP_URL/);
   assert.match(downloadActionsSource, /NEXT_PUBLIC_ANDROID_APP_URL/);
+  assert.match(downloadActionsSource, /id: "android",[\s\S]*disabled: true/);
+  assert.match(downloadActionsSource, /disabled=\{target\.disabled\}/);
   assert.match(downloadActionsSource, /QRCode\.toDataURL/);
   assert.match(pageSource, /role="cell"/);
   assert.match(globalCss, /\.sr-only/);

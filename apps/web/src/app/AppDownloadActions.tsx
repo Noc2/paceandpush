@@ -10,6 +10,7 @@ type DownloadTarget = {
   label: string;
   storeLabel: string;
   url: string;
+  disabled?: boolean;
 };
 
 const downloadTargets: DownloadTarget[] = [
@@ -24,6 +25,7 @@ const downloadTargets: DownloadTarget[] = [
     label: "Android",
     storeLabel: "Google Play",
     url: process.env.NEXT_PUBLIC_ANDROID_APP_URL?.trim() ?? "",
+    disabled: true,
   },
 ];
 
@@ -78,6 +80,8 @@ export function AppDownloadActions() {
   }, [activeTarget]);
 
   function openModal(target: DownloadTarget) {
+    if (target.disabled) return;
+
     setActiveTarget(target);
     setCopied(false);
     setError(null);
@@ -108,6 +112,7 @@ export function AppDownloadActions() {
             className="button"
             type="button"
             key={target.id}
+            disabled={target.disabled}
             onClick={() => openModal(target)}
           >
             {target.label}
