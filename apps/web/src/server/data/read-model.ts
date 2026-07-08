@@ -21,7 +21,7 @@ import { getDb, isDatabaseConfigured } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/server/db/schema";
 import { isCurrentOrPreviousPeriod } from "@/lib/periods";
 import { calculateStreakDays } from "@/lib/streaks";
-import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm";
 
 type LeaderboardSnapshotRow = {
   rank: number | null;
@@ -410,7 +410,39 @@ async function shouldRefreshAccountScoreSnapshot(
   const snapshot = await getScoreSnapshot(userId, period);
   if (!snapshot) return true;
 
-  return snapshot.commits === 0 && snapshot.distanceMeters > 0;
+  return !(await hasCompleteCommitCoverage(userId, period));
+}
+
+async function hasCompleteCommitCoverage(userId: string, period: string): Promise<boolean> {
+  const { start, end: periodEnd } = periodBounds(period);
+  const end = commitCoverageEnd(periodEnd);
+  const expectedDays = expectedCommitCoverageDays(start, end);
+  if (expectedDays === 0) return true;
+
+  const [coverage] = await getDb()
+    .select({ days: sql<number>`count(*)::int` })
+    .from(commitDays)
+    .where(
+      and(
+        eq(commitDays.userId, userId),
+        gte(commitDays.day, start),
+        lte(commitDays.day, end),
+      ),
+    );
+
+  return Number(coverage?.days ?? 0) >= expectedDays;
+}
+
+function commitCoverageEnd(periodEnd: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  return periodEnd > today ? today : periodEnd;
+}
+
+function expectedCommitCoverageDays(start: string, end: string): number {
+  if (start > end) return 0;
+  const startDate = new Date(`${start}T00:00:00.000Z`);
+  const endDate = new Date(`${end}T00:00:00.000Z`);
+  return Math.floor((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
 }
 
 async function hasScoreSnapshot(userId: string, period: string): Promise<boolean> {
@@ -507,6 +539,7 @@ async function getStreakDaysByUserId(
           inArray(commitDays.userId, uniqueUserIds),
           gte(commitDays.day, start),
           lte(commitDays.day, end),
+          gt(commitDays.commitCount, 0),
         ),
       ),
     getDb()

@@ -72,7 +72,10 @@ export async function refreshGitHubCommitsForUser({
   login: string;
   period?: string;
 }): Promise<{ updatedDays: number }> {
-  const { start, end } = periodBounds(period);
+  const { start, end: periodEnd } = periodBounds(period);
+  const end = contributionRefreshEnd(start, periodEnd);
+  if (!end) return { updatedDays: 0 };
+
   const token = accessToken ?? await getGitHubAccessToken(userId);
   if (!token) {
     throw new Error("Reconnect GitHub to allow commit refresh.");
@@ -84,13 +87,12 @@ export async function refreshGitHubCommitsForUser({
     login,
     start,
   });
-  const activeDays = dayCounts.filter((day) => day.totalCount > 0);
 
-  if (activeDays.length > 0) {
+  if (dayCounts.length > 0) {
     await getDb()
       .insert(commitDays)
       .values(
-        activeDays.map((day) => ({
+        dayCounts.map((day) => ({
           userId,
           day: day.day,
           commitCount: day.totalCount,
@@ -122,13 +124,17 @@ export async function refreshGitHubCommitsForUser({
         eq(commitDays.userId, userId),
         gte(commitDays.day, start),
         lte(commitDays.day, end),
-        activeDays.length > 0
-          ? notInArray(commitDays.day, activeDays.map((day) => day.day))
-          : undefined,
+        notInArray(commitDays.day, dayCounts.map((day) => day.day)),
       ),
     );
 
-  return { updatedDays: activeDays.length };
+  return { updatedDays: dayCounts.length };
+}
+
+function contributionRefreshEnd(start: string, end: string): string | null {
+  const today = new Date().toISOString().slice(0, 10);
+  const cappedEnd = end > today ? today : end;
+  return start <= cappedEnd ? cappedEnd : null;
 }
 
 export async function recomputeScoreSnapshots(period = currentPeriod()): Promise<{

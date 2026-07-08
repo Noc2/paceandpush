@@ -543,7 +543,7 @@ test("streak calculation counts unique consecutive active days", () => {
   );
 });
 
-test("leaderboard streaks are loaded in batched queries", async () => {
+test("leaderboard streaks are loaded in batched queries and ignore zero-count commit coverage rows", async () => {
   const source = await readFile(
     new URL("../src/server/data/read-model.ts", import.meta.url),
     "utf8",
@@ -556,6 +556,7 @@ test("leaderboard streaks are loaded in batched queries", async () => {
   assert.match(toRowsBlock, /getStreakDaysByUserId/);
   assert.doesNotMatch(toRowsBlock, /rows\.map\(async/);
   assert.match(source, /inArray\(commitDays\.userId, uniqueUserIds\)/);
+  assert.match(source, /gt\(commitDays\.commitCount, 0\)/);
   assert.match(source, /inArray\(distanceDays\.userId, uniqueUserIds\)/);
 });
 
@@ -573,7 +574,7 @@ test("public leaderboard rows are capped", async () => {
   assert.match(leaderboardQuery, /\.limit\(leaderboardRowLimit\)/);
 });
 
-test("GitHub commit refresh upserts before deleting stale days", async () => {
+test("GitHub commit refresh upserts covered days before deleting stale days", async () => {
   const source = await readFile(
     new URL("../src/server/data/scores.ts", import.meta.url),
     "utf8",
@@ -588,7 +589,12 @@ test("GitHub commit refresh upserts before deleting stale days", async () => {
   assert.notEqual(insertIndex, -1);
   assert.notEqual(deleteIndex, -1);
   assert.ok(insertIndex < deleteIndex);
+  assert.match(refreshBlock, /contributionRefreshEnd\(start, periodEnd\)/);
+  assert.match(refreshBlock, /dayCounts\.map\(\(day\) =>/);
+  assert.match(refreshBlock, /commitCount: day\.totalCount/);
+  assert.doesNotMatch(refreshBlock, /activeDays\.map/);
   assert.match(refreshBlock, /notInArray\(commitDays\.day/);
+  assert.match(refreshBlock, /updatedDays: dayCounts\.length/);
 });
 
 test("score rank mutations recompute every affected snapshot period", async () => {
@@ -663,7 +669,7 @@ test("mobile GitHub disconnect revokes social credentials and device access", as
   assert.match(nativeApp, /\/api\/mobile\/me\/github\/disconnect/);
 });
 
-test("authenticated profile reads repair historical zero-commit distance snapshots", async () => {
+test("authenticated profile reads repair partially covered historical commit snapshots", async () => {
   const source = await readFile(
     new URL("../src/server/data/read-model.ts", import.meta.url),
     "utf8",
@@ -681,9 +687,11 @@ test("authenticated profile reads repair historical zero-commit distance snapsho
   assert.match(refreshBlock, /shouldRefreshAccountScoreSnapshot\(account\.id, period\)/);
   assert.match(refreshBlock, /refreshGitHubCommitsForUser/);
   assert.match(refreshBlock, /recomputeScoreSnapshots\(period\)/);
+  assert.match(refreshBlock, /hasCompleteCommitCoverage\(userId, period\)/);
+  assert.match(refreshBlock, /expectedCommitCoverageDays\(start, end\)/);
+  assert.match(refreshBlock, /count\(\*\)::int/);
   assert.doesNotMatch(refreshBlock, /isCurrentOrPreviousPeriod\(period\)/);
-  assert.match(refreshBlock, /snapshot\.commits === 0/);
-  assert.match(refreshBlock, /snapshot\.distanceMeters > 0/);
+  assert.doesNotMatch(refreshBlock, /snapshot\.commits === 0/);
 });
 
 test("score totals keep raw kilometer precision before display rounding", async () => {
