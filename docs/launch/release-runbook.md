@@ -23,7 +23,15 @@ npm run lint
 npm test
 npm run test:e2e
 npm run build
-xcodebuild -project apps/ios/PacePush.xcodeproj -scheme PacePush -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath .build/ios -resultBundlePath .build/ios/PacePushTests.xcresult test CODE_SIGNING_ALLOWED=NO
+SIMULATOR_UDID="$(node scripts/select-ios-simulator.mjs)"
+xcodebuild \
+  -project apps/ios/PacePush.xcodeproj \
+  -scheme PacePush \
+  -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+  -derivedDataPath .build/ios \
+  -resultBundlePath .build/ios/PacePushTests.xcresult \
+  test \
+  CODE_SIGNING_ALLOWED=NO
 ```
 
 Before store review, also complete
