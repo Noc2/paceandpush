@@ -22,7 +22,11 @@ export async function DELETE(request: NextRequest) {
 
   await disconnectGitHubAccount(auth.user.id);
   const device = await revokeMobileDevice({ id: auth.device.id, userId: auth.user.id });
-  await recomputeScoreSnapshotPeriods(affectedPeriods);
+  try {
+    await recomputeScoreSnapshotPeriods(affectedPeriods);
+  } catch (error) {
+    console.error("[mobile-github-disconnect] score recompute failed", error);
+  }
 
   return NextResponse.json({
     login: auth.user.login,

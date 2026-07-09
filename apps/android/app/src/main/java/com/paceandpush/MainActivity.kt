@@ -1240,7 +1240,14 @@ class MainActivity : ComponentActivity() {
                     pairingStatusColor = green
                 }
                 .onFailure { error ->
-                    pairingStatusMessage = error.message ?: "Could not sign out."
+                    clearStoredPairingCredentials()
+                    paired = false
+                    me = emptyMeSummary()
+                    rows = emptyList()
+                    history = emptyList()
+                    dataStatusMessage = null
+                    pairingStatusMessage =
+                        "Signed out on this device, but could not confirm GitHub access was revoked. ${error.message ?: "Try signing in again to retry."}"
                     pairingStatusColor = red
                 }
             render()
