@@ -896,6 +896,7 @@ struct SettingsThemeSelector: View {
                         .background(option == themePreference ? Brand.orange : Brand.surfacePanelHigh)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("settings-theme-\(option.id)-button")
                 .overlay(alignment: .trailing) {
                     if option.id != options.last?.id {
                         Rectangle()
@@ -907,6 +908,7 @@ struct SettingsThemeSelector: View {
         }
         .roundedClip()
         .roundedBorder(lineWidth: 1)
+        .accessibilityIdentifier("settings-theme-selector")
     }
 }
 
