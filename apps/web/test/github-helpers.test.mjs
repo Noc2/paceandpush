@@ -1164,7 +1164,7 @@ test("native API base URL editing is debug-only", async () => {
   assert.match(androidSource, /DEFAULT_API_BASE_URL/);
 });
 
-test("iOS app exposes system light and dark appearance settings", async () => {
+test("iOS app keeps system default while exposing light and dark theme choices", async () => {
   const iosSource = await readFile(
     new URL("../../ios/PacePushApp.swift", import.meta.url),
     "utf8",
@@ -1176,7 +1176,13 @@ test("iOS app exposes system light and dark appearance settings", async () => {
   assert.match(iosSource, /case dark/);
   assert.match(iosSource, /\.preferredColorScheme\(store\.themePreference\.colorScheme\)/);
   assert.doesNotMatch(iosSource, /\.preferredColorScheme\(\.light\)/);
+  assert.match(iosSource, /SettingsSectionPanel\("Theme"\)/);
+  assert.doesNotMatch(iosSource, /SettingsSectionPanel\("Appearance"\)/);
   assert.match(iosSource, /SettingsThemeSelector\(themePreference: \$store\.themePreference\)/);
+  assert.match(iosSource, /private let options: \[BrandThemePreference\] = \[\.light, \.dark\]/);
+  assert.doesNotMatch(iosSource, /ForEach\(BrandThemePreference\.allCases\)/);
+  assert.match(iosSource, /settings-theme-selector/);
+  assert.match(iosSource, /settings-theme-\\\(option\.id\)-button/);
   assert.match(iosSource, /dynamicUIColor\(light: 0xffffff, dark: 0x0d1117\)/);
 });
 
