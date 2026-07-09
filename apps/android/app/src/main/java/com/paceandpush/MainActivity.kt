@@ -645,7 +645,6 @@ class MainActivity : ComponentActivity() {
             addView(labelText("Distance units").apply { setPadding(0, dp(12), 0, 0) })
             addView(unitSelector())
             addView(bodyText("Public leaderboard: ${if (me.publicLeaderboard) "On" else "Off"}", 16f))
-            addView(scoreExplanationPanel())
         }
     }
 

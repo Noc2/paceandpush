@@ -655,9 +655,6 @@ struct SettingsView: View {
                         .padding(.vertical, 12)
                         .borderedRow()
 
-                        ScoreExplanationText()
-                            .padding(.vertical, 12)
-                            .borderedRow()
                         Text("Running distance summaries are synced by day. Raw workouts and routes are not uploaded.")
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(Brand.muted)
