@@ -26,5 +26,6 @@ The PoC app shell will include Today, Leaderboard, Profile, Sync, and Settings
 tabs, plus HealthKit running distance sync.
 
 HealthKit sync reads running workouts, groups running distance by day, and
-shapes payloads for the web API's `/api/mobile/distance-days` endpoint. The
-initial implementation intentionally syncs daily totals instead of raw workouts.
+shapes payloads for the web API's `/api/mobile/distance-days` endpoint. It reads
+the current UTC calendar year when preparing daily totals and intentionally
+syncs daily totals instead of raw workouts.

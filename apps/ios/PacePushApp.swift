@@ -1587,8 +1587,7 @@ final class PacePushStore: ObservableObject {
     private let bootstrapSyncEnabled: Bool
     private var pendingMobileAuthCodeVerifier: String?
     private static let distanceUploadBatchSize = 45
-    private static let historicalDistanceSyncStartDate = Date(timeIntervalSince1970: 0)
-    private static let historicalDistanceSyncVersion = "full-history-v1"
+    private static let historicalDistanceSyncVersion = "current-utc-year-v1"
 
     @Published var leaderboard = LeaderboardResponse.seed
     @Published var me = MeResponse.seed
@@ -1921,8 +1920,9 @@ final class PacePushStore: ObservableObject {
         do {
             let client = apiClientFactory(baseURL, token)
             let syncEnd = now()
+            let syncStart = Self.historicalDistanceSyncStartDate(through: syncEnd)
             let result = try await healthSync.collectDistanceDays(
-                from: Self.historicalDistanceSyncStartDate,
+                from: syncStart,
                 through: syncEnd,
             )
             let foundRunningDistance = result.days.contains { $0.meters > 0 }
@@ -2175,6 +2175,13 @@ final class PacePushStore: ObservableObject {
         isGitHubConnected &&
             healthAuthorized &&
             preferences.string(forKey: historicalDistanceSyncVersionKey) != Self.historicalDistanceSyncVersion
+    }
+
+    private static func historicalDistanceSyncStartDate(through endDate: Date) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let year = calendar.component(.year, from: endDate)
+        return calendar.date(from: DateComponents(timeZone: calendar.timeZone, year: year, month: 1, day: 1)) ?? endDate
     }
 
     private func syncHistoricalDistanceIfNeeded() async {

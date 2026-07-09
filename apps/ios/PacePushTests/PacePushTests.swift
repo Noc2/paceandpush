@@ -480,7 +480,7 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
-    func testSyncUploadsFullHistoryInApiSizedBatches() async throws {
+    func testSyncUploadsCurrentYearInApiSizedBatches() async throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")
         let healthSync = FakeHealthSync(days: Self.distanceDays(count: 47))
@@ -500,11 +500,11 @@ final class PacePushTests: XCTestCase {
 
         await store.syncRunningDistance()
 
-        XCTAssertEqual(healthSync.requestedRanges.first?.start.timeIntervalSince1970, 0)
+        XCTAssertEqual(healthSync.requestedRanges.first?.start, date("2026-01-01T00:00:00.000Z"))
         XCTAssertEqual(healthSync.requestedRanges.first?.end, date("2026-07-06T12:00:00.000Z"))
         XCTAssertEqual(client.uploadedDistanceDays.map(\.count), [45, 2])
-        XCTAssertEqual(client.uploadedDistanceDays.first?.first?.date, "2024-01-01")
-        XCTAssertEqual(client.uploadedDistanceDays.last?.last?.date, "2024-02-16")
+        XCTAssertEqual(client.uploadedDistanceDays.first?.first?.date, "2026-01-01")
+        XCTAssertEqual(client.uploadedDistanceDays.last?.last?.date, "2026-02-16")
         XCTAssertEqual(client.recordedSyncRuns.first?.counters["days"], 47)
         XCTAssertEqual(client.recordedSyncRuns.first?.counters["accepted"], 47)
         XCTAssertEqual(client.recordedSyncRuns.first?.status, "success")
@@ -619,7 +619,8 @@ final class PacePushTests: XCTestCase {
 
         XCTAssertEqual(client.uploadedDistanceDays.map(\.count), [2])
         XCTAssertEqual(healthSync.requestedRanges.count, 1)
-        XCTAssertEqual(preferences.string(forKey: "historicalDistanceSyncVersion"), "full-history-v1")
+        XCTAssertEqual(healthSync.requestedRanges.first?.start, date("2026-01-01T00:00:00.000Z"))
+        XCTAssertEqual(preferences.string(forKey: "historicalDistanceSyncVersion"), "current-utc-year-v1")
     }
 
     @MainActor
@@ -685,7 +686,7 @@ final class PacePushTests: XCTestCase {
         let preferences = InMemoryPreferences(values: [
             "healthAuthorized": true,
             "firstSyncAt": "2026-07-01T00:00:00.000Z",
-            "historicalDistanceSyncVersion": "full-history-v1",
+            "historicalDistanceSyncVersion": "current-utc-year-v1",
         ])
         let client = FakePacePushClient()
 
@@ -740,7 +741,7 @@ final class PacePushTests: XCTestCase {
         try keychain.saveString("device-token", account: "mobileDeviceToken")
         let preferences = InMemoryPreferences(values: [
             "firstSyncAt": "2026-07-01T00:00:00.000Z",
-            "historicalDistanceSyncVersion": "full-history-v1",
+            "historicalDistanceSyncVersion": "current-utc-year-v1",
         ])
         let client = FakePacePushClient()
         let store = PacePushStore(
@@ -1004,7 +1005,7 @@ private func date(_ value: String) -> Date {
 
 private extension PacePushTests {
     static func distanceDays(count: Int) -> [HealthKitDistanceDay] {
-        let start = date("2024-01-01T00:00:00.000Z")
+        let start = date("2026-01-01T00:00:00.000Z")
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let formatter = DateFormatter()

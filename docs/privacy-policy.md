@@ -12,7 +12,8 @@ The public privacy policy now lives in the web app at
 - GitHub OAuth credentials: token hash plus encrypted access token for
   server-side score refresh.
 - Distance summaries: daily running distance totals from HealthKit or Health
-  Connect.
+  Connect. On iOS, Apple Health sync reads the current UTC calendar year only
+  when preparing daily aggregate totals.
 - Device sync metadata: platform, device label, sync status, and timestamps.
 - Session cookies and OAuth state cookies.
 - Public leaderboard/profile visibility settings.

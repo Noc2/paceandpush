@@ -21,7 +21,8 @@ commit summaries with daily aggregate running distance to build a public score.
 
 The app uploads only daily aggregate running distance totals. It does not upload
 raw workouts, GPS routes, maps, heart-rate samples, or step-by-step HealthKit
-records.
+records. On iOS, Apple Health sync reads the current UTC calendar year only when
+preparing those daily totals.
 
 Use Pace & Push to:
 

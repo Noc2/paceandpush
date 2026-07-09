@@ -71,6 +71,10 @@ export default function PrivacyPage() {
                 Daily aggregate distance totals sent by the iOS or Android app,
                 bucketed by UTC calendar day.
               </li>
+              <li>
+                On iOS, Apple Health sync reads the current UTC calendar year
+                only when preparing daily aggregate totals.
+              </li>
               <li>Device label, platform, sync timestamps, status, and error summaries.</li>
               <li>
                 {brandName} does not collect raw workouts, GPS routes, or
