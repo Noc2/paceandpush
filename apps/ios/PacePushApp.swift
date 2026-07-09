@@ -567,6 +567,8 @@ struct SettingsView: View {
     @EnvironmentObject private var store: PacePushStore
     @State private var isServerSettingsExpanded = false
     @State private var isSignOutConfirmationPresented = false
+    @State private var isDeleteAccountConfirmationPresented = false
+    @State private var accountExportItem: AccountExportItem?
 
     var body: some View {
         NavigationStack {
@@ -676,6 +678,36 @@ struct SettingsView: View {
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(Brand.muted)
                             .padding(.top, 2)
+
+                        SettingsLinkButton(
+                            "Privacy Policy",
+                            systemImage: "hand.raised",
+                            destination: SupportLinks.privacyPolicyURL,
+                        )
+                        .accessibilityIdentifier("settings-privacy-policy-link")
+
+                        if store.isGitHubConnected {
+                            SettingsActionButton(
+                                "Export data",
+                                systemImage: "square.and.arrow.up",
+                                isDisabled: store.busy,
+                            ) {
+                                Task {
+                                    accountExportItem = await store.exportAccountData()
+                                }
+                            }
+                            .accessibilityIdentifier("settings-export-data-button")
+
+                            SettingsActionButton(
+                                "Delete account",
+                                systemImage: "trash",
+                                tone: .danger,
+                                isDisabled: store.busy,
+                            ) {
+                                isDeleteAccountConfirmationPresented = true
+                            }
+                            .accessibilityIdentifier("settings-delete-account-button")
+                        }
                     }
 
                     if store.showsServerSettings {
@@ -734,8 +766,38 @@ struct SettingsView: View {
             } message: {
                 Text("Pace & Push will stop GitHub contribution access and clear this device connection.")
             }
+            .confirmationDialog(
+                "Delete account?",
+                isPresented: $isDeleteAccountConfirmationPresented,
+                titleVisibility: .visible,
+            ) {
+                Button("Delete account", role: .destructive) {
+                    Task { await store.deleteAccount() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This removes your Pace & Push account, connected devices, score history, and synced distance totals.")
+            }
+            .sheet(item: $accountExportItem) { item in
+                AccountExportShareSheet(activityItems: [item.text])
+            }
         }
     }
+}
+
+struct AccountExportItem: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
+struct AccountExportShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 struct SettingsSectionPanel<Content: View>: View {
@@ -1009,6 +1071,7 @@ enum ScoreExplanation {
 enum SupportLinks {
     static let email = "hawigxyz@proton.me"
     static let feedbackURL = URL(string: "mailto:\(email)?subject=Pace%20%26%20Push%20beta%20feedback")!
+    static let privacyPolicyURL = URL(string: "https://paceandpush.com/privacy")!
 
     static func publicProfileURL(login: String) -> URL? {
         guard let encodedLogin = login.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
@@ -1465,6 +1528,8 @@ protocol PacePushClienting {
     func exchangeMobileAuthCode(_ code: String, codeVerifier: String) async throws -> DeviceExchangeResponse
     func exchangeDevicePairing(code: String, platform: String, label: String) async throws -> DeviceExchangeResponse
     func disconnectGitHub() async throws -> GitHubDisconnectResponse
+    func exportAccountData() async throws -> String
+    func deleteAccount() async throws -> AccountDeletionResponse
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse
     func fetchMe(period: String) async throws -> MeResponse
     func fetchProfile(period: String) async throws -> PublicProfileResponse
@@ -1779,6 +1844,59 @@ final class PacePushStore: ObservableObject {
             _ = try await client.disconnectGitHub()
             signOut()
             lastSuccess = "Signed out. GitHub contribution access is off."
+        } catch PacePushAPIError.unauthorized {
+            signOut()
+            lastError = "This device was revoked. Connect GitHub again."
+        } catch {
+            lastError = error.localizedDescription
+            lastSuccess = nil
+        }
+    }
+
+    func exportAccountData() async -> AccountExportItem? {
+        guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else {
+            lastError = "Connect GitHub before exporting data."
+            lastSuccess = nil
+            return nil
+        }
+
+        busy = true
+        lastError = nil
+        lastSuccess = nil
+        defer { busy = false }
+
+        do {
+            let client = apiClientFactory(baseURL, token)
+            let export = try await client.exportAccountData()
+            lastSuccess = "Data export ready."
+            return AccountExportItem(text: export)
+        } catch PacePushAPIError.unauthorized {
+            signOut()
+            lastError = "This device was revoked. Connect GitHub again."
+        } catch {
+            lastError = error.localizedDescription
+            lastSuccess = nil
+        }
+        return nil
+    }
+
+    func deleteAccount() async {
+        guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else {
+            signOut()
+            lastSuccess = "Account deleted."
+            return
+        }
+
+        busy = true
+        lastError = nil
+        lastSuccess = nil
+        defer { busy = false }
+
+        do {
+            let client = apiClientFactory(baseURL, token)
+            _ = try await client.deleteAccount()
+            signOut()
+            lastSuccess = "Account deleted."
         } catch PacePushAPIError.unauthorized {
             signOut()
             lastError = "This device was revoked. Connect GitHub again."
@@ -2197,6 +2315,14 @@ private final class UITestingPacePushClient: PacePushClienting {
         GitHubDisconnectResponse(login: "noc2", disconnectedAt: "2026-07-06T12:00:00.000Z")
     }
 
+    func exportAccountData() async throws -> String {
+        return #"{"exportedAt":"2026-07-06T12:00:00.000Z","data":{"account":{"login":"noc2"}}}"#
+    }
+
+    func deleteAccount() async throws -> AccountDeletionResponse {
+        AccountDeletionResponse(login: "noc2", status: "deleted", deletedAt: "2026-07-06T12:00:00.000Z")
+    }
+
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse {
         LeaderboardResponse(
             period: period,
@@ -2325,6 +2451,14 @@ final class PacePushAPIClient: PacePushClienting {
         try await delete("/api/mobile/me/github/disconnect", authenticated: true)
     }
 
+    func exportAccountData() async throws -> String {
+        try await fetchRawJSON("/api/mobile/me/privacy-export", authenticated: true)
+    }
+
+    func deleteAccount() async throws -> AccountDeletionResponse {
+        try await delete("/api/mobile/me/delete", authenticated: true)
+    }
+
     func fetch<T: Decodable>(
         _ path: String,
         queryItems: [URLQueryItem] = [],
@@ -2342,6 +2476,20 @@ final class PacePushAPIClient: PacePushClienting {
         let (data, response) = try await dataLoader.data(for: request)
         try validate(response: response, data: data)
         return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    func fetchRawJSON(_ path: String, authenticated: Bool) async throws -> String {
+        var request = URLRequest(url: url(path))
+        request.setValue("application/json", forHTTPHeaderField: "accept")
+        if authenticated {
+            try authorize(&request)
+        }
+        let (data, response) = try await dataLoader.data(for: request)
+        try validate(response: response, data: data)
+        guard let body = String(data: data, encoding: .utf8) else {
+            throw PacePushAPIError.server("Could not decode account export.")
+        }
+        return body
     }
 
     func delete<Response: Decodable>(_ path: String, authenticated: Bool) async throws -> Response {
@@ -3259,6 +3407,12 @@ struct DeviceExchangeResponse: Decodable {
 struct GitHubDisconnectResponse: Decodable {
     let login: String
     let disconnectedAt: String
+}
+
+struct AccountDeletionResponse: Decodable {
+    let login: String
+    let status: String
+    let deletedAt: String
 }
 
 struct MobileDeviceSummary: Decodable, Identifiable {

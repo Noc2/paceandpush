@@ -337,6 +337,50 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
     }
 
+    func testAPIClientExportsAccountDataWithBearerToken() async throws {
+        let loader = RecordingDataLoader(json: """
+        {
+          "exportedAt": "2026-07-07T12:00:00.000Z",
+          "data": {
+            "account": {
+              "login": "noc2"
+            }
+          },
+          "notes": ["Daily running distance totals are exported without raw workouts."]
+        }
+        """)
+        let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: "token-123", dataLoader: loader)
+
+        let body = try await client.exportAccountData()
+
+        XCTAssertTrue(body.contains(#""exportedAt""#))
+        XCTAssertEqual(loader.requests.first?.httpMethod, "GET")
+        XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/me/privacy-export")
+        XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "accept"), "application/json")
+        XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
+    }
+
+    func testAPIClientDeletesAccountWithBearerToken() async throws {
+        let loader = RecordingDataLoader(json: """
+        {
+          "login": "noc2",
+          "status": "deleted",
+          "deletedAt": "2026-07-07T12:00:00.000Z"
+        }
+        """)
+        let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: "token-123", dataLoader: loader)
+
+        let response = try await client.deleteAccount()
+
+        XCTAssertEqual(response.login, "noc2")
+        XCTAssertEqual(response.status, "deleted")
+        XCTAssertEqual(response.deletedAt, "2026-07-07T12:00:00.000Z")
+        XCTAssertEqual(loader.requests.first?.httpMethod, "DELETE")
+        XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/me/delete")
+        XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "accept"), "application/json")
+        XCTAssertEqual(loader.requests.first?.value(forHTTPHeaderField: "authorization"), "Bearer token-123")
+    }
+
     func testAPIClientExchangesMobileAuthCodeWithPKCEVerifier() async throws {
         let loader = RecordingDataLoader(json: """
         {
@@ -667,6 +711,60 @@ final class PacePushTests: XCTestCase {
         XCTAssertNil(store.lastError)
     }
 
+    @MainActor
+    func testStoreExportsAccountDataForSharing() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let client = FakePacePushClient()
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [:]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        let export = await store.exportAccountData()
+
+        XCTAssertEqual(client.exportAccountDataCallCount, 1)
+        XCTAssertTrue(export?.text.contains(#""exportedAt""#) ?? false)
+        XCTAssertEqual(store.lastSuccess, "Data export ready.")
+        XCTAssertNil(store.lastError)
+    }
+
+    @MainActor
+    func testStoreDeletesAccountAndClearsLocalDeviceToken() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let preferences = InMemoryPreferences(values: [
+            "firstSyncAt": "2026-07-01T00:00:00.000Z",
+            "historicalDistanceSyncVersion": "full-history-v1",
+        ])
+        let client = FakePacePushClient()
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.deleteAccount()
+
+        XCTAssertEqual(client.deleteAccountCallCount, 1)
+        XCTAssertNil(try keychain.readString(account: "mobileDeviceToken"))
+        XCTAssertNil(store.deviceToken)
+        XCTAssertNil(store.firstSyncAt)
+        XCTAssertNil(preferences.string(forKey: "firstSyncAt"))
+        XCTAssertNil(preferences.string(forKey: "historicalDistanceSyncVersion"))
+        XCTAssertEqual(store.lastSuccess, "Account deleted.")
+        XCTAssertNil(store.lastError)
+    }
+
     private static let meJSON = """
     {
       "login": "noc2",
@@ -832,6 +930,8 @@ private final class FakePacePushClient: PacePushClienting {
     var publicProfileLogins: [String] = []
     var publicProfilePeriods: [String] = []
     var disconnectGitHubCallCount = 0
+    var exportAccountDataCallCount = 0
+    var deleteAccountCallCount = 0
     var disconnectResponse = GitHubDisconnectResponse(login: "noc2", disconnectedAt: "2026-07-07T12:00:00.000Z")
 
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String, codeChallenge: String) throws -> URL {
@@ -851,6 +951,16 @@ private final class FakePacePushClient: PacePushClienting {
     func disconnectGitHub() async throws -> GitHubDisconnectResponse {
         disconnectGitHubCallCount += 1
         return disconnectResponse
+    }
+
+    func exportAccountData() async throws -> String {
+        exportAccountDataCallCount += 1
+        return #"{"exportedAt":"2026-07-07T12:00:00.000Z","data":{"account":{"login":"noc2"}}}"#
+    }
+
+    func deleteAccount() async throws -> AccountDeletionResponse {
+        deleteAccountCallCount += 1
+        return AccountDeletionResponse(login: "noc2", status: "deleted", deletedAt: "2026-07-07T12:00:00.000Z")
     }
 
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse {

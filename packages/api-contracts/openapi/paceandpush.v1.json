@@ -301,6 +301,34 @@
         "security": [{ "mobileBearer": [] }]
       }
     },
+    "/api/mobile/me/privacy-export": {
+      "get": {
+        "summary": "Export mobile-authenticated user's stored account data",
+        "responses": {
+          "200": {
+            "description": "Stored account data"
+          },
+          "401": {
+            "description": "Invalid device token"
+          }
+        },
+        "security": [{ "mobileBearer": [] }]
+      }
+    },
+    "/api/mobile/me/delete": {
+      "delete": {
+        "summary": "Delete mobile-authenticated user's stored account data",
+        "responses": {
+          "200": {
+            "description": "Deleted account"
+          },
+          "401": {
+            "description": "Invalid device token"
+          }
+        },
+        "security": [{ "mobileBearer": [] }]
+      }
+    },
     "/api/mobile/me/settings": {
       "patch": {
         "summary": "Update mobile-authenticated user settings",

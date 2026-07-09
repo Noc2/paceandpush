@@ -465,6 +465,36 @@ test("privacy export omits internal token and source hashes", async () => {
   assert.doesNotMatch(exportBlock, /sourceMetadata/);
 });
 
+test("mobile account data routes use bearer auth", async () => {
+  const exportRoute = await readFile(
+    new URL("../src/app/api/mobile/me/privacy-export/route.ts", import.meta.url),
+    "utf8",
+  );
+  const deleteRoute = await readFile(
+    new URL("../src/app/api/mobile/me/delete/route.ts", import.meta.url),
+    "utf8",
+  );
+  const nativeApp = await readFile(
+    new URL("../../ios/PacePushApp.swift", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(exportRoute, /verifyDeviceToken\(request\.headers\.get\("authorization"\)\)/);
+  assert.match(exportRoute, /exportAccountData\(auth\.user\.id\)/);
+  assert.match(exportRoute, /"cache-control": "no-store"/);
+  assert.doesNotMatch(exportRoute, /getSessionUser/);
+  assert.match(deleteRoute, /verifyDeviceToken\(request\.headers\.get\("authorization"\)\)/);
+  assert.match(deleteRoute, /getScoreSnapshotPeriodsForUser\(auth\.user\.id\)/);
+  assert.match(deleteRoute, /deleteAccountData\(auth\.user\.id\)/);
+  assert.match(deleteRoute, /recomputeScoreSnapshotPeriods\(affectedPeriods\)/);
+  assert.doesNotMatch(deleteRoute, /getSessionUser/);
+  assert.match(nativeApp, /settings-privacy-policy-link/);
+  assert.match(nativeApp, /settings-export-data-button/);
+  assert.match(nativeApp, /settings-delete-account-button/);
+  assert.match(nativeApp, /\/api\/mobile\/me\/privacy-export/);
+  assert.match(nativeApp, /\/api\/mobile\/me\/delete/);
+});
+
 test("web security headers are configured", async () => {
   const nextConfig = await readFile(
     new URL("../next.config.ts", import.meta.url),
