@@ -548,12 +548,6 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Settings")
                             .font(.title.bold())
-                        Text("@\(store.me.login)")
-                            .font(.headline.monospaced())
-                            .foregroundStyle(Brand.muted)
-                        Text("Manage sync, units, privacy, and support.")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(Brand.muted)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .panelStyle()
