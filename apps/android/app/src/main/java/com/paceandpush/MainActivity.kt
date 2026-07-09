@@ -1217,6 +1217,12 @@ class MainActivity : ComponentActivity() {
         pairingStatusMessage = "Signing out and revoking this device..."
         pairingStatusColor = ink
         activeTab = Tab.Settings
+        clearStoredPairingCredentials()
+        paired = false
+        me = emptyMeSummary()
+        rows = emptyList()
+        history = emptyList()
+        dataStatusMessage = null
         render()
 
         val baseUrl = apiBaseUrl
@@ -1230,22 +1236,10 @@ class MainActivity : ComponentActivity() {
             pairingInProgress = false
             result
                 .onSuccess {
-                    clearStoredPairingCredentials()
-                    paired = false
-                    me = emptyMeSummary()
-                    rows = emptyList()
-                    history = emptyList()
-                    dataStatusMessage = null
                     pairingStatusMessage = "Signed out and this device was revoked."
                     pairingStatusColor = green
                 }
                 .onFailure { error ->
-                    clearStoredPairingCredentials()
-                    paired = false
-                    me = emptyMeSummary()
-                    rows = emptyList()
-                    history = emptyList()
-                    dataStatusMessage = null
                     pairingStatusMessage =
                         "Signed out on this device, but could not confirm GitHub access was revoked. ${error.message ?: "Try signing in again to retry."}"
                     pairingStatusColor = red

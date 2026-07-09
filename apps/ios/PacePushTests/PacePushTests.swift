@@ -713,6 +713,43 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
+    func testStoreClearsLocalDeviceTokenBeforeGitHubDisconnectCompletes() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let preferences = InMemoryPreferences(values: [
+            "healthAuthorized": true,
+            "firstSyncAt": "2026-07-01T00:00:00.000Z",
+            "historicalDistanceSyncVersion": "current-utc-year-v1",
+        ])
+        let client = FakePacePushClient()
+        client.disconnectGitHubDelayNanoseconds = 200_000_000
+
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        let disconnectTask = Task { await store.disconnectGitHub() }
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertNil(try keychain.readString(account: "mobileDeviceToken"))
+        XCTAssertNil(store.deviceToken)
+        XCTAssertNil(store.firstSyncAt)
+        XCTAssertNil(preferences.string(forKey: "firstSyncAt"))
+        XCTAssertNil(preferences.string(forKey: "historicalDistanceSyncVersion"))
+
+        await disconnectTask.value
+        XCTAssertEqual(client.disconnectGitHubCallCount, 1)
+        XCTAssertEqual(store.lastSuccess, "Signed out. GitHub contribution access is off.")
+        XCTAssertNil(store.lastError)
+    }
+
+    @MainActor
     func testStoreClearsLocalDeviceTokenWhenGitHubDisconnectReturnsError() async throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")
@@ -969,6 +1006,7 @@ private final class FakePacePushClient: PacePushClienting {
     var deleteAccountCallCount = 0
     var disconnectResponse = GitHubDisconnectResponse(login: "noc2", disconnectedAt: "2026-07-07T12:00:00.000Z")
     var disconnectGitHubError: Error?
+    var disconnectGitHubDelayNanoseconds: UInt64 = 0
 
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String, codeChallenge: String) throws -> URL {
         URL(string: "https://example.test/start?platform=\(platform)&callbackScheme=\(callbackScheme)&codeChallenge=\(codeChallenge)")!
@@ -986,6 +1024,9 @@ private final class FakePacePushClient: PacePushClienting {
 
     func disconnectGitHub() async throws -> GitHubDisconnectResponse {
         disconnectGitHubCallCount += 1
+        if disconnectGitHubDelayNanoseconds > 0 {
+            try await Task.sleep(nanoseconds: disconnectGitHubDelayNanoseconds)
+        }
         if let disconnectGitHubError {
             throw disconnectGitHubError
         }

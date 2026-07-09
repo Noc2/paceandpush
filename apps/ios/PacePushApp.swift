@@ -1837,18 +1837,16 @@ final class PacePushStore: ObservableObject {
         busy = true
         lastError = nil
         lastSuccess = nil
+        signOut()
         defer { busy = false }
 
         do {
             let client = apiClientFactory(baseURL, token)
             _ = try await client.disconnectGitHub()
-            signOut()
             lastSuccess = "Signed out. GitHub contribution access is off."
         } catch PacePushAPIError.unauthorized {
-            signOut()
             lastError = "This device was revoked. Connect GitHub again."
         } catch {
-            signOut()
             lastError = "Signed out on this device, but Pace & Push could not confirm GitHub access was revoked. \(error.localizedDescription)"
             lastSuccess = nil
         }
