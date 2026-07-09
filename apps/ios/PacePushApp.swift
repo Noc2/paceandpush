@@ -1545,7 +1545,7 @@ final class PacePushStore: ObservableObject {
     }
 
     var onboardingComplete: Bool {
-        publicLeaderboardPreferenceChosen && isGitHubConnected && healthAuthorized && firstSyncAt != nil
+        publicLeaderboardPreferenceChosen && isGitHubConnected && healthAuthorized
     }
 
     var canRetryFirstSync: Bool {
@@ -2047,21 +2047,29 @@ final class PacePushStore: ObservableObject {
 extension PacePushStore {
     static func launchStore(arguments: [String] = ProcessInfo.processInfo.arguments) -> PacePushStore {
         #if DEBUG
-        let isUITesting = arguments.contains("-uiTesting") || arguments.contains("-uiTestingSeeded")
+        let isUITesting = arguments.contains("-uiTesting") ||
+            arguments.contains("-uiTestingSeeded") ||
+            arguments.contains("-uiTestingReadyNoSync")
         guard isUITesting else { return PacePushStore() }
 
         let isSeeded = arguments.contains("-uiTestingSeeded")
+        let isReadyWithoutSync = arguments.contains("-uiTestingReadyNoSync")
+        let hasConnectedSeed = isSeeded || isReadyWithoutSync
+        var preferences: [String: Any] = hasConnectedSeed ? [
+            "healthAuthorized": true,
+            "publicLeaderboardPreference": true,
+            "publicLeaderboardPreferenceChosen": true,
+            "distanceUnits": "metric",
+        ] : [:]
+        if isSeeded {
+            preferences["firstSyncAt"] = "2026-07-06T12:00:00.000Z"
+        }
+
         return PacePushStore(
-            keychain: UITestingKeychain(values: isSeeded ? ["mobileDeviceToken": "ui-testing-token"] : [:]),
+            keychain: UITestingKeychain(values: hasConnectedSeed ? ["mobileDeviceToken": "ui-testing-token"] : [:]),
             healthSync: UITestingHealthSync(),
             authSession: UITestingGitHubAuthSession(),
-            preferences: UITestingPreferences(values: isSeeded ? [
-                "healthAuthorized": true,
-                "firstSyncAt": "2026-07-06T12:00:00.000Z",
-                "publicLeaderboardPreference": true,
-                "publicLeaderboardPreferenceChosen": true,
-                "distanceUnits": "metric",
-            ] : [:]),
+            preferences: UITestingPreferences(values: preferences),
             apiClientFactory: { _, _ in UITestingPacePushClient() },
             deviceLabel: { "UI Test iPhone" },
             now: { ISO8601DateFormatter.pacePush.date(from: "2026-07-06T12:00:00.000Z") ?? Date() },

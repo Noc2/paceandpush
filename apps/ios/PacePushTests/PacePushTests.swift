@@ -324,6 +324,29 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
+    func testOnboardingCompletesWhenGitHubAndHealthAreReadyBeforeFirstSync() throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [
+                "healthAuthorized": true,
+                "publicLeaderboardPreferenceChosen": true,
+            ]),
+            apiClientFactory: { _, _ in FakePacePushClient() },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        XCTAssertTrue(store.onboardingComplete)
+        XCTAssertTrue(store.canRetryFirstSync)
+        XCTAssertNil(store.firstSyncAt)
+    }
+
+    @MainActor
     func testSyncUploadsFullHistoryInApiSizedBatches() async throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")

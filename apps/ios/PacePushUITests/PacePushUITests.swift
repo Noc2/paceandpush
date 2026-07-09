@@ -42,6 +42,15 @@ final class PacePushUITests: XCTestCase {
         XCTAssertFalse(app.textFields["api-base-url-field"].isHittable)
     }
 
+    func testReadyLaunchShowsProfileBeforeFirstSyncCompletes() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTestingReadyNoSync"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["onboarding-view"].exists)
+    }
+
     func testSeededProfileShowsPeriodSelectorAndChart() {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-uiTestingSeeded"]
