@@ -1,8 +1,70 @@
 import Foundation
+import SwiftUI
 import XCTest
 @testable import PacePush
 
 final class PacePushTests: XCTestCase {
+    @MainActor
+    func testThemePreferenceDefaultsToSystemAndMapsColorSchemes() {
+        let store = PacePushStore(
+            keychain: InMemoryKeychain(),
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [:]),
+            apiClientFactory: { _, _ in FakePacePushClient() },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        XCTAssertEqual(store.themePreference, .system)
+        XCTAssertNil(store.themePreference.colorScheme)
+        XCTAssertNil(BrandThemePreference.system.colorScheme)
+        XCTAssertEqual(BrandThemePreference.light.colorScheme, .light)
+        XCTAssertEqual(BrandThemePreference.dark.colorScheme, .dark)
+    }
+
+    @MainActor
+    func testThemePreferencePersistsLightAndDarkSelections() {
+        let preferences = InMemoryPreferences(values: [:])
+        let store = PacePushStore(
+            keychain: InMemoryKeychain(),
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in FakePacePushClient() },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        store.themePreference = .light
+        XCTAssertEqual(preferences.string(forKey: "themePreference"), "light")
+        let restoredLightStore = PacePushStore(
+            keychain: InMemoryKeychain(),
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in FakePacePushClient() },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+        XCTAssertEqual(restoredLightStore.themePreference, .light)
+        XCTAssertEqual(restoredLightStore.themePreference.colorScheme, .light)
+
+        restoredLightStore.themePreference = .dark
+        XCTAssertEqual(preferences.string(forKey: "themePreference"), "dark")
+        let restoredDarkStore = PacePushStore(
+            keychain: InMemoryKeychain(),
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in FakePacePushClient() },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+        XCTAssertEqual(restoredDarkStore.themePreference, .dark)
+        XCTAssertEqual(restoredDarkStore.themePreference.colorScheme, .dark)
+    }
+
     func testDistanceUnitAbbreviations() {
         XCTAssertEqual(DistanceUnits.metric.abbreviation, "km")
         XCTAssertEqual(DistanceUnits.imperial.abbreviation, "mi")
