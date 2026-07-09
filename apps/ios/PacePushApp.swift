@@ -579,10 +579,6 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .panelStyle()
 
-                    SettingsSectionPanel("Account") {
-                        StatusRow(label: "Developer", value: "@\(store.me.login)")
-                    }
-
                     SettingsSectionPanel("Theme") {
                         SettingsThemeSelector(themePreference: $store.themePreference)
                     }

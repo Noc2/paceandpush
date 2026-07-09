@@ -39,6 +39,8 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.buttons["sync-now-button"].exists)
         XCTAssertTrue(app.buttons["settings-sign-out-button"].exists)
         XCTAssertTrue(app.switches["settings-public-leaderboard-toggle"].exists)
+        XCTAssertFalse(app.staticTexts["Account"].exists)
+        XCTAssertFalse(app.staticTexts["Developer"].exists)
         XCTAssertTrue(app.staticTexts["Theme"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["settings-theme-selector"].exists)
         let lightThemeButton = app.descendants(matching: .any)["settings-theme-light-button"]

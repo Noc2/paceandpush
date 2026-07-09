@@ -1178,6 +1178,8 @@ test("iOS app keeps system default while exposing light and dark theme choices",
   assert.doesNotMatch(iosSource, /\.preferredColorScheme\(\.light\)/);
   assert.match(iosSource, /SettingsSectionPanel\("Theme"\)/);
   assert.doesNotMatch(iosSource, /SettingsSectionPanel\("Appearance"\)/);
+  assert.doesNotMatch(iosSource, /SettingsSectionPanel\("Account"\)/);
+  assert.doesNotMatch(iosSource, /StatusRow\(label: "Developer"/);
   assert.match(iosSource, /SettingsThemeSelector\(themePreference: \$store\.themePreference\)/);
   assert.match(iosSource, /private let options: \[BrandThemePreference\] = \[\.light, \.dark\]/);
   assert.doesNotMatch(iosSource, /ForEach\(BrandThemePreference\.allCases\)/);
