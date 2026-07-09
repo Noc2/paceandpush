@@ -65,6 +65,33 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(restoredDarkStore.themePreference.colorScheme, .dark)
     }
 
+    @MainActor
+    func testThemePreferenceRestoresStoredSystemAndFallsBackForInvalidValues() {
+        let systemStore = PacePushStore(
+            keychain: InMemoryKeychain(),
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: ["themePreference": "system"]),
+            apiClientFactory: { _, _ in FakePacePushClient() },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+        XCTAssertEqual(systemStore.themePreference, .system)
+        XCTAssertNil(systemStore.themePreference.colorScheme)
+
+        let invalidStore = PacePushStore(
+            keychain: InMemoryKeychain(),
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: ["themePreference": "sepia"]),
+            apiClientFactory: { _, _ in FakePacePushClient() },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+        XCTAssertEqual(invalidStore.themePreference, .system)
+        XCTAssertNil(invalidStore.themePreference.colorScheme)
+    }
+
     func testDistanceUnitAbbreviations() {
         XCTAssertEqual(DistanceUnits.metric.abbreviation, "km")
         XCTAssertEqual(DistanceUnits.imperial.abbreviation, "mi")

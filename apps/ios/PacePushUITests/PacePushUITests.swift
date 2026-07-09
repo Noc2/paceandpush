@@ -41,8 +41,16 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.switches["settings-public-leaderboard-toggle"].exists)
         XCTAssertTrue(app.staticTexts["Theme"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["settings-theme-selector"].exists)
-        XCTAssertTrue(app.buttons["settings-theme-light-button"].exists)
-        XCTAssertTrue(app.buttons["settings-theme-dark-button"].exists)
+        let lightThemeButton = app.descendants(matching: .any)["settings-theme-light-button"]
+        let darkThemeButton = app.descendants(matching: .any)["settings-theme-dark-button"]
+        XCTAssertTrue(lightThemeButton.exists)
+        XCTAssertTrue(darkThemeButton.exists)
+        let themeSelectionValues = [
+            lightThemeButton.value as? String,
+            darkThemeButton.value as? String,
+        ]
+        XCTAssertEqual(themeSelectionValues.filter { $0 == "Selected" }.count, 1)
+        XCTAssertEqual(themeSelectionValues.filter { $0 == "Not selected" }.count, 1)
         XCTAssertFalse(app.staticTexts["Appearance"].exists)
         XCTAssertFalse(app.buttons["System"].exists)
         XCTAssertFalse(app.textFields["api-base-url-field"].isHittable)

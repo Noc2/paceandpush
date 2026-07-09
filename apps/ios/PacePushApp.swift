@@ -880,12 +880,14 @@ struct SettingsLinkButton: View {
 }
 
 struct SettingsThemeSelector: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var themePreference: BrandThemePreference
     private let options: [BrandThemePreference] = [.light, .dark]
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(options) { option in
+                let isSelected = option == selectedOption
                 Button {
                     themePreference = option
                 } label: {
@@ -893,10 +895,13 @@ struct SettingsThemeSelector: View {
                         .font(.headline.weight(.bold))
                         .foregroundStyle(Brand.ink)
                         .frame(maxWidth: .infinity, minHeight: 42)
-                        .background(option == themePreference ? Brand.orange : Brand.surfacePanelHigh)
+                        .background(isSelected ? Brand.orange : Brand.surfacePanelHigh)
                 }
-                .buttonStyle(.plain)
                 .accessibilityIdentifier("settings-theme-\(option.id)-button")
+                .accessibilityLabel(option.title)
+                .accessibilityValue(isSelected ? "Selected" : "Not selected")
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+                .buttonStyle(.plain)
                 .overlay(alignment: .trailing) {
                     if option.id != options.last?.id {
                         Rectangle()
@@ -908,7 +913,17 @@ struct SettingsThemeSelector: View {
         }
         .roundedClip()
         .roundedBorder(lineWidth: 1)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("settings-theme-selector")
+    }
+
+    private var selectedOption: BrandThemePreference {
+        switch themePreference {
+        case .light, .dark:
+            return themePreference
+        case .system:
+            return colorScheme == .dark ? .dark : .light
+        }
     }
 }
 
