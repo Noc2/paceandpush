@@ -51,14 +51,33 @@ jobs:
 
       - name: Run iOS tests
         run: |
-          xcodebuild \
-            -project apps/ios/PacePush.xcodeproj \
-            -scheme PacePush \
-            -destination 'platform=iOS Simulator,id=${{ steps.ios-simulator.outputs.udid }}' \
-            -derivedDataPath .build/ios \
-            -resultBundlePath .build/ios/PacePushTests.xcresult \
-            test \
-            CODE_SIGNING_ALLOWED=NO
+          for attempt in 1 2; do
+            rm -rf .build/ios/PacePushTests.xcresult
+            set +e
+            xcodebuild \
+              -project apps/ios/PacePush.xcodeproj \
+              -scheme PacePush \
+              -destination 'platform=iOS Simulator,id=${{ steps.ios-simulator.outputs.udid }},arch=arm64' \
+              -derivedDataPath .build/ios \
+              -resultBundlePath .build/ios/PacePushTests.xcresult \
+              test \
+              CODE_SIGNING_ALLOWED=NO
+            status=$?
+            set -e
+
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+
+            if [ "$status" -eq 139 ] && [ "$attempt" -eq 1 ]; then
+              echo "xcodebuild exited 139; retrying once after simulator reset."
+              xcrun simctl shutdown '${{ steps.ios-simulator.outputs.udid }}' || true
+              xcrun simctl boot '${{ steps.ios-simulator.outputs.udid }}' || true
+              continue
+            fi
+
+            exit "$status"
+          done
 
       - name: Upload iOS test results
         if: failure()
