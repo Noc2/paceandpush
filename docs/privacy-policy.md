@@ -17,6 +17,9 @@ The public privacy policy now lives in the web app at
 - Session cookies and OAuth state cookies.
 - Public leaderboard/profile visibility settings.
 - Data export and deletion controls.
+- Website analytics through Simple Analytics, including aggregate page paths,
+  referrers/UTM sources, country, language, device/browser information,
+  viewport dimensions, scroll depth, and time on page.
 
 ## Data We Do Not Collect In The PoC
 
@@ -38,8 +41,11 @@ The public privacy policy now lives in the web app at
   independently for GitHub account/service data. Apple and Google provide app
   distribution and native health-permission surfaces; HealthKit and Health
   Connect remain local platform permission systems.
-- No analytics, advertising, or error-monitoring provider is currently enabled.
-  Update the policy before adding one.
+- Simple Analytics is enabled for privacy-friendly website analytics on the
+  Next.js web app. It is not used for advertising or cross-site tracking and
+  does not set analytics cookies for this site.
+- No advertising or error-monitoring provider is currently enabled. Update the
+  policy before adding one.
 - Retention position: account, commit, distance, device, score, and sync records
   are kept while the account is active and are deleted from the application
   database on account deletion, subject to limited provider backup/log retention

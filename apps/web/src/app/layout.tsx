@@ -42,6 +42,10 @@ export default function RootLayout({
           {children}
           <SiteFooter />
         </div>
+        <Script
+          id="simple-analytics"
+          src="https://scripts.simpleanalyticscdn.com/latest.js"
+        />
       </body>
     </html>
   );

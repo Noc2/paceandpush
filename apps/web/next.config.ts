@@ -1,18 +1,21 @@
 import type { NextConfig } from "next";
 
+const simpleAnalyticsScriptSrc = "https://scripts.simpleanalyticscdn.com";
+const simpleAnalyticsCollectionSrc = "https://queue.simpleanalyticscdn.com";
+
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
       "base-uri 'self'",
-      "connect-src 'self' https://api.github.com https://github.com",
+      `connect-src 'self' https://api.github.com https://github.com ${simpleAnalyticsCollectionSrc}`,
       "font-src 'self' data:",
       "form-action 'self'",
       "frame-ancestors 'none'",
-      "img-src 'self' data: https://avatars.githubusercontent.com",
+      `img-src 'self' data: https://avatars.githubusercontent.com ${simpleAnalyticsCollectionSrc}`,
       "object-src 'none'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${simpleAnalyticsScriptSrc}`,
       "style-src 'self' 'unsafe-inline'",
     ].join("; "),
   },

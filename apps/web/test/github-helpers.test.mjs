@@ -483,6 +483,18 @@ test("web security headers are configured", async () => {
   assert.match(nextConfig, /object-src 'none'/);
 });
 
+test("Simple Analytics script is installed and allowed by CSP", async () => {
+  const [layout, nextConfig] = await Promise.all([
+    readFile(new URL("../src/app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../next.config.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(layout, /id="simple-analytics"/);
+  assert.match(layout, /https:\/\/scripts\.simpleanalyticscdn\.com\/latest\.js/);
+  assert.match(nextConfig, /https:\/\/scripts\.simpleanalyticscdn\.com/);
+  assert.match(nextConfig, /https:\/\/queue\.simpleanalyticscdn\.com/);
+});
+
 test("embed svg route has a sandboxed content security policy", async () => {
   const source = await readFile(
     new URL("../src/app/api/embed/[login]/chart.svg/route.ts", import.meta.url),

@@ -24,7 +24,7 @@ export default function PrivacyPage() {
           <h1>Privacy Policy</h1>
           <p>
             This policy explains how {brandName} processes account, coding, and
-            distance data. Last updated: July 7, 2026.
+            distance data. Last updated: July 9, 2026.
           </p>
         </section>
 
@@ -87,6 +87,20 @@ export default function PrivacyPage() {
               <li>Leaderboard visibility, unit preference, and public profile data.</li>
               <li>Score snapshots, ranks, streaks, and profile history.</li>
             </ul>
+
+            <h3>Website analytics</h3>
+            <ul>
+              <li>
+                Aggregate website analytics from Simple Analytics, including
+                page paths, referrers and UTM sources, country, language,
+                device/browser information, viewport dimensions, scroll depth,
+                and time on page.
+              </li>
+              <li>
+                Simple Analytics is not used for advertising or cross-site
+                tracking and does not set analytics cookies for this site.
+              </li>
+            </ul>
           </section>
 
           <section className="legal-section">
@@ -112,6 +126,11 @@ export default function PrivacyPage() {
               <li>
                 Security, abuse prevention, reliability, and debugging:
                 legitimate interests in operating a safe service.
+              </li>
+              <li>
+                Aggregate website analytics: legitimate interests in
+                understanding public website usage and improving the service
+                without advertising or cross-site tracking.
               </li>
             </ul>
           </section>
@@ -166,9 +185,9 @@ export default function PrivacyPage() {
                 totals to {brandName}.
               </li>
               <li>
-                No analytics, advertising, or error-monitoring provider is
-                currently enabled. This policy will be updated before any such
-                provider is added.
+                Simple Analytics for privacy-friendly aggregate website
+                analytics on the Next.js web app. Simple Analytics is not used
+                for advertising or cross-site tracking.
               </li>
             </ul>
             <p>
@@ -224,8 +243,9 @@ export default function PrivacyPage() {
             <h2>Cookies</h2>
             <p>
               {brandName} uses essential cookies for GitHub OAuth state and the
-              signed-in session. No marketing or behavioral advertising cookies
-              are currently used.
+              signed-in session. Simple Analytics is enabled without analytics
+              cookies. No marketing or behavioral advertising cookies are
+              currently used.
             </p>
           </section>
 
@@ -266,10 +286,11 @@ export default function PrivacyPage() {
           <section className="legal-section">
             <h2>Policy Updates</h2>
             <p>
-              This policy will be updated before {brandName} enables analytics,
+              This policy will be updated before {brandName} enables
               advertising, error monitoring, paid plans, background sync, raw
-              workout collection, GPS route collection, or any new third-party
-              provider that materially changes how personal data is processed.
+              workout collection, GPS route collection, changes analytics
+              provider or collection mode, or adds any new third-party provider
+              that materially changes how personal data is processed.
             </p>
           </section>
         </div>

@@ -51,8 +51,10 @@ Declare data linked to the user and used for app functionality:
   status, sync timestamps, error summaries, leaderboard settings, unit
   preference, selected period, score snapshots, and revocation metadata.
 
-Do not declare tracking. Do not declare advertising or analytics unless a new
-provider is added and `/privacy` is updated first.
+Do not declare tracking or advertising. Do not declare native app analytics
+unless an analytics SDK or provider is added to the iOS app; the website's
+Simple Analytics script is covered in `/privacy` and does not change the native
+App Store label by itself.
 
 ## Release Contact
 

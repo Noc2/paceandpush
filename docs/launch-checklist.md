@@ -100,7 +100,8 @@ Owner-only production setup is tracked in
 - Keep `apps/web/src/lib/legal.ts` current and run `npm run legal:check`.
 - Confirm the current production processor/recipient position in `/privacy`
   still matches the enabled services: Vercel, Neon, GitHub, Apple, Google, and
-  no analytics, advertising, or error-monitoring provider.
+  Simple Analytics for website analytics, with no advertising or
+  error-monitoring provider.
 - Re-review the Impressum and privacy policy whenever a new processor,
   monitoring provider, analytics provider, paid plan, background sync, raw
   workout collection, or GPS route collection is added.
