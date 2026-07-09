@@ -51,6 +51,9 @@ final class PacePushUITests: XCTestCase {
         ]
         XCTAssertEqual(themeSelectionValues.filter { $0 == "Selected" }.count, 1)
         XCTAssertEqual(themeSelectionValues.filter { $0 == "Not selected" }.count, 1)
+        app.buttons["Dark"].tap()
+        XCTAssertEqual(darkThemeButton.value as? String, "Selected")
+        addSettingsScreenshot(from: app)
         XCTAssertFalse(app.staticTexts["Appearance"].exists)
         XCTAssertFalse(app.buttons["System"].exists)
         XCTAssertFalse(app.textFields["api-base-url-field"].isHittable)
@@ -107,5 +110,12 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(
             app.staticTexts["Your score is private. Select Public leaderboard in Settings to appear on this leaderboard."].exists
         )
+    }
+
+    private func addSettingsScreenshot(from app: XCUIApplication) {
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Settings - Theme"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 }
