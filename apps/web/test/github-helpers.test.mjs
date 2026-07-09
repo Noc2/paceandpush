@@ -785,7 +785,7 @@ test("score recomputes coalesce in-progress period work", async () => {
   assert.match(scoresSource, /recomputeInFlight\.delete\(period\)/);
 });
 
-test("mobile GitHub disconnect revokes social credentials and device access", async () => {
+test("mobile GitHub sign-out revokes social credentials and device access", async () => {
   const route = await readFile(
     new URL("../src/app/api/mobile/me/github/disconnect/route.ts", import.meta.url),
     "utf8",
@@ -799,7 +799,7 @@ test("mobile GitHub disconnect revokes social credentials and device access", as
   assert.match(route, /disconnectGitHubAccount\(auth\.user\.id\)/);
   assert.match(route, /revokeMobileDevice\(\{ id: auth\.device\.id, userId: auth\.user\.id \}\)/);
   assert.match(route, /recomputeScoreSnapshotPeriods\(affectedPeriods\)/);
-  assert.match(nativeApp, /settings-disconnect-github-button/);
+  assert.match(nativeApp, /settings-sign-out-button/);
   assert.match(nativeApp, /\/api\/mobile\/me\/github\/disconnect/);
 });
 

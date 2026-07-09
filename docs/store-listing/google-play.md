@@ -22,8 +22,8 @@ It uploads daily aggregate running distance totals and does not upload raw
 workouts, GPS routes, maps, heart-rate samples, or step-by-step Health Connect
 records.
 
-Users can revoke Health Connect permissions, disconnect GitHub, revoke connected
-devices, export data, and delete the account.
+Users can revoke Health Connect permissions, sign out of GitHub, revoke
+connected devices, export data, and delete the account.
 
 Pace & Push is not a medical, diagnostic, coaching, betting, or prize app.
 

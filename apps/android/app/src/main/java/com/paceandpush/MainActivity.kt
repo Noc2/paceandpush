@@ -582,7 +582,7 @@ class MainActivity : ComponentActivity() {
             if (paired) {
                 addView(
                     Button(this@MainActivity).apply {
-                        text = "Disconnect GitHub"
+                        text = "Sign out"
                         isAllCaps = false
                         isEnabled = !pairingInProgress && !syncInProgress
                         setTextColor(ink)
@@ -1207,7 +1207,7 @@ class MainActivity : ComponentActivity() {
             me = emptyMeSummary()
             rows = emptyList()
             history = emptyList()
-            pairingStatusMessage = "This device is already disconnected."
+            pairingStatusMessage = "Already signed out."
             pairingStatusColor = muted
             activeTab = Tab.Settings
             render()
@@ -1215,7 +1215,7 @@ class MainActivity : ComponentActivity() {
         }
 
         pairingInProgress = true
-        pairingStatusMessage = "Disconnecting GitHub and revoking this device..."
+        pairingStatusMessage = "Signing out and revoking this device..."
         pairingStatusColor = ink
         activeTab = Tab.Settings
         render()
@@ -1237,11 +1237,11 @@ class MainActivity : ComponentActivity() {
                     rows = emptyList()
                     history = emptyList()
                     dataStatusMessage = null
-                    pairingStatusMessage = "GitHub disconnected and this device was revoked."
+                    pairingStatusMessage = "Signed out and this device was revoked."
                     pairingStatusColor = green
                 }
                 .onFailure { error ->
-                    pairingStatusMessage = error.message ?: "Could not disconnect GitHub."
+                    pairingStatusMessage = error.message ?: "Could not sign out."
                     pairingStatusColor = red
                 }
             render()

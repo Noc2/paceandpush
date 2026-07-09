@@ -539,7 +539,7 @@ struct ProfileErrorPanel: View {
 struct SettingsView: View {
     @EnvironmentObject private var store: PacePushStore
     @State private var isServerSettingsExpanded = false
-    @State private var isDisconnectConfirmationPresented = false
+    @State private var isSignOutConfirmationPresented = false
 
     var body: some View {
         NavigationStack {
@@ -560,14 +560,6 @@ struct SettingsView: View {
 
                     SettingsSectionPanel("Account") {
                         StatusRow(label: "Developer", value: "@\(store.me.login)")
-                        SettingsActionButton(
-                            "Sign out",
-                            systemImage: "rectangle.portrait.and.arrow.right",
-                            tone: .danger,
-                        ) {
-                            store.signOut()
-                        }
-                        .accessibilityIdentifier("settings-sign-out-button")
                     }
 
                     SettingsSectionPanel("Appearance") {
@@ -581,14 +573,14 @@ struct SettingsView: View {
                         )
                         if store.isGitHubConnected {
                             SettingsActionButton(
-                                "Disconnect GitHub",
-                                systemImage: "person.crop.circle.badge.xmark",
+                                "Sign out",
+                                systemImage: "rectangle.portrait.and.arrow.right",
                                 tone: .danger,
                                 isDisabled: store.busy,
                             ) {
-                                isDisconnectConfirmationPresented = true
+                                isSignOutConfirmationPresented = true
                             }
-                            .accessibilityIdentifier("settings-disconnect-github-button")
+                            .accessibilityIdentifier("settings-sign-out-button")
                         } else {
                             SettingsActionButton(
                                 "Connect GitHub",
@@ -717,11 +709,11 @@ struct SettingsView: View {
             .foregroundStyle(Brand.ink)
             .toolbar(.hidden, for: .navigationBar)
             .confirmationDialog(
-                "Disconnect GitHub?",
-                isPresented: $isDisconnectConfirmationPresented,
+                "Sign out?",
+                isPresented: $isSignOutConfirmationPresented,
                 titleVisibility: .visible,
             ) {
-                Button("Disconnect GitHub", role: .destructive) {
+                Button("Sign out", role: .destructive) {
                     Task { await store.disconnectGitHub() }
                 }
                 Button("Cancel", role: .cancel) {}
@@ -1741,7 +1733,7 @@ final class PacePushStore: ObservableObject {
     func disconnectGitHub() async {
         guard let token = deviceToken else {
             signOut()
-            lastSuccess = "GitHub disconnected. Contribution access is off."
+            lastSuccess = "Signed out. GitHub contribution access is off."
             return
         }
 
@@ -1760,7 +1752,7 @@ final class PacePushStore: ObservableObject {
             let client = apiClientFactory(baseURL, token)
             _ = try await client.disconnectGitHub()
             signOut()
-            lastSuccess = "GitHub disconnected. Contribution access is off."
+            lastSuccess = "Signed out. GitHub contribution access is off."
         } catch PacePushAPIError.unauthorized {
             signOut()
             lastError = "This device was revoked. Connect GitHub again."

@@ -25,7 +25,7 @@ contain account or health-derived data.
 - First sync uploads daily aggregate running distance only.
 - Resync is idempotent and updates sync status.
 - Leaderboard, profile, settings, export, account deletion, and sign-out work.
-- GitHub disconnect remains visible and revokes server access.
+- Sign-out remains visible and revokes GitHub server access.
 - App reinstall does not restore health data or device credentials from iCloud.
 
 ## Android Internal

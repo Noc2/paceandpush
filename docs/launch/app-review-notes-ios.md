@@ -15,9 +15,9 @@ GitHub login is not used only for basic profile import, sharing, inviting
 friends, or generic account creation. It is the account for the third-party
 service whose contribution content the app is built around.
 
-The in-app GitHub disconnect path is available from:
+The in-app GitHub sign-out path is available from:
 
-Settings tab > Sync > GitHub > Disconnect GitHub
+Settings tab > Sync > GitHub > Sign out
 
 When a user confirms that action, the iOS app calls
 `DELETE /api/mobile/me/github/disconnect`. The server verifies the current
@@ -32,8 +32,8 @@ Reviewers can test the flow with a connected account:
 1. Open Pace & Push.
 2. Sign in with GitHub.
 3. Open Settings.
-4. Confirm that "Disconnect GitHub" is visible in the Sync section.
-5. Tap "Disconnect GitHub" and confirm the dialog.
+4. Confirm that "Sign out" is visible in the Sync section.
+5. Tap "Sign out" and confirm the dialog.
 6. Confirm the app returns to the setup flow and no longer allows score sync
    until GitHub is connected again.
 
@@ -51,7 +51,7 @@ GitHub contribution content.
 Apple App Review Guideline 5.1.1(v) requires account sign-in to be directly
 relevant to core functionality and requires an in-app mechanism to revoke
 social-network credentials and disable data access. Pace & Push satisfies this
-through Settings > Sync > GitHub > Disconnect GitHub.
+through Settings > Sync > GitHub > Sign out.
 
 Sources:
 

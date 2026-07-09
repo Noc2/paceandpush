@@ -6,8 +6,7 @@ The current internal-test client includes Board, Profile, and Settings tabs,
 pairing-code exchange with the web API from Settings, authenticated reads from
 `/api/mobile/me` and `/api/mobile/me/profile`, public leaderboard reads from
 `/api/leaderboard`, Health Connect permission UX, foreground distance upload,
-sync-run reporting, and an in-app GitHub disconnect path that revokes the
-paired device.
+sync-run reporting, and an in-app sign-out path that revokes the paired device.
 
 Health Connect sync reads running exercise sessions, aggregates
 `DistanceRecord` distance inside those sessions by UTC day, and uploads daily

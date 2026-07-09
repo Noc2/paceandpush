@@ -28,7 +28,7 @@ Use Pace & Push to:
 - See your current week, month, and year score.
 - Compare with other public leaderboard users.
 - Sync running distance from Apple Health.
-- Disconnect GitHub, revoke devices, export data, or delete the account from
+- Sign out of GitHub, revoke devices, export data, or delete the account from
   Settings.
 
 Pace & Push is not a medical, diagnostic, coaching, betting, or prize app.

@@ -12,7 +12,7 @@ demo content.
 - First sync success with daily aggregate distance.
 - Leaderboard with public users.
 - Public profile.
-- Settings with GitHub disconnect, device revocation, export, and delete.
+- Settings with sign-out, device revocation, export, and delete.
 - Zero-distance recovery hint.
 
 ## Android Internal

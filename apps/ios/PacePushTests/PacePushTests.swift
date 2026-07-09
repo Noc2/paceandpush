@@ -551,7 +551,7 @@ final class PacePushTests: XCTestCase {
         XCTAssertNil(store.firstSyncAt)
         XCTAssertNil(preferences.string(forKey: "firstSyncAt"))
         XCTAssertNil(preferences.string(forKey: "historicalDistanceSyncVersion"))
-        XCTAssertEqual(store.lastSuccess, "GitHub disconnected. Contribution access is off.")
+        XCTAssertEqual(store.lastSuccess, "Signed out. GitHub contribution access is off.")
         XCTAssertNil(store.lastError)
     }
 
