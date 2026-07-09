@@ -583,7 +583,7 @@ struct SettingsView: View {
                         StatusRow(label: "Developer", value: "@\(store.me.login)")
                     }
 
-                    SettingsSectionPanel("Appearance") {
+                    SettingsSectionPanel("Theme") {
                         SettingsThemeSelector(themePreference: $store.themePreference)
                     }
 
@@ -881,37 +881,32 @@ struct SettingsLinkButton: View {
 
 struct SettingsThemeSelector: View {
     @Binding var themePreference: BrandThemePreference
+    private let options: [BrandThemePreference] = [.light, .dark]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Theme")
-                .font(.caption.weight(.black))
-                .foregroundStyle(Brand.muted)
-                .textCase(.uppercase)
-            HStack(spacing: 0) {
-                ForEach(BrandThemePreference.allCases) { option in
-                    Button {
-                        themePreference = option
-                    } label: {
-                        Text(option.title)
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(Brand.ink)
-                            .frame(maxWidth: .infinity, minHeight: 42)
-                            .background(option == themePreference ? Brand.orange : Brand.surfacePanelHigh)
-                    }
-                    .buttonStyle(.plain)
-                    .overlay(alignment: .trailing) {
-                        if option.id != BrandThemePreference.allCases.last?.id {
-                            Rectangle()
-                                .frame(width: 1)
-                                .foregroundStyle(Brand.line)
-                        }
+        HStack(spacing: 0) {
+            ForEach(options) { option in
+                Button {
+                    themePreference = option
+                } label: {
+                    Text(option.title)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(Brand.ink)
+                        .frame(maxWidth: .infinity, minHeight: 42)
+                        .background(option == themePreference ? Brand.orange : Brand.surfacePanelHigh)
+                }
+                .buttonStyle(.plain)
+                .overlay(alignment: .trailing) {
+                    if option.id != options.last?.id {
+                        Rectangle()
+                            .frame(width: 1)
+                            .foregroundStyle(Brand.line)
                     }
                 }
             }
-            .roundedClip()
-            .roundedBorder(lineWidth: 1)
         }
+        .roundedClip()
+        .roundedBorder(lineWidth: 1)
     }
 }
 

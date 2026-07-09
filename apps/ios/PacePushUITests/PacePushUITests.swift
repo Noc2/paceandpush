@@ -39,6 +39,11 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.buttons["sync-now-button"].exists)
         XCTAssertTrue(app.buttons["settings-sign-out-button"].exists)
         XCTAssertTrue(app.switches["settings-public-leaderboard-toggle"].exists)
+        XCTAssertTrue(app.staticTexts["Theme"].exists)
+        XCTAssertTrue(app.buttons["Light"].exists)
+        XCTAssertTrue(app.buttons["Dark"].exists)
+        XCTAssertFalse(app.staticTexts["Appearance"].exists)
+        XCTAssertFalse(app.buttons["System"].exists)
         XCTAssertFalse(app.textFields["api-base-url-field"].isHittable)
     }
 
