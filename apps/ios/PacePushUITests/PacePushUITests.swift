@@ -78,4 +78,20 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["@noc2"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["profile-chart"].exists)
     }
+
+    func testPrivateLeaderboardShowsVisibilityNotice() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTestingPrivateLeaderboard"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Board"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
+
+        let notice = app.descendants(matching: .any)["private-leaderboard-notice"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.staticTexts["Your score is private. Select Public leaderboard in Settings to appear on this leaderboard."].exists
+        )
+    }
 }

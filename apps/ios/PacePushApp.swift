@@ -277,6 +277,10 @@ struct LeaderboardView: View {
                         if board == .balanced {
                             ScoreExplanationDisclosure()
                         }
+
+                        if !store.publicLeaderboardPreference {
+                            LeaderboardPrivacyNotice()
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: 0) {
@@ -323,6 +327,29 @@ struct LeaderboardView: View {
                 await store.refreshLeaderboard(board: board)
             }
         }
+    }
+}
+
+struct LeaderboardPrivacyNotice: View {
+    private let message = "Your score is private. Select Public leaderboard in Settings to appear on this leaderboard."
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "eye.slash")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(Brand.orange)
+                .accessibilityHidden(true)
+
+            Text(message)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(Brand.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .roundedBackground(Brand.surfacePanelHigh)
+        .roundedBorder(Brand.orange.opacity(0.55), lineWidth: 1)
+        .accessibilityIdentifier("private-leaderboard-notice")
     }
 }
 
@@ -2040,15 +2067,17 @@ extension PacePushStore {
         #if DEBUG
         let isUITesting = arguments.contains("-uiTesting") ||
             arguments.contains("-uiTestingSeeded") ||
-            arguments.contains("-uiTestingReadyNoSync")
+            arguments.contains("-uiTestingReadyNoSync") ||
+            arguments.contains("-uiTestingPrivateLeaderboard")
         guard isUITesting else { return PacePushStore() }
 
         let isSeeded = arguments.contains("-uiTestingSeeded")
         let isReadyWithoutSync = arguments.contains("-uiTestingReadyNoSync")
-        let hasConnectedSeed = isSeeded || isReadyWithoutSync
+        let isPrivateLeaderboard = arguments.contains("-uiTestingPrivateLeaderboard")
+        let hasConnectedSeed = isSeeded || isReadyWithoutSync || isPrivateLeaderboard
         var preferences: [String: Any] = hasConnectedSeed ? [
             "healthAuthorized": true,
-            "publicLeaderboardPreference": true,
+            "publicLeaderboardPreference": !isPrivateLeaderboard,
             "publicLeaderboardPreferenceChosen": true,
             "distanceUnits": "metric",
         ] : [:]
@@ -2061,7 +2090,7 @@ extension PacePushStore {
             healthSync: UITestingHealthSync(),
             authSession: UITestingGitHubAuthSession(),
             preferences: UITestingPreferences(values: preferences),
-            apiClientFactory: { _, _ in UITestingPacePushClient() },
+            apiClientFactory: { _, _ in UITestingPacePushClient(publicLeaderboard: !isPrivateLeaderboard) },
             deviceLabel: { "UI Test iPhone" },
             now: { ISO8601DateFormatter.pacePush.date(from: "2026-07-06T12:00:00.000Z") ?? Date() },
             bootstrapSyncEnabled: false
@@ -2138,6 +2167,12 @@ private struct UITestingGitHubAuthSession: GitHubAuthenticating {
 }
 
 private final class UITestingPacePushClient: PacePushClienting {
+    private let publicLeaderboard: Bool
+
+    init(publicLeaderboard: Bool = true) {
+        self.publicLeaderboard = publicLeaderboard
+    }
+
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String, codeChallenge: String) throws -> URL {
         URL(string: "https://paceandpush.com/api/mobile/auth/github/start?platform=\(platform)&callbackScheme=\(callbackScheme)&codeChallenge=\(codeChallenge)")!
     }
@@ -2168,7 +2203,7 @@ private final class UITestingPacePushClient: PacePushClienting {
         MeResponse(
             login: "noc2",
             displayName: "David",
-            publicLeaderboard: true,
+            publicLeaderboard: publicLeaderboard,
             units: "metric",
             score: ScoreSummary(period: period, score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z"),
             devices: [deviceExchangeResponse.device]
@@ -2213,7 +2248,7 @@ private final class UITestingPacePushClient: PacePushClienting {
         AccountSettingsResponse(
             login: "noc2",
             displayName: "David",
-            publicLeaderboard: publicLeaderboard ?? true,
+            publicLeaderboard: publicLeaderboard ?? self.publicLeaderboard,
             units: units ?? "metric"
         )
     }
