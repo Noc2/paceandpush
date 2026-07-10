@@ -535,6 +535,76 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
+    func testDemoModeUsesLocalSampleDataWithoutDeviceTokenOrNetworkCalls() async throws {
+        let client = FakePacePushClient()
+        let healthSync = FakeHealthSync(days: Self.distanceDays(count: 1))
+        let preferences = InMemoryPreferences(values: [:])
+        let store = PacePushStore(
+            healthSync: healthSync,
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        store.startDemoMode()
+        await store.refresh(board: .commits)
+        let profile = try await store.fetchPublicProfile(
+            login: "ship-sprint",
+            period: try XCTUnwrap(ScorePeriod("2026-07"))
+        )
+        await store.syncRunningDistance()
+
+        XCTAssertTrue(store.isDemoMode)
+        XCTAssertTrue(store.onboardingComplete)
+        XCTAssertNil(store.deviceToken)
+        XCTAssertEqual(store.me.login, "demo-runner")
+        XCTAssertEqual(store.profile.login, "demo-runner")
+        XCTAssertEqual(profile.login, "ship-sprint")
+        XCTAssertEqual(store.leaderboard.rows.count, 5)
+        XCTAssertEqual(store.leaderboard.board, .commits)
+        XCTAssertEqual(store.lastSuccess, "Demo mode uses sample running data.")
+        XCTAssertTrue(preferences.bool(forKey: "demoModeEnabled"))
+        XCTAssertTrue(client.leaderboardPeriods.isEmpty)
+        XCTAssertTrue(client.mePeriods.isEmpty)
+        XCTAssertTrue(client.profilePeriods.isEmpty)
+        XCTAssertTrue(client.publicProfileLogins.isEmpty)
+        XCTAssertTrue(client.uploadedDistanceDays.isEmpty)
+        XCTAssertTrue(client.recordedSyncRuns.isEmpty)
+        XCTAssertTrue(healthSync.requestedRanges.isEmpty)
+    }
+
+    @MainActor
+    func testDemoModeRestoresAndExitsWithoutChangingKeychain() async throws {
+        let keychain = InMemoryKeychain()
+        let preferences = InMemoryPreferences(values: ["demoModeEnabled": true])
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in FakePacePushClient() },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        XCTAssertTrue(store.isDemoMode)
+        XCTAssertTrue(store.onboardingComplete)
+        XCTAssertEqual(store.me.login, "demo-runner")
+        XCTAssertEqual(store.githubConnectionStatus, "Demo data")
+        XCTAssertEqual(store.lastSyncStatus, "Demo data")
+
+        store.exitDemoMode()
+
+        XCTAssertFalse(store.isDemoMode)
+        XCTAssertFalse(store.onboardingComplete)
+        XCTAssertFalse(preferences.bool(forKey: "demoModeEnabled"))
+        XCTAssertNil(try keychain.readString(account: "mobileDeviceToken"))
+        XCTAssertEqual(store.me.login, "guest")
+    }
+
+    @MainActor
     func testSyncUploadsCurrentYearInApiSizedBatches() async throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")

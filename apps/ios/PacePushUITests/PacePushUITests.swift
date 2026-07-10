@@ -19,6 +19,36 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.buttons["enable-health-button"].exists)
     }
 
+    func testTryDemoOpensSampleAppAndCanExit() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding-view"].waitForExistence(timeout: 5))
+        app.buttons["try-demo-button"].tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["@demo-runner"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["profile-chart"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["demo-mode-banner"].exists)
+
+        let tabBar = app.tabBars.firstMatch
+        tabBar.buttons["Board"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-row-demo-runner"].exists)
+
+        tabBar.buttons["Settings"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["settings-exit-demo-button"].exists)
+        XCTAssertTrue(app.buttons["settings-demo-connect-github-button"].exists)
+        XCTAssertFalse(app.buttons["settings-export-data-button"].exists)
+        XCTAssertFalse(app.buttons["settings-delete-account-button"].exists)
+
+        app.buttons["settings-exit-demo-button"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding-view"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["try-demo-button"].exists)
+    }
+
     func testSeededLaunchShowsProfileFirstAndSettings() {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-uiTestingSeeded"]

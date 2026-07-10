@@ -78,6 +78,8 @@ struct OnboardingView: View {
                     }
                     .panelStyle()
 
+                    DemoEntryPanel()
+
                     OnboardingStep(
                         index: 1,
                         title: "Choose leaderboard visibility",
@@ -271,6 +273,10 @@ struct LeaderboardView: View {
                         Task { await store.setActivePeriod(period, board: board) }
                     }
 
+                    if store.isDemoMode {
+                        DemoModeBanner()
+                    }
+
                     VStack(alignment: .leading, spacing: 12) {
                         LeaderboardSearchField(searchText: $searchText)
                         BoardSelector(board: $board)
@@ -383,6 +389,7 @@ struct ProfileView: View {
                                     profile: store.profile,
                                     activePeriod: store.activePeriod,
                                     units: store.units,
+                                    isDemoMode: store.isDemoMode,
                                     emptyHistoryMessage: "Sync running data to build your profile history."
                                 ) { period in
                                     Task { await store.setActivePeriod(period) }
@@ -435,6 +442,7 @@ struct PublicProfileView: View {
                         profile: profile,
                         activePeriod: selectedPeriod,
                         units: store.units,
+                        isDemoMode: store.isDemoMode,
                         emptyHistoryMessage: "No profile history for this period yet."
                     ) { period in
                         activePeriod = period
@@ -484,12 +492,16 @@ struct ProfileContentView: View {
     let profile: PublicProfileResponse
     let activePeriod: ScorePeriod
     let units: DistanceUnits
+    let isDemoMode: Bool
     let emptyHistoryMessage: String
     let onSelectPeriod: (ScorePeriod) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             ScorePeriodSelector(activePeriod: activePeriod, onSelect: onSelectPeriod)
+            if isDemoMode {
+                DemoModeBanner()
+            }
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("@\(profile.login)")
@@ -670,6 +682,30 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .panelStyle()
 
+                    if store.isDemoMode {
+                        SettingsSectionPanel("Demo mode") {
+                            StatusRow(label: "Data", value: "Sample")
+                            SettingsActionButton(
+                                "Exit Demo",
+                                systemImage: "xmark.circle",
+                                tone: .danger,
+                            ) {
+                                store.exitDemoMode()
+                            }
+                            .accessibilityIdentifier("settings-exit-demo-button")
+
+                            SettingsActionButton(
+                                "Connect GitHub",
+                                systemImage: "chevron.right.square",
+                                tone: .primary,
+                                isDisabled: store.busy,
+                            ) {
+                                Task { await store.connectGitHub() }
+                            }
+                            .accessibilityIdentifier("settings-demo-connect-github-button")
+                        }
+                    }
+
                     SettingsSectionPanel("Theme") {
                         SettingsThemeSelector(themePreference: $store.themePreference)
                     }
@@ -679,7 +715,9 @@ struct SettingsView: View {
                             label: "GitHub",
                             value: store.githubConnectionStatus,
                         )
-                        if store.isGitHubConnected {
+                        if store.isDemoMode {
+                            EmptyView()
+                        } else if store.isGitHubConnected {
                             SettingsActionButton(
                                 "Sign out",
                                 systemImage: "rectangle.portrait.and.arrow.right",
@@ -701,8 +739,8 @@ struct SettingsView: View {
                             .accessibilityIdentifier("settings-connect-github-button")
                         }
 
-                        StatusRow(label: "Apple Health", value: store.healthAuthorized ? "Enabled" : "Needs permission")
-                        if !store.healthAuthorized {
+                        StatusRow(label: "Apple Health", value: store.isDemoMode ? "Demo data" : store.healthAuthorized ? "Enabled" : "Needs permission")
+                        if !store.isDemoMode && !store.healthAuthorized {
                             SettingsActionButton(
                                 "Enable Health",
                                 systemImage: "heart.text.square",
@@ -715,15 +753,17 @@ struct SettingsView: View {
                         }
 
                         StatusRow(label: "Last sync", value: store.lastSyncStatus)
-                        SettingsActionButton(
-                            store.syncActionTitle,
-                            systemImage: "arrow.triangle.2.circlepath",
-                            tone: .primary,
-                            isDisabled: store.busy || !store.healthAuthorized || !store.isGitHubConnected,
-                        ) {
-                            Task { await store.syncRunningDistance() }
+                        if !store.isDemoMode {
+                            SettingsActionButton(
+                                store.syncActionTitle,
+                                systemImage: "arrow.triangle.2.circlepath",
+                                tone: .primary,
+                                isDisabled: store.busy || !store.healthAuthorized || !store.isGitHubConnected,
+                            ) {
+                                Task { await store.syncRunningDistance() }
+                            }
+                            .accessibilityIdentifier("sync-now-button")
                         }
-                        .accessibilityIdentifier("sync-now-button")
 
                         if let error = store.lastError {
                             Text(error)
@@ -1107,6 +1147,42 @@ struct SettingsUnitSelector: View {
             .roundedClip()
             .roundedBorder(lineWidth: 1)
         }
+    }
+}
+
+struct DemoEntryPanel: View {
+    @EnvironmentObject private var store: PacePushStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                store.startDemoMode()
+            } label: {
+                Label("Try Demo", systemImage: "play.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("try-demo-button")
+
+            Text("Sample data")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(Brand.muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .panelStyle()
+    }
+}
+
+struct DemoModeBanner: View {
+    var body: some View {
+        Label("Demo data", systemImage: "sparkles")
+            .font(.callout.weight(.black))
+            .foregroundStyle(Brand.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .roundedBackground(Brand.yellow.opacity(0.35))
+            .roundedBorder(Brand.yellow, lineWidth: 1)
+            .accessibilityIdentifier("demo-mode-banner")
     }
 }
 
@@ -1727,6 +1803,7 @@ final class PacePushStore: ObservableObject {
     private let callbackScheme = "pacepush"
     private let tokenKey = "mobileDeviceToken"
     private let healthKey = "healthAuthorized"
+    private let demoModeKey = "demoModeEnabled"
     private let firstSyncKey = "firstSyncAt"
     private let themePreferenceKey = "themePreference"
     private let unitsKey = "distanceUnits"
@@ -1752,6 +1829,7 @@ final class PacePushStore: ObservableObject {
     @Published var apiBaseURL = "https://paceandpush.com"
     @Published var deviceToken: String?
     @Published var healthAuthorized: Bool
+    @Published var isDemoMode: Bool
     @Published var firstSyncAt: String?
     @Published var publicLeaderboardPreference: Bool
     @Published var publicLeaderboardPreferenceChosen: Bool
@@ -1794,7 +1872,7 @@ final class PacePushStore: ObservableObject {
     }
 
     var onboardingComplete: Bool {
-        publicLeaderboardPreferenceChosen && isGitHubConnected && healthAuthorized
+        isDemoMode || (publicLeaderboardPreferenceChosen && isGitHubConnected && healthAuthorized)
     }
 
     var canRetryFirstSync: Bool {
@@ -1802,6 +1880,7 @@ final class PacePushStore: ObservableObject {
     }
 
     var githubConnectionStatus: String {
+        if isDemoMode { return "Demo data" }
         guard isGitHubConnected else { return "Disconnected" }
         return hasLoadedAccountSnapshot ? "@\(me.login)" : "Loading..."
     }
@@ -1812,6 +1891,7 @@ final class PacePushStore: ObservableObject {
     }
 
     var lastSyncStatus: String {
+        if isDemoMode { return "Demo data" }
         if firstSyncAt == nil, shouldShowAccountLoading {
             return "In progress"
         }
@@ -1878,13 +1958,22 @@ final class PacePushStore: ObservableObject {
         firstSyncAt = preferences.string(forKey: firstSyncKey)
         publicLeaderboardPreference = preferences.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? true
         publicLeaderboardPreferenceChosen = preferences.bool(forKey: publicLeaderboardPreferenceChosenKey)
+        isDemoMode = preferences.bool(forKey: demoModeKey)
         activePeriod = preferences.string(forKey: activePeriodKey)
             .flatMap { ScorePeriod($0) }
             ?? ScorePeriod(kind: .month, date: now())
         deviceToken = try? keychain.readString(account: tokenKey)
+
+        if isDemoMode {
+            applyDemoSnapshot()
+        }
     }
 
     func bootstrap() async {
+        if isDemoMode {
+            applyDemoSnapshot()
+            return
+        }
         guard deviceToken != nil else { return }
         await refresh()
         await syncHistoricalDistanceIfNeeded()
@@ -1892,6 +1981,10 @@ final class PacePushStore: ObservableObject {
     }
 
     func connectGitHub() async {
+        if isDemoMode {
+            leaveDemoModeForRealFlow()
+        }
+
         guard let baseURL = URL(string: apiBaseURL) else {
             lastError = "API base URL is invalid."
             lastSuccess = nil
@@ -1992,6 +2085,12 @@ final class PacePushStore: ObservableObject {
     }
 
     func requestHealthAccess() async {
+        guard !isDemoMode else {
+            lastError = nil
+            lastSuccess = "Demo mode uses sample running data."
+            return
+        }
+
         busy = true
         lastError = nil
         lastSuccess = nil
@@ -2017,6 +2116,11 @@ final class PacePushStore: ObservableObject {
         publicLeaderboardPreferenceChosen = true
         preferences.set(isPublic, forKey: publicLeaderboardPreferenceKey)
         preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
+
+        guard !isDemoMode else {
+            applyDemoSnapshot()
+            return
+        }
 
         guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else { return }
 
@@ -2044,6 +2148,11 @@ final class PacePushStore: ObservableObject {
     }
 
     func disconnectGitHub() async {
+        guard !isDemoMode else {
+            exitDemoMode()
+            return
+        }
+
         guard let token = deviceToken else {
             signOut()
             lastSuccess = "Signed out. GitHub contribution access is off."
@@ -2076,6 +2185,12 @@ final class PacePushStore: ObservableObject {
     }
 
     func exportAccountData() async -> AccountExportItem? {
+        guard !isDemoMode else {
+            lastError = "Demo mode uses sample data only."
+            lastSuccess = nil
+            return nil
+        }
+
         guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else {
             lastError = "Connect GitHub before exporting data."
             lastSuccess = nil
@@ -2103,6 +2218,12 @@ final class PacePushStore: ObservableObject {
     }
 
     func deleteAccount() async {
+        guard !isDemoMode else {
+            exitDemoMode()
+            lastSuccess = "Demo mode cleared."
+            return
+        }
+
         guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else {
             signOut()
             lastSuccess = "Account deleted."
@@ -2129,6 +2250,12 @@ final class PacePushStore: ObservableObject {
     }
 
     func syncRunningDistance(successMessage: String = "Running data synced.") async {
+        guard !isDemoMode else {
+            lastError = nil
+            lastSuccess = "Demo mode uses sample running data."
+            return
+        }
+
         guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else {
             lastError = "Connect GitHub before syncing."
             lastSuccess = nil
@@ -2213,6 +2340,11 @@ final class PacePushStore: ObservableObject {
     }
 
     func refresh(board: Board = .balanced) async {
+        guard !isDemoMode else {
+            applyDemoSnapshot(board: board)
+            return
+        }
+
         guard let baseURL = URL(string: apiBaseURL) else { return }
         let shouldMarkAccountLoading = deviceToken != nil && !hasLoadedAccountSnapshot && accountLoadPhase == .idle
         if shouldMarkAccountLoading {
@@ -2253,6 +2385,12 @@ final class PacePushStore: ObservableObject {
     }
 
     func refreshLeaderboard(board: Board = .balanced) async {
+        guard !isDemoMode else {
+            leaderboard = DemoData.leaderboard(period: activePeriod, board: board)
+            lastError = nil
+            return
+        }
+
         guard let baseURL = URL(string: apiBaseURL) else { return }
 
         do {
@@ -2270,10 +2408,31 @@ final class PacePushStore: ObservableObject {
     }
 
     func fetchPublicProfile(login: String, period: ScorePeriod) async throws -> PublicProfileResponse {
+        if isDemoMode {
+            return DemoData.profile(login: login, period: period)
+        }
+
         guard let baseURL = URL(string: apiBaseURL) else { throw PacePushAPIError.invalidURL }
 
         let client = apiClientFactory(baseURL, deviceToken)
         return try await client.fetchPublicProfile(login: login, period: period.rawValue)
+    }
+
+    func startDemoMode() {
+        isDemoMode = true
+        preferences.set(true, forKey: demoModeKey)
+        accountLoadPhase = .idle
+        hasLoadedAccountSnapshot = true
+        lastError = nil
+        lastSuccess = nil
+        busy = false
+        applyDemoSnapshot()
+    }
+
+    func exitDemoMode() {
+        leaveDemoModeForRealFlow()
+        lastError = nil
+        lastSuccess = nil
     }
 
     func setActivePeriod(_ period: ScorePeriod, board: Board = .balanced) async {
@@ -2285,6 +2444,8 @@ final class PacePushStore: ObservableObject {
     func signOut() {
         try? keychain.delete(account: tokenKey)
         deviceToken = nil
+        isDemoMode = false
+        preferences.removeObject(forKey: demoModeKey)
         hasLoadedAccountSnapshot = false
         accountLoadPhase = .idle
         firstSyncAt = nil
@@ -2293,6 +2454,24 @@ final class PacePushStore: ObservableObject {
         me = .seed
         profile = .seed
         lastSuccess = nil
+    }
+
+    private func applyDemoSnapshot(board: Board = .balanced) {
+        leaderboard = DemoData.leaderboard(period: activePeriod, board: board)
+        me = DemoData.me(period: activePeriod)
+        profile = DemoData.profile(login: DemoData.primaryLogin, period: activePeriod)
+        hasLoadedAccountSnapshot = true
+        lastError = nil
+    }
+
+    private func leaveDemoModeForRealFlow() {
+        isDemoMode = false
+        preferences.removeObject(forKey: demoModeKey)
+        hasLoadedAccountSnapshot = false
+        accountLoadPhase = .idle
+        leaderboard = .seed
+        me = .seed
+        profile = .seed
     }
 
     private func savePublicLeaderboardPreference(_ isPublic: Bool, baseURL: URL, token: String) async throws {
@@ -3770,6 +3949,78 @@ struct PublicProfileResponse: Decodable {
         score: MeResponse.seed.score,
         history: []
     )
+}
+
+enum DemoData {
+    static let primaryLogin = "demo-runner"
+
+    private static let rows = [
+        LeaderboardRow(rank: 1, login: primaryLogin, displayName: "Pace Review", score: 93.8, commits: 286, kilometers: 74.2, streakDays: 9),
+        LeaderboardRow(rank: 2, login: "ship-sprint", displayName: "Sam Sprint", score: 88.1, commits: 341, kilometers: 52.7, streakDays: 6),
+        LeaderboardRow(rank: 3, login: "run-merge", displayName: "Rina Merge", score: 81.6, commits: 164, kilometers: 91.5, streakDays: 8),
+        LeaderboardRow(rank: 4, login: "commit-km", displayName: "Kai Commit", score: 76.4, commits: 226, kilometers: 44.9, streakDays: 4),
+        LeaderboardRow(rank: 5, login: "lint-laps", displayName: "Lena Laps", score: 70.9, commits: 118, kilometers: 83.3, streakDays: 5),
+    ]
+
+    static func leaderboard(period: ScorePeriod, board: Board) -> LeaderboardResponse {
+        LeaderboardResponse(period: period.rawValue, board: board, rows: rows)
+    }
+
+    static func me(period: ScorePeriod) -> MeResponse {
+        let row = rows[0]
+        return MeResponse(
+            login: row.login,
+            displayName: row.displayName,
+            publicLeaderboard: true,
+            units: "metric",
+            score: score(for: row, period: period),
+            devices: []
+        )
+    }
+
+    static func profile(login: String, period: ScorePeriod) -> PublicProfileResponse {
+        let row = rows.first { $0.login.localizedCaseInsensitiveCompare(login) == .orderedSame } ?? rows[0]
+        return PublicProfileResponse(
+            login: row.login,
+            displayName: row.displayName,
+            bio: "Sample App Review profile.",
+            score: score(for: row, period: period),
+            history: history(for: row)
+        )
+    }
+
+    private static func score(for row: LeaderboardRow, period: ScorePeriod) -> ScoreSummary {
+        ScoreSummary(
+            period: period.rawValue,
+            score: row.score,
+            rank: row.rank,
+            commits: row.commits,
+            kilometers: row.kilometers,
+            lastSyncAt: "2026-07-10T09:30:00.000Z"
+        )
+    }
+
+    private static func history(for row: LeaderboardRow) -> [ProfileHistoryPoint] {
+        let dates = [
+            "2026-07-04",
+            "2026-07-05",
+            "2026-07-06",
+            "2026-07-07",
+            "2026-07-08",
+            "2026-07-09",
+            "2026-07-10",
+        ]
+        let fractions = [0.14, 0.27, 0.41, 0.58, 0.72, 0.86, 1.0]
+
+        return zip(dates, fractions).map { date, fraction in
+            ProfileHistoryPoint(
+                date: date,
+                commits: max(1, Int((Double(row.commits) * fraction).rounded())),
+                kilometers: row.kilometers * fraction,
+                score: row.score * fraction
+            )
+        }
+    }
 }
 
 struct ScoreSummary: Decodable {
