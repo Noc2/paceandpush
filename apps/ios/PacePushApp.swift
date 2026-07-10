@@ -1262,7 +1262,7 @@ struct DemoExitBanner: View {
         .buttonStyle(.plain)
         .foregroundStyle(Brand.ink)
         .roundedBackground(Brand.yellow.opacity(0.35))
-        .roundedBorder(Brand.yellow, lineWidth: 1)
+        .roundedBorder(Brand.orange.opacity(0.55), lineWidth: 1.5)
         .accessibilityIdentifier("demo-exit-banner-button")
     }
 }
