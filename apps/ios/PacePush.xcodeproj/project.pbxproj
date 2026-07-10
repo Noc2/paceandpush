@@ -7,10 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1D60A2E92CB74C6500110A10 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1D60A2E82CB74C6500110A10 /* Assets.xcassets */; };
-		1D60A2EB2CB74C6500110A10 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1D60A2EA2CB74C6500110A10 /* PrivacyInfo.xcprivacy */; };
 		1D60A2D92CB74C6500110A10 /* PacePushApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60A2D82CB74C6500110A10 /* PacePushApp.swift */; };
 		1D60A2DB2CB74C6500110A10 /* HealthKitDistanceSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60A2DA2CB74C6500110A10 /* HealthKitDistanceSync.swift */; };
+		1D60A2E92CB74C6500110A10 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1D60A2E82CB74C6500110A10 /* Assets.xcassets */; };
+		1D60A2EB2CB74C6500110A10 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1D60A2EA2CB74C6500110A10 /* PrivacyInfo.xcprivacy */; };
 		1D60B0102CB74C6500110A10 /* PacePushTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60B0042CB74C6500110A10 /* PacePushTests.swift */; };
 		1D60B0112CB74C6500110A10 /* PacePushUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D60B0052CB74C6500110A10 /* PacePushUITests.swift */; };
 /* End PBXBuildFile section */
@@ -410,11 +410,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PacePush.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9UTU695C76;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 9UTU695C76;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -439,11 +440,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PacePush.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9UTU695C76;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 9UTU695C76;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
