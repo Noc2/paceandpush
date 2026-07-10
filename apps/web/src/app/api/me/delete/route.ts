@@ -1,5 +1,6 @@
 import { getSessionCookieName, getSessionUser } from "@/server/auth/session";
 import { deleteAccountData, getAccountUser } from "@/server/data/accounts";
+import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
 import {
   getScoreSnapshotPeriodsForUser,
   recomputeScoreSnapshotPeriods,
@@ -14,6 +15,7 @@ export async function DELETE() {
 
   const affectedPeriods = await getScoreSnapshotPeriodsForUser(user.id);
   await deleteAccountData(user.id);
+  invalidatePublicDiscoveryCache();
   await recomputeScoreSnapshotPeriods(affectedPeriods);
 
   const response = NextResponse.json({

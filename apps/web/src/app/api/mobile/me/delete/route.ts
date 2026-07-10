@@ -1,5 +1,6 @@
 import { deleteAccountData } from "@/server/data/accounts";
 import { verifyDeviceToken } from "@/server/data/mobile";
+import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
 import {
   getScoreSnapshotPeriodsForUser,
   recomputeScoreSnapshotPeriods,
@@ -14,6 +15,7 @@ export async function DELETE(request: NextRequest) {
 
   const affectedPeriods = await getScoreSnapshotPeriodsForUser(auth.user.id);
   await deleteAccountData(auth.user.id);
+  invalidatePublicDiscoveryCache();
   await recomputeScoreSnapshotPeriods(affectedPeriods);
 
   return NextResponse.json({

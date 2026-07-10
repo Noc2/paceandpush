@@ -751,6 +751,65 @@ test("public leaderboard rows are capped", async () => {
   assert.match(leaderboardQuery, /\.limit\(leaderboardRowLimit\)/);
 });
 
+test("public discovery responses use invalidatable server caching instead of CDN caching", async () => {
+  const [cacheSource, leaderboardRoute, searchRoute] = await Promise.all([
+    readFile(
+      new URL("../src/server/data/public-discovery-cache.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../src/app/api/leaderboard/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/api/search/users/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(cacheSource, /unstable_cache/);
+  assert.match(cacheSource, /revalidate: publicDiscoveryRevalidateSeconds/);
+  assert.match(cacheSource, /tags: \[publicDiscoveryCacheTag\]/);
+  assert.match(cacheSource, /revalidateTag\(publicDiscoveryCacheTag, \{ expire: 0 \}\)/);
+  assert.match(leaderboardRoute, /getCachedLeaderboard\(board, period\)/);
+  assert.match(searchRoute, /searchCachedPublicUsers\(\{ limit, period, query \}\)/);
+  for (const route of [leaderboardRoute, searchRoute]) {
+    assert.match(route, /"cache-control": "no-store"/);
+    assert.doesNotMatch(route, /s-maxage|stale-while-revalidate/);
+  }
+});
+
+test("privacy changes and account deletion purge public discovery data", async () => {
+  const routes = await Promise.all(
+    [
+      "../src/app/api/me/settings/route.ts",
+      "../src/app/api/mobile/me/settings/route.ts",
+      "../src/app/api/me/delete/route.ts",
+      "../src/app/api/mobile/me/delete/route.ts",
+    ].map((route) => readFile(new URL(route, import.meta.url), "utf8")),
+  );
+
+  for (const source of routes) {
+    assert.match(source, /invalidatePublicDiscoveryCache\(\)/);
+  }
+
+  for (const source of routes.slice(0, 2)) {
+    assert.ok(
+      source.indexOf("updateAccountSettings") <
+        source.lastIndexOf("invalidatePublicDiscoveryCache()"),
+    );
+    assert.ok(
+      source.lastIndexOf("invalidatePublicDiscoveryCache()") <
+        source.indexOf("await refreshScoresAfterLeaderboardVisibilityChange"),
+    );
+  }
+
+  for (const source of routes.slice(2)) {
+    assert.ok(
+      source.indexOf("await deleteAccountData") <
+        source.lastIndexOf("invalidatePublicDiscoveryCache()"),
+    );
+    assert.ok(
+      source.lastIndexOf("invalidatePublicDiscoveryCache()") <
+        source.indexOf("await recomputeScoreSnapshotPeriods"),
+    );
+  }
+});
+
 test("GitHub commit refresh upserts covered days before deleting stale days", async () => {
   const source = await readFile(
     new URL("../src/server/data/scores.ts", import.meta.url),

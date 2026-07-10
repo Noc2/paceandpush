@@ -1,6 +1,7 @@
 import { isAccountSettingsPatch } from "@/server/api/payloads";
 import { getSessionUser } from "@/server/auth/session";
 import { getAccountUser, updateAccountSettings } from "@/server/data/accounts";
+import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
 import { refreshScoresAfterLeaderboardVisibilityChange } from "@/server/data/scores";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -34,6 +35,7 @@ export async function PATCH(request: NextRequest) {
     typeof nextPublicLeaderboard === "boolean" &&
     nextPublicLeaderboard !== user.publicLeaderboard
   ) {
+    invalidatePublicDiscoveryCache();
     await refreshScoresAfterLeaderboardVisibilityChange({
       userId: user.id,
       login: user.login,
