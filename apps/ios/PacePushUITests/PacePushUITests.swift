@@ -17,6 +17,7 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.buttons["confirm-public-leaderboard-button"].exists)
         XCTAssertTrue(app.buttons["connect-github-button"].exists)
         XCTAssertTrue(app.buttons["enable-health-button"].exists)
+        XCTAssertFalse(app.staticTexts["Sample data"].exists)
     }
 
     func testTryDemoOpensSampleAppAndCanExit() {

@@ -1141,11 +1141,6 @@ struct DemoEntryPanel: View {
             }
             .buttonStyle(PrimaryButtonStyle())
             .accessibilityIdentifier("try-demo-button")
-
-            Text("Sample data")
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(Brand.muted)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .panelStyle()
     }
