@@ -269,12 +269,12 @@ struct LeaderboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    ScorePeriodSelector(activePeriod: store.activePeriod) { period in
-                        Task { await store.setActivePeriod(period, board: board) }
+                    if store.isDemoMode {
+                        DemoExitBanner()
                     }
 
-                    if store.isDemoMode {
-                        DemoModeBanner()
+                    ScorePeriodSelector(activePeriod: store.activePeriod) { period in
+                        Task { await store.setActivePeriod(period, board: board) }
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
@@ -379,7 +379,11 @@ struct ProfileView: View {
                     }
                 } else {
                     ScrollView {
-                        Group {
+                        VStack(alignment: .leading, spacing: 16) {
+                            if store.isDemoMode {
+                                DemoExitBanner()
+                            }
+
                             if let error = store.accountContentError {
                                 ProfileErrorPanel(message: error) {
                                     Task { await store.refresh() }
@@ -389,7 +393,6 @@ struct ProfileView: View {
                                     profile: store.profile,
                                     activePeriod: store.activePeriod,
                                     units: store.units,
-                                    isDemoMode: store.isDemoMode,
                                     emptyHistoryMessage: "Sync running data to build your profile history."
                                 ) { period in
                                     Task { await store.setActivePeriod(period) }
@@ -442,7 +445,6 @@ struct PublicProfileView: View {
                         profile: profile,
                         activePeriod: selectedPeriod,
                         units: store.units,
-                        isDemoMode: store.isDemoMode,
                         emptyHistoryMessage: "No profile history for this period yet."
                     ) { period in
                         activePeriod = period
@@ -492,16 +494,12 @@ struct ProfileContentView: View {
     let profile: PublicProfileResponse
     let activePeriod: ScorePeriod
     let units: DistanceUnits
-    let isDemoMode: Bool
     let emptyHistoryMessage: String
     let onSelectPeriod: (ScorePeriod) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             ScorePeriodSelector(activePeriod: activePeriod, onSelect: onSelectPeriod)
-            if isDemoMode {
-                DemoModeBanner()
-            }
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("@\(profile.login)")
@@ -675,26 +673,16 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    if store.isDemoMode {
+                        DemoExitBanner()
+                    }
+
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Settings")
                             .font(.title.bold())
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .panelStyle()
-
-                    if store.isDemoMode {
-                        SettingsSectionPanel("Demo mode") {
-                            StatusRow(label: "Data", value: "Sample")
-                            SettingsActionButton(
-                                "Exit Demo",
-                                systemImage: "xmark.circle",
-                                tone: .danger,
-                            ) {
-                                store.exitDemoMode()
-                            }
-                            .accessibilityIdentifier("settings-exit-demo-button")
-                        }
-                    }
 
                     SettingsSectionPanel("Theme") {
                         SettingsThemeSelector(themePreference: $store.themePreference)
@@ -1163,16 +1151,23 @@ struct DemoEntryPanel: View {
     }
 }
 
-struct DemoModeBanner: View {
+struct DemoExitBanner: View {
+    @EnvironmentObject private var store: PacePushStore
+
     var body: some View {
-        Label("Demo data", systemImage: "sparkles")
-            .font(.callout.weight(.black))
-            .foregroundStyle(Brand.ink)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .roundedBackground(Brand.yellow.opacity(0.35))
-            .roundedBorder(Brand.yellow, lineWidth: 1)
-            .accessibilityIdentifier("demo-mode-banner")
+        Button {
+            store.exitDemoMode()
+        } label: {
+            Label("Exit Demo", systemImage: "xmark.circle")
+                .font(.callout.weight(.black))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Brand.ink)
+        .roundedBackground(Brand.yellow.opacity(0.35))
+        .roundedBorder(Brand.yellow, lineWidth: 1)
+        .accessibilityIdentifier("demo-exit-banner-button")
     }
 }
 

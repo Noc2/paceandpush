@@ -30,22 +30,26 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["@demo-runner"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["profile-chart"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["demo-mode-banner"].exists)
+        XCTAssertTrue(app.buttons["demo-exit-banner-button"].exists)
+        XCTAssertFalse(app.staticTexts["Demo data"].exists)
 
         let tabBar = app.tabBars.firstMatch
         tabBar.buttons["Board"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-row-demo-runner"].exists)
+        XCTAssertTrue(app.buttons["demo-exit-banner-button"].exists)
+        XCTAssertFalse(app.staticTexts["Demo data"].exists)
 
         tabBar.buttons["Settings"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["settings-exit-demo-button"].exists)
+        XCTAssertTrue(app.buttons["demo-exit-banner-button"].exists)
+        XCTAssertFalse(app.buttons["settings-exit-demo-button"].exists)
         XCTAssertFalse(app.buttons["settings-demo-connect-github-button"].exists)
         XCTAssertFalse(app.buttons["settings-connect-github-button"].exists)
         XCTAssertFalse(app.buttons["settings-export-data-button"].exists)
         XCTAssertFalse(app.buttons["settings-delete-account-button"].exists)
 
-        app.buttons["settings-exit-demo-button"].tap()
+        app.buttons["demo-exit-banner-button"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["onboarding-view"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["try-demo-button"].exists)
     }
