@@ -142,7 +142,9 @@ final class PacePushUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
-        app.tabBars.buttons["Board"].tap()
+        let boardTab = app.tabBars.buttons["Board"]
+        XCTAssertTrue(boardTab.waitForExistence(timeout: 5))
+        boardTab.tap()
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
 
         let notice = app.descendants(matching: .any)["private-leaderboard-notice"]
