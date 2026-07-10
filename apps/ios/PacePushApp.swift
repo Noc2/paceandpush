@@ -513,16 +513,23 @@ struct ProfileContentView: View {
                     MetricTile(
                         title: "Score",
                         value: profile.score.score.formatted(.number.precision(.fractionLength(1))),
-                        color: Brand.orange
+                        color: Brand.orange,
+                        valueAccessibilityIdentifier: "profile-score-value"
                     )
-                    MetricTile(title: "Commits", value: "\(profile.score.commits)", color: Brand.green)
+                    MetricTile(
+                        title: "Commits",
+                        value: "\(profile.score.commits)",
+                        color: Brand.green,
+                        valueAccessibilityIdentifier: "profile-commits-value"
+                    )
                 }
 
                 HStack(spacing: 12) {
                     MetricTile(
                         title: units.title,
                         value: units.format(profile.score.kilometers),
-                        color: Brand.blue
+                        color: Brand.blue,
+                        valueAccessibilityIdentifier: "profile-distance-value"
                     )
                     MetricTile(
                         title: "Rank",
@@ -1292,6 +1299,15 @@ struct MetricTile: View {
     let title: String
     let value: String
     let color: Color
+    let valueAccessibilityIdentifier: String
+
+    init(title: String, value: String, color: Color, valueAccessibilityIdentifier: String? = nil) {
+        self.title = title
+        self.value = value
+        self.color = color
+        self.valueAccessibilityIdentifier = valueAccessibilityIdentifier
+            ?? "metric-\(title.lowercased().replacingOccurrences(of: " ", with: "-"))-value"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1302,6 +1318,7 @@ struct MetricTile: View {
             Text(value)
                 .font(.title.bold())
                 .foregroundStyle(color)
+                .accessibilityIdentifier(valueAccessibilityIdentifier)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .panelStyle(surface: Brand.surfacePanel, stroke: Brand.line, lineWidth: 1)
@@ -4178,11 +4195,11 @@ enum DemoData {
     ]
 
     static func leaderboard(period: ScorePeriod, board: Board) -> LeaderboardResponse {
-        LeaderboardResponse(period: period.rawValue, board: board, rows: rows)
+        LeaderboardResponse(period: period.rawValue, board: board, rows: rows(for: period))
     }
 
     static func me(period: ScorePeriod) -> MeResponse {
-        let row = rows[0]
+        let row = rows(for: period)[0]
         return MeResponse(
             login: row.login,
             displayName: row.displayName,
@@ -4194,14 +4211,30 @@ enum DemoData {
     }
 
     static func profile(login: String, period: ScorePeriod) -> PublicProfileResponse {
-        let row = rows.first { $0.login.localizedCaseInsensitiveCompare(login) == .orderedSame } ?? rows[0]
+        let periodRows = rows(for: period)
+        let row = periodRows.first { $0.login.localizedCaseInsensitiveCompare(login) == .orderedSame } ?? periodRows[0]
         return PublicProfileResponse(
             login: row.login,
             displayName: row.displayName,
             bio: "Sample App Review profile.",
             score: score(for: row, period: period),
-            history: history(for: row)
+            history: history(for: row, period: period)
         )
+    }
+
+    private static func rows(for period: ScorePeriod) -> [LeaderboardRow] {
+        rows.map { row in
+            let metrics = metrics(for: row, period: period)
+            return LeaderboardRow(
+                rank: row.rank,
+                login: row.login,
+                displayName: row.displayName,
+                score: metrics.score,
+                commits: metrics.commits,
+                kilometers: metrics.kilometers,
+                streakDays: metrics.streakDays
+            )
+        }
     }
 
     private static func score(for row: LeaderboardRow, period: ScorePeriod) -> ScoreSummary {
@@ -4215,26 +4248,127 @@ enum DemoData {
         )
     }
 
-    private static func history(for row: LeaderboardRow) -> [ProfileHistoryPoint] {
-        let dates = [
-            "2026-07-04",
-            "2026-07-05",
-            "2026-07-06",
-            "2026-07-07",
-            "2026-07-08",
-            "2026-07-09",
-            "2026-07-10",
-        ]
-        let fractions = [0.14, 0.27, 0.41, 0.58, 0.72, 0.86, 1.0]
+    private static func history(for row: LeaderboardRow, period: ScorePeriod) -> [ProfileHistoryPoint] {
+        let dates = historyDates(for: period)
+        let fractions = progressFractions(count: dates.count)
 
         return zip(dates, fractions).map { date, fraction in
             ProfileHistoryPoint(
                 date: date,
                 commits: max(1, Int((Double(row.commits) * fraction).rounded())),
-                kilometers: row.kilometers * fraction,
-                score: row.score * fraction
+                kilometers: rounded(row.kilometers * fraction),
+                score: rounded(row.score * fraction)
             )
         }
+    }
+
+    private static func metrics(for row: LeaderboardRow, period: ScorePeriod) -> LeaderboardRow {
+        let seed = normalizedSeed(for: row.login, period: period)
+        let components = ScorePeriod.gregorian.dateComponents([.year, .month], from: period.startDate)
+
+        let commitScale: Double
+        let distanceScale: Double
+        let scoreScale: Double
+        let streakScale: Double
+
+        switch period.kind {
+        case .week:
+            commitScale = 0.16 + seed * 0.15
+            distanceScale = 0.12 + (1 - seed) * 0.13
+            scoreScale = 0.68 + seed * 0.22
+            streakScale = 0.45 + seed * 0.2
+        case .month:
+            let month = Double(components.month ?? 1)
+            let seasonality = Double(Int(month) % 4) * 0.045
+            commitScale = 0.72 + seasonality + seed * 0.12
+            distanceScale = 0.68 + (0.135 - seasonality) + (1 - seed) * 0.1
+            scoreScale = 0.84 + seed * 0.13
+            streakScale = 0.85 + seed * 0.15
+        case .year:
+            let year = components.year ?? 2026
+            let age = Double(max(0, min(4, 2026 - year)))
+            let recency = 1 - age * 0.08
+            commitScale = (3.15 + seed * 0.7) * recency
+            distanceScale = (3.6 + (1 - seed) * 0.85) * recency
+            scoreScale = 0.88 + seed * 0.1 - age * 0.015
+            streakScale = 1.35 + max(0, 4 - age) * 0.14
+        }
+
+        return LeaderboardRow(
+            rank: row.rank,
+            login: row.login,
+            displayName: row.displayName,
+            score: rounded(clamped(row.score * scoreScale, lower: 10, upper: 99.4)),
+            commits: max(1, Int((Double(row.commits) * commitScale).rounded())),
+            kilometers: rounded(row.kilometers * distanceScale),
+            streakDays: max(1, Int((Double(row.streakDays) * streakScale).rounded()))
+        )
+    }
+
+    private static func historyDates(for period: ScorePeriod) -> [String] {
+        let dates: [Date]
+
+        switch period.kind {
+        case .week:
+            dates = (0..<7).map { offset in
+                ScorePeriod.gregorian.date(byAdding: .day, value: offset, to: period.startDate) ?? period.startDate
+            }
+        case .month:
+            let components = ScorePeriod.gregorian.dateComponents([.year, .month], from: period.startDate)
+            let year = components.year ?? 1970
+            let month = components.month ?? 1
+            let lastDay = ScorePeriod.gregorian.component(.day, from: period.endDate)
+            let days = [1, 5, 10, 15, 20, 25, lastDay]
+            dates = Array(Set(days.map { min($0, lastDay) })).sorted().map { day in
+                ScorePeriod.date(year: year, month: month, day: day)
+            }
+        case .year:
+            let year = ScorePeriod.gregorian.component(.year, from: period.startDate)
+            dates = [
+                ScorePeriod.date(year: year, month: 1, day: 31),
+                ScorePeriod.date(year: year, month: 3, day: 31),
+                ScorePeriod.date(year: year, month: 5, day: 31),
+                ScorePeriod.date(year: year, month: 7, day: 31),
+                ScorePeriod.date(year: year, month: 9, day: 30),
+                ScorePeriod.date(year: year, month: 11, day: 30),
+                ScorePeriod.date(year: year, month: 12, day: 31),
+            ]
+        }
+
+        return dates.map(dayString)
+    }
+
+    private static func progressFractions(count: Int) -> [Double] {
+        guard count > 0 else { return [] }
+        return (0..<count).map { index in
+            let progress = Double(index + 1) / Double(count)
+            return min(1, pow(progress, 1.12))
+        }
+    }
+
+    private static func normalizedSeed(for login: String, period: ScorePeriod) -> Double {
+        let value = "\(login)-\(period.rawValue)".unicodeScalars.reduce(0) { partial, scalar in
+            (partial * 31 + Int(scalar.value)) % 997
+        }
+        return Double(value % 100) / 99
+    }
+
+    private static func dayString(for date: Date) -> String {
+        let components = ScorePeriod.gregorian.dateComponents([.year, .month, .day], from: date)
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 1970,
+            components.month ?? 1,
+            components.day ?? 1
+        )
+    }
+
+    private static func rounded(_ value: Double) -> Double {
+        (value * 10).rounded() / 10
+    }
+
+    private static func clamped(_ value: Double, lower: Double, upper: Double) -> Double {
+        min(max(value, lower), upper)
     }
 }
 

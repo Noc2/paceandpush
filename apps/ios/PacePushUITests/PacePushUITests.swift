@@ -55,6 +55,41 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.buttons["try-demo-button"].exists)
     }
 
+    func testDemoPeriodChangesUpdateProfileMetrics() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding-view"].waitForExistence(timeout: 5))
+        app.buttons["try-demo-button"].tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
+        let scoreValue = app.staticTexts["profile-score-value"]
+        let commitsValue = app.staticTexts["profile-commits-value"]
+        let distanceValue = app.staticTexts["profile-distance-value"]
+        XCTAssertTrue(scoreValue.waitForExistence(timeout: 5))
+        XCTAssertTrue(commitsValue.waitForExistence(timeout: 5))
+        XCTAssertTrue(distanceValue.waitForExistence(timeout: 5))
+
+        let monthScore = scoreValue.label
+        let monthCommits = commitsValue.label
+        let monthDistance = distanceValue.label
+
+        app.buttons["Years"].tap()
+        XCTAssertTrue(waitForLabelChange(scoreValue, from: monthScore))
+        XCTAssertTrue(waitForLabelChange(commitsValue, from: monthCommits))
+        XCTAssertTrue(waitForLabelChange(distanceValue, from: monthDistance))
+
+        let currentYearScore = scoreValue.label
+        let currentYearCommits = commitsValue.label
+        let currentYearDistance = distanceValue.label
+
+        app.buttons["Back"].tap()
+        XCTAssertTrue(waitForLabelChange(scoreValue, from: currentYearScore))
+        XCTAssertTrue(waitForLabelChange(commitsValue, from: currentYearCommits))
+        XCTAssertTrue(waitForLabelChange(distanceValue, from: currentYearDistance))
+    }
+
     func testSeededLaunchShowsProfileFirstAndSettings() {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-uiTestingSeeded"]
@@ -160,5 +195,11 @@ final class PacePushUITests: XCTestCase {
         screenshot.name = "Settings - Theme"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+    }
+
+    private func waitForLabelChange(_ element: XCUIElement, from oldValue: String, timeout: TimeInterval = 5) -> Bool {
+        let predicate = NSPredicate(format: "label != %@", oldValue)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 }

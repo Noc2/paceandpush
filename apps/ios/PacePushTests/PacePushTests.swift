@@ -138,6 +138,33 @@ final class PacePushTests: XCTestCase {
         XCTAssertNil(ScorePeriod("2026-W54"))
     }
 
+    func testDemoDataVariesMetricsAndHistoryBySelectedPeriod() throws {
+        let week = try XCTUnwrap(ScorePeriod("2026-W28"))
+        let month = try XCTUnwrap(ScorePeriod("2026-07"))
+        let year2024 = try XCTUnwrap(ScorePeriod("2024"))
+        let year2025 = try XCTUnwrap(ScorePeriod("2025"))
+
+        let weekProfile = DemoData.profile(login: DemoData.primaryLogin, period: week)
+        let monthProfile = DemoData.profile(login: DemoData.primaryLogin, period: month)
+        let year2024Profile = DemoData.profile(login: DemoData.primaryLogin, period: year2024)
+        let year2025Profile = DemoData.profile(login: DemoData.primaryLogin, period: year2025)
+
+        XCTAssertNotEqual(weekProfile.score.commits, monthProfile.score.commits)
+        XCTAssertNotEqual(monthProfile.score.kilometers, year2024Profile.score.kilometers)
+        XCTAssertNotEqual(year2024Profile.score.score, year2025Profile.score.score)
+        XCTAssertNotEqual(year2024Profile.score.commits, year2025Profile.score.commits)
+        XCTAssertTrue(year2024Profile.history.allSatisfy { $0.date.hasPrefix("2024-") })
+        XCTAssertTrue(year2025Profile.history.allSatisfy { $0.date.hasPrefix("2025-") })
+        let finalYear2024Point = try XCTUnwrap(year2024Profile.history.last)
+        XCTAssertEqual(finalYear2024Point.commits, year2024Profile.score.commits)
+        XCTAssertEqual(finalYear2024Point.kilometers, year2024Profile.score.kilometers, accuracy: 0.001)
+        XCTAssertEqual(finalYear2024Point.score, year2024Profile.score.score, accuracy: 0.001)
+
+        let leaderboard = DemoData.leaderboard(period: year2025, board: .balanced)
+        XCTAssertEqual(leaderboard.rows.first?.commits, year2025Profile.score.commits)
+        XCTAssertEqual(leaderboard.rows.first?.kilometers, year2025Profile.score.kilometers)
+    }
+
     func testPairingPayloadParserAcceptsCodesCustomSchemeAndWebURLs() throws {
         let productionURL = try XCTUnwrap(URL(string: "https://paceandpush.com"))
         let localURL = try XCTUnwrap(URL(string: "http://localhost:3000"))
