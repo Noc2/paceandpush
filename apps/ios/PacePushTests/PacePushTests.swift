@@ -982,7 +982,7 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
-    func testStoreClearsLocalDeviceTokenBeforeGitHubDisconnectCompletes() async throws {
+    func testStoreKeepsLocalDeviceTokenUntilGitHubDisconnectCompletes() async throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")
         let preferences = InMemoryPreferences(values: [
@@ -1006,21 +1006,27 @@ final class PacePushTests: XCTestCase {
         let disconnectTask = Task { await store.disconnectGitHub() }
         try await Task.sleep(nanoseconds: 50_000_000)
 
+        XCTAssertEqual(try keychain.readString(account: "mobileDeviceToken"), "device-token")
+        XCTAssertEqual(store.deviceToken, "device-token")
+        XCTAssertEqual(store.firstSyncAt, "2026-07-01T00:00:00.000Z")
+        XCTAssertEqual(preferences.string(forKey: "firstSyncAt"), "2026-07-01T00:00:00.000Z")
+        XCTAssertEqual(preferences.string(forKey: "historicalDistanceSyncVersion"), "current-utc-year-v1")
+        XCTAssertTrue(store.busy)
+
+        await disconnectTask.value
+        XCTAssertEqual(client.disconnectGitHubCallCount, 1)
         XCTAssertNil(try keychain.readString(account: "mobileDeviceToken"))
         XCTAssertNil(store.deviceToken)
         XCTAssertNil(store.firstSyncAt)
         XCTAssertNil(preferences.string(forKey: "firstSyncAt"))
         XCTAssertNil(preferences.string(forKey: "historicalDistanceSyncVersion"))
         XCTAssertFalse(store.busy)
-
-        await disconnectTask.value
-        XCTAssertEqual(client.disconnectGitHubCallCount, 1)
         XCTAssertEqual(store.lastSuccess, "Signed out. GitHub contribution access is off.")
         XCTAssertNil(store.lastError)
     }
 
     @MainActor
-    func testStoreHidesGitHubDisconnectErrorAfterLocalSignOut() async throws {
+    func testStorePreservesLocalCredentialsAfterGitHubDisconnectErrorAndCanRetry() async throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")
         let preferences = InMemoryPreferences(values: [
@@ -1044,13 +1050,26 @@ final class PacePushTests: XCTestCase {
         await store.disconnectGitHub()
 
         XCTAssertEqual(client.disconnectGitHubCallCount, 1)
+        XCTAssertEqual(try keychain.readString(account: "mobileDeviceToken"), "device-token")
+        XCTAssertEqual(store.deviceToken, "device-token")
+        XCTAssertEqual(store.firstSyncAt, "2026-07-01T00:00:00.000Z")
+        XCTAssertEqual(preferences.string(forKey: "firstSyncAt"), "2026-07-01T00:00:00.000Z")
+        XCTAssertEqual(preferences.string(forKey: "historicalDistanceSyncVersion"), "current-utc-year-v1")
+        XCTAssertEqual(store.lastError, "GitHub is still connected. Check your connection and try signing out again.")
+        XCTAssertNil(store.lastSuccess)
+        XCTAssertFalse(store.busy)
+
+        client.disconnectGitHubError = nil
+        await store.disconnectGitHub()
+
+        XCTAssertEqual(client.disconnectGitHubCallCount, 2)
         XCTAssertNil(try keychain.readString(account: "mobileDeviceToken"))
         XCTAssertNil(store.deviceToken)
         XCTAssertNil(store.firstSyncAt)
         XCTAssertNil(preferences.string(forKey: "firstSyncAt"))
         XCTAssertNil(preferences.string(forKey: "historicalDistanceSyncVersion"))
         XCTAssertNil(store.lastError)
-        XCTAssertNil(store.lastSuccess)
+        XCTAssertEqual(store.lastSuccess, "Signed out. GitHub contribution access is off.")
     }
 
     @MainActor

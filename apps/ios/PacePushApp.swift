@@ -2439,8 +2439,7 @@ final class PacePushStore: ObservableObject {
         }
 
         guard let baseURL = URL(string: apiBaseURL) else {
-            signOut()
-            lastError = nil
+            lastError = "GitHub is still connected. Fix the API base URL, then try signing out again."
             lastSuccess = nil
             return
         }
@@ -2448,15 +2447,15 @@ final class PacePushStore: ObservableObject {
         busy = true
         lastError = nil
         lastSuccess = nil
-        signOut()
-        busy = false
+        defer { busy = false }
 
         do {
             let client = apiClientFactory(baseURL, token)
             _ = try await client.disconnectGitHub()
+            signOut()
             lastSuccess = "Signed out. GitHub contribution access is off."
         } catch {
-            lastError = nil
+            lastError = "GitHub is still connected. Check your connection and try signing out again."
             lastSuccess = nil
         }
     }

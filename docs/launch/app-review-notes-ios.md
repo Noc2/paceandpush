@@ -37,10 +37,14 @@ Settings tab > Sync > GitHub > Sign out
 When a user confirms that action, the iOS app calls
 `DELETE /api/mobile/me/github/disconnect`. The server verifies the current
 mobile device token, clears the stored GitHub OAuth access token material and
-scopes, deletes commit-derived scoring data and score snapshots, recomputes
-affected leaderboard periods, revokes the current mobile device token, and then
-the iOS app clears its local Keychain token and sync markers. This disables
-future data access between Pace & Push and GitHub from inside the app.
+scopes, deletes commit-derived scoring data and score snapshots, revokes the
+current mobile device token, and recomputes affected leaderboard periods. After
+the server confirms those actions, the iOS app clears its local Keychain token
+and sync markers. This disables future data access between Pace & Push and GitHub
+from inside the app.
+
+If the server cannot confirm disconnection, the app keeps the device credential,
+shows an error, and leaves Sign out available so the reviewer can retry.
 
 Reviewers can test the flow with a connected account:
 
