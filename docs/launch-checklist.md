@@ -75,9 +75,9 @@ Owner-only production setup is tracked in
   evidence before submitting.
 - Complete `docs/launch/real-device-beta-checklist.md` for the exact build
   being submitted.
-- Paste the GitHub-specific login rationale and in-app disconnect reviewer
-  steps from `docs/launch/app-review-notes-ios.md` into App Store Connect
-  Notes for Review.
+- Paste the Try Demo review path, GitHub-specific login rationale, and in-app
+  disconnect reviewer steps from `docs/launch/app-review-notes-ios.md` into App
+  Store Connect Notes for Review.
 - Google Play Console: create the Android app record, declare Health Connect
   running exercise and distance access, provide the permission rationale and
   privacy policy, and distribute the first build through internal testing.

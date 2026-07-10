@@ -84,6 +84,8 @@ Signing requirements:
   `PacePush` target.
 - Review notes: paste `docs/launch/app-review-notes-ios.md` into App Store
   Connect.
+- Test Information: leave "Sign-in required" unchecked unless the submitted
+  build removes Try Demo. Tell reviewers to tap "Try Demo" on the setup screen.
 
 Local unsigned archive evidence command:
 
@@ -107,8 +109,11 @@ Final signed submission:
 3. Generate the Xcode privacy report from Organizer and save it beside
    `docs/launch/ios-privacy-report-2026-07-07.md`.
 4. Upload to TestFlight.
-5. Record the uploaded version, build number, archive date, privacy-report file,
-   and tester group in the release note.
+5. In TestFlight beta review, set the external test instructions to:
+   "Open the app and tap Try Demo to review the sample profile, leaderboard,
+   chart, and settings flow. No GitHub credentials are required for review."
+6. Record the uploaded version, build number, archive date, privacy-report file,
+   tester group, and TestFlight review status in the release note.
 
 ## Android Internal Testing
 

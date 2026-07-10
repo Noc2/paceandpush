@@ -4,6 +4,22 @@ Use these notes in App Store Connect for the first Pace & Push iOS submission.
 
 ## Notes For Review
 
+Pace & Push includes a fully local review/demo path. From the first setup
+screen, tap **Try Demo** to open the app with sample profile, leaderboard, chart,
+and settings data. Demo mode does not require a GitHub account, does not request
+Apple Health permissions, does not create a server account, and does not upload
+data. Reviewers can leave "Sign-in required" unchecked in Test Information and
+use the Notes for Review below.
+
+Demo review steps:
+
+1. Open Pace & Push.
+2. Tap "Try Demo".
+3. Review the sample Profile chart, Board/leaderboard, and Settings tabs.
+4. Open Settings > Demo mode > Exit Demo to return to setup.
+5. If a real account flow is needed, use Settings > Demo mode > Connect GitHub
+   or return to setup and choose Connect GitHub.
+
 Pace & Push is a GitHub-specific client. GitHub sign-in is required because the
 core product reads the user's GitHub contribution summaries, combines those
 commit counts with daily running distance totals, and builds the Pace & Push
@@ -42,6 +58,11 @@ user's iOS Health permissions. Pace & Push uploads only daily running distance
 totals bucketed by UTC calendar day, not raw workouts or routes.
 
 ## Guideline Rationale
+
+Apple's review preparation guidance asks developers to provide full app access
+with either an active demo account or a fully featured demo mode. Pace & Push
+uses the fully featured demo mode for review access so App Review can inspect
+the app without creating a GitHub account.
 
 Apple App Review Guideline 4.8 allows the single-login posture for an app that
 is a client for a specific third-party service where users must sign in to

@@ -41,4 +41,5 @@ demo content.
 - Web deployment URL:
 - Native build number:
 - Device and OS:
+- Demo mode state:
 - Tester account:

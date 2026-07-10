@@ -36,8 +36,9 @@ Pace & Push is not a medical, diagnostic, coaching, betting, or prize app.
 
 ## Review Notes
 
-Use `docs/launch/app-review-notes-ios.md` for the GitHub-specific login
-rationale, HealthKit explanation, and disconnect/revocation path.
+Use `docs/launch/app-review-notes-ios.md` for the Try Demo review path,
+GitHub-specific login rationale, HealthKit explanation, and
+disconnect/revocation path.
 
 ## Privacy Labels
 

@@ -14,7 +14,8 @@ access requires a real iPhone and Apple Developer signing with HealthKit enabled
 
 ## Native onboarding
 
-The app gates the tab UI until setup is complete:
+The app gates the Profile, Board, and Settings tabs until setup is complete, or
+until the local Try Demo path is started:
 
 1. Connect GitHub through the `ASWebAuthenticationSession` flow.
 2. Return through the `pacepush://auth/callback` URL scheme.
@@ -22,8 +23,8 @@ The app gates the tab UI until setup is complete:
 4. Request read-only HealthKit workout access.
 5. Run a foreground running-distance sync.
 
-The PoC app shell will include Today, Leaderboard, Profile, Sync, and Settings
-tabs, plus HealthKit running distance sync.
+Try Demo opens the same tab shell with local sample data. It does not create a
+server account, request HealthKit permissions, or upload data.
 
 HealthKit sync reads running workouts, groups running distance by day, and
 shapes payloads for the web API's `/api/mobile/distance-days` endpoint. It reads

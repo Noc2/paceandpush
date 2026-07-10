@@ -11,12 +11,15 @@ contain account or health-derived data.
 - iOS version and build:
 - Android versionCode and versionName:
 - Tester account:
+- Demo mode tested:
 - Test date:
 - Tester device and OS:
 
 ## iPhone
 
 - Fresh install opens onboarding and links to `/privacy`.
+- Try Demo opens Profile, Board, and Settings without GitHub, HealthKit, or
+  network credentials, then Exit Demo returns to onboarding.
 - GitHub auth succeeds with the production backend.
 - GitHub-only login rationale is present in App Review notes.
 - Apple Health grant path succeeds.
@@ -46,7 +49,8 @@ contain account or health-derived data.
 
 - `https://paceandpush.com/api/health` returns `ok`.
 - Cron recompute returns success for the production database.
-- Store-review demo account can sign in, pair, disconnect, export, and delete.
+- App Review can use Try Demo without a GitHub account.
+- A real connected account can sign in, pair, disconnect, export, and delete.
 - Revoked GitHub token path shows a recoverable reconnect state.
 - Migration dry run is complete through `npm run db:migrations:check`.
 - Vercel rollback target is identified and compatible with the current schema.
