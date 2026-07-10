@@ -665,25 +665,30 @@ struct AccountSetupProgressBar: View {
         .accessibilityLabel("Account setup progress")
         .accessibilityValue(accessibilityValue)
         .onAppear {
-            displayedProgress = max(0.08, min(targetProgress - 0.12, targetProgress))
-            withAnimation(.easeOut(duration: reduceMotion ? 0.01 : 0.9)) {
+            let shouldAnimate = shouldAnimateAccountLoading
+            displayedProgress = shouldAnimate ? max(0.08, min(targetProgress - 0.12, targetProgress)) : targetProgress
+            withAnimation(.easeOut(duration: shouldAnimate ? 0.9 : 0.01)) {
                 displayedProgress = targetProgress
             }
             startShimmer()
         }
         .onChange(of: targetProgress) { _, newValue in
-            withAnimation(.easeOut(duration: reduceMotion ? 0.01 : 0.55)) {
+            withAnimation(.easeOut(duration: shouldAnimateAccountLoading ? 0.55 : 0.01)) {
                 displayedProgress = max(displayedProgress, newValue)
             }
         }
     }
 
     private func startShimmer() {
-        guard !reduceMotion else { return }
+        guard shouldAnimateAccountLoading else { return }
         shimmerOffset = -0.35
         withAnimation(.linear(duration: 1.25).repeatForever(autoreverses: false)) {
             shimmerOffset = 1.1
         }
+    }
+
+    private var shouldAnimateAccountLoading: Bool {
+        !reduceMotion && !isRunningUITests
     }
 }
 
@@ -697,9 +702,9 @@ struct SetupProgressRow: View {
         HStack(spacing: 10) {
             Image(systemName: iconName)
                 .foregroundStyle(step.state == .complete ? Brand.green : step.state == .active ? Brand.orange : Brand.muted)
-                .rotationEffect(step.state == .active && !reduceMotion ? .degrees(isSpinning ? 360 : 0) : .zero)
+                .rotationEffect(step.state == .active && shouldAnimateAccountLoading ? .degrees(isSpinning ? 360 : 0) : .zero)
                 .animation(
-                    step.state == .active && !reduceMotion
+                    step.state == .active && shouldAnimateAccountLoading
                         ? .linear(duration: 1.15).repeatForever(autoreverses: false)
                         : .default,
                     value: isSpinning
@@ -731,6 +736,14 @@ struct SetupProgressRow: View {
             return "checkmark.circle.fill"
         }
     }
+
+    private var shouldAnimateAccountLoading: Bool {
+        !reduceMotion && !isRunningUITests
+    }
+}
+
+private var isRunningUITests: Bool {
+    ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("-uiTesting") }
 }
 
 struct ProfileErrorPanel: View {
