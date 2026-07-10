@@ -2046,6 +2046,7 @@ final class PacePushStore: ObservableObject {
     private let now: () -> Date
     private let bootstrapSyncEnabled: Bool
     private var pendingMobileAuthCodeVerifier: String?
+    private var periodRefreshRequestID: UUID?
     private static let distanceUploadBatchSize = 45
     private static let historicalDistanceSyncVersion = "current-utc-year-v1"
 
@@ -2064,6 +2065,7 @@ final class PacePushStore: ObservableObject {
             preferences.set(activePeriod.rawValue, forKey: activePeriodKey)
         }
     }
+    @Published var refreshingPeriod: ScorePeriod?
     @Published var lastError: String?
     @Published var lastSuccess: String?
     @Published var busy = false
@@ -2082,6 +2084,10 @@ final class PacePushStore: ObservableObject {
 
     var isGitHubConnected: Bool {
         deviceToken != nil
+    }
+
+    var isRefreshingActivePeriod: Bool {
+        refreshingPeriod == activePeriod
     }
 
     var showsServerSettings: Bool {
@@ -2570,13 +2576,26 @@ final class PacePushStore: ObservableObject {
     }
 
     func refresh(board: Board = .balanced) async {
+        await refresh(board: board, period: activePeriod)
+    }
+
+    private func refresh(board: Board = .balanced, period: ScorePeriod, periodRefreshID: UUID? = nil) async {
         guard !isDemoMode else {
+            guard period == activePeriod else {
+                clearPeriodRefresh(id: periodRefreshID)
+                return
+            }
             applyDemoSnapshot(board: board)
+            clearPeriodRefresh(id: periodRefreshID)
             return
         }
 
-        guard let baseURL = URL(string: apiBaseURL) else { return }
+        guard let baseURL = URL(string: apiBaseURL) else {
+            clearPeriodRefresh(id: periodRefreshID)
+            return
+        }
         let shouldMarkAccountLoading = deviceToken != nil && !hasLoadedAccountSnapshot && accountLoadPhase == .idle
+        let periodRawValue = period.rawValue
         if shouldMarkAccountLoading {
             accountLoadPhase = .loadingAccount
         }
@@ -2584,34 +2603,57 @@ final class PacePushStore: ObservableObject {
             if shouldMarkAccountLoading {
                 accountLoadPhase = .idle
             }
+            clearPeriodRefresh(id: periodRefreshID)
         }
 
         do {
             let client = apiClientFactory(baseURL, deviceToken)
-            async let leaderboardResponse = client.fetchLeaderboard(board: board, period: activePeriod.rawValue)
+            async let leaderboardResponse = client.fetchLeaderboard(board: board, period: periodRawValue)
             if deviceToken != nil {
-                async let meResponse = client.fetchMe(period: activePeriod.rawValue)
-                async let profileResponse = client.fetchProfile(period: activePeriod.rawValue)
-                leaderboard = try await leaderboardResponse
-                me = try await meResponse
+                async let meResponse = client.fetchMe(period: periodRawValue)
+                async let profileResponse = client.fetchProfile(period: periodRawValue)
+                let refreshedLeaderboard = try await leaderboardResponse
+                let refreshedMe = try await meResponse
+                let refreshedProfile = try await profileResponse
+
+                guard shouldApplyRefreshResult(period: period, periodRefreshID: periodRefreshID) else { return }
+
+                leaderboard = refreshedLeaderboard
+                me = refreshedMe
                 publicLeaderboardPreference = me.publicLeaderboard
                 publicLeaderboardPreferenceChosen = true
                 preferences.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
                 preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
-                profile = try await profileResponse
+                profile = refreshedProfile
                 hasLoadedAccountSnapshot = true
             } else {
-                leaderboard = try await leaderboardResponse
+                let refreshedLeaderboard = try await leaderboardResponse
+                guard shouldApplyRefreshResult(period: period, periodRefreshID: periodRefreshID) else { return }
+                leaderboard = refreshedLeaderboard
             }
             lastError = nil
         } catch PacePushAPIError.unauthorized {
+            guard shouldApplyRefreshResult(period: period, periodRefreshID: periodRefreshID) else { return }
             signOut()
             lastError = "This device was revoked. Connect GitHub again."
             lastSuccess = nil
         } catch {
+            guard shouldApplyRefreshResult(period: period, periodRefreshID: periodRefreshID) else { return }
             lastError = error.localizedDescription
             lastSuccess = nil
         }
+    }
+
+    private func shouldApplyRefreshResult(period: ScorePeriod, periodRefreshID: UUID?) -> Bool {
+        guard period == activePeriod else { return false }
+        guard let periodRefreshID else { return true }
+        return periodRefreshRequestID == periodRefreshID
+    }
+
+    private func clearPeriodRefresh(id: UUID?) {
+        guard let id, periodRefreshRequestID == id else { return }
+        periodRefreshRequestID = nil
+        refreshingPeriod = nil
     }
 
     func refreshLeaderboard(board: Board = .balanced) async {
@@ -2625,7 +2667,10 @@ final class PacePushStore: ObservableObject {
 
         do {
             let client = apiClientFactory(baseURL, deviceToken)
-            leaderboard = try await client.fetchLeaderboard(board: board, period: activePeriod.rawValue)
+            let period = activePeriod
+            let refreshedLeaderboard = try await client.fetchLeaderboard(board: board, period: period.rawValue)
+            guard period == activePeriod else { return }
+            leaderboard = refreshedLeaderboard
             lastError = nil
         } catch PacePushAPIError.unauthorized {
             signOut()
@@ -2652,6 +2697,8 @@ final class PacePushStore: ObservableObject {
         isDemoMode = true
         preferences.set(true, forKey: demoModeKey)
         accountLoadPhase = .idle
+        periodRefreshRequestID = nil
+        refreshingPeriod = nil
         hasLoadedAccountSnapshot = true
         lastError = nil
         lastSuccess = nil
@@ -2668,7 +2715,14 @@ final class PacePushStore: ObservableObject {
     func setActivePeriod(_ period: ScorePeriod, board: Board = .balanced) async {
         guard period != activePeriod else { return }
         activePeriod = period
-        await refresh(board: board)
+        let shouldMarkPeriodRefresh = deviceToken != nil && hasLoadedAccountSnapshot && !isDemoMode
+        let periodRefreshID = shouldMarkPeriodRefresh ? UUID() : nil
+        if let periodRefreshID {
+            periodRefreshRequestID = periodRefreshID
+            refreshingPeriod = period
+        }
+
+        await refresh(board: board, period: period, periodRefreshID: periodRefreshID)
     }
 
     func signOut() {
@@ -2678,6 +2732,8 @@ final class PacePushStore: ObservableObject {
         preferences.removeObject(forKey: demoModeKey)
         hasLoadedAccountSnapshot = false
         accountLoadPhase = .idle
+        periodRefreshRequestID = nil
+        refreshingPeriod = nil
         firstSyncAt = nil
         preferences.removeObject(forKey: firstSyncKey)
         preferences.removeObject(forKey: historicalDistanceSyncVersionKey)
