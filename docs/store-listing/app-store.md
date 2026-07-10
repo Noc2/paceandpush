@@ -10,29 +10,56 @@ Run more. Ship more.
 
 ## Promotional Text
 
-Turn daily GitHub activity and running distance into a lightweight leaderboard
-for builders who train.
+Turn GitHub contributions and running distance into one balanced score—and see
+how you stack up against other builders who train.
 
 ## Description
 
-Pace & Push is a GitHub-specific fitness companion for runners who ship code.
-Connect GitHub, grant Apple Health read access, and Pace & Push combines daily
-commit summaries with daily aggregate running distance to build a public score.
+Pace & Push combines your GitHub contribution activity with running distance to
+create one balanced score for builders who train.
+
+Connect GitHub, grant read-only Apple Health access, and see how daily commit
+counts and running distance shape your progress across weeks, months, and
+years.
+
+FEATURES
+
+- View your balanced score, commit count, running distance, and leaderboard
+  rank.
+- Explore week, month, and year progress with visual charts.
+- Compare Balanced, Commits, and Running leaderboards.
+- Browse public developer profiles.
+- Choose kilometers or miles and control leaderboard visibility.
+- Export your data, disconnect GitHub, or delete your account in Settings.
+
+PRIVACY
 
 The app uploads only daily aggregate running distance totals. It does not upload
 raw workouts, GPS routes, maps, heart-rate samples, or step-by-step HealthKit
-records. On iOS, Apple Health sync reads the current UTC calendar year only when
-preparing those daily totals.
-
-Use Pace & Push to:
-
-- See your current week, month, and year score.
-- Compare with other public leaderboard users.
-- Sync running distance from Apple Health.
-- Sign out of GitHub, revoke devices, export data, or delete the account from
-  Settings.
+records. Apple Health is read only when you sync while the app is open.
 
 Pace & Push is not a medical, diagnostic, coaching, betting, or prize app.
+
+## Keywords
+
+```text
+running,developer,coding,commit,leaderboard,fitness,workout,distance,habit,productivity,score
+```
+
+The keyword string is 93 ASCII bytes. It intentionally avoids the app name,
+company name, categories, and third-party trademarks.
+
+## URLs
+
+- Support URL: `https://paceandpush.com/settings`
+- Marketing URL: `https://paceandpush.com`
+- Privacy Policy URL: `https://paceandpush.com/privacy`
+
+## Category And Copyright
+
+- Primary category: Health & Fitness
+- Secondary category: Developer Tools
+- Copyright: `2026 Hawig Ventures UG (haftungsbeschränkt)`
 
 ## Review Notes
 
