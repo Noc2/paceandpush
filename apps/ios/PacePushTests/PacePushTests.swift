@@ -807,6 +807,119 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
+    func testStoreMarksSelectedPeriodRefreshingDuringSlowAccountFetch() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let client = FakePacePushClient()
+        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.profileResponse = Self.profileResponse()
+        client.leaderboardResponsesByPeriod["2026"] = LeaderboardResponse(period: "2026", board: .balanced, rows: [])
+        client.meResponsesByPeriod["2026"] = Self.meResponse(
+            publicLeaderboard: true,
+            period: "2026",
+            score: 71.4,
+            commits: 250,
+            kilometers: 118.2
+        )
+        client.profileResponsesByPeriod["2026"] = Self.profileResponse(
+            period: "2026",
+            score: 71.4,
+            commits: 250,
+            kilometers: 118.2
+        )
+        client.responseDelayNanosecondsByPeriod["2026"] = 200_000_000
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [:]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+        await store.refresh()
+
+        let year = try XCTUnwrap(ScorePeriod("2026"))
+        let refreshTask = Task { await store.setActivePeriod(year) }
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertEqual(store.refreshingPeriod, year)
+        XCTAssertTrue(store.isRefreshingActivePeriod)
+        XCTAssertEqual(store.profile.score.period, "2026-07")
+
+        await refreshTask.value
+
+        XCTAssertNil(store.refreshingPeriod)
+        XCTAssertFalse(store.isRefreshingActivePeriod)
+        XCTAssertEqual(store.profile.score.period, "2026")
+        XCTAssertEqual(store.profile.score.commits, 250)
+    }
+
+    @MainActor
+    func testStoreIgnoresStalePeriodRefreshResponses() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let client = FakePacePushClient()
+        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.profileResponse = Self.profileResponse()
+        client.leaderboardResponsesByPeriod["2025"] = LeaderboardResponse(period: "2025", board: .balanced, rows: [])
+        client.meResponsesByPeriod["2025"] = Self.meResponse(
+            publicLeaderboard: true,
+            period: "2025",
+            score: 67.1,
+            commits: 190,
+            kilometers: 88.4
+        )
+        client.profileResponsesByPeriod["2025"] = Self.profileResponse(
+            period: "2025",
+            score: 67.1,
+            commits: 190,
+            kilometers: 88.4
+        )
+        client.leaderboardResponsesByPeriod["2024"] = LeaderboardResponse(period: "2024", board: .balanced, rows: [])
+        client.meResponsesByPeriod["2024"] = Self.meResponse(
+            publicLeaderboard: true,
+            period: "2024",
+            score: 81.6,
+            commits: 310,
+            kilometers: 144.7
+        )
+        client.profileResponsesByPeriod["2024"] = Self.profileResponse(
+            period: "2024",
+            score: 81.6,
+            commits: 310,
+            kilometers: 144.7
+        )
+        client.responseDelayNanosecondsByPeriod["2025"] = 300_000_000
+        client.responseDelayNanosecondsByPeriod["2024"] = 20_000_000
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [:]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-06T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+        await store.refresh()
+
+        let slowYear = try XCTUnwrap(ScorePeriod("2025"))
+        let latestYear = try XCTUnwrap(ScorePeriod("2024"))
+        let slowTask = Task { await store.setActivePeriod(slowYear) }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        let latestTask = Task { await store.setActivePeriod(latestYear) }
+
+        await latestTask.value
+        await slowTask.value
+
+        XCTAssertNil(store.refreshingPeriod)
+        XCTAssertEqual(store.activePeriod, latestYear)
+        XCTAssertEqual(store.profile.score.period, "2024")
+        XCTAssertEqual(store.profile.score.commits, 310)
+        XCTAssertEqual(store.me.score.period, "2024")
+    }
+
+    @MainActor
     func testStoreFetchesPublicProfileForSelectedLeaderboardUser() async throws {
         let client = FakePacePushClient()
         client.publicProfileResponse = PublicProfileResponse(
@@ -1013,22 +1126,52 @@ final class PacePushTests: XCTestCase {
     """
 
     fileprivate static func meResponse(publicLeaderboard: Bool) -> MeResponse {
+        meResponse(
+            publicLeaderboard: publicLeaderboard,
+            period: "2026-07",
+            score: 42.5,
+            commits: 100,
+            kilometers: 25.5
+        )
+    }
+
+    fileprivate static func meResponse(
+        publicLeaderboard: Bool,
+        period: String,
+        score: Double,
+        commits: Int,
+        kilometers: Double
+    ) -> MeResponse {
         MeResponse(
             login: "noc2",
             displayName: "David",
             publicLeaderboard: publicLeaderboard,
             units: "metric",
-            score: ScoreSummary(period: "2026-07", score: 42.5, rank: 1, commits: 100, kilometers: 25.5, lastSyncAt: nil),
+            score: ScoreSummary(period: period, score: score, rank: 1, commits: commits, kilometers: kilometers, lastSyncAt: nil),
             devices: []
         )
     }
 
     fileprivate static func profileResponse() -> PublicProfileResponse {
+        profileResponse(
+            period: "2026-07",
+            score: 42.5,
+            commits: 100,
+            kilometers: 25.5
+        )
+    }
+
+    fileprivate static func profileResponse(
+        period: String,
+        score: Double,
+        commits: Int,
+        kilometers: Double
+    ) -> PublicProfileResponse {
         PublicProfileResponse(
             login: "noc2",
             displayName: "David",
             bio: nil,
-            score: MeResponse.seed.score,
+            score: ScoreSummary(period: period, score: score, rank: 1, commits: commits, kilometers: kilometers, lastSyncAt: nil),
             history: []
         )
     }
@@ -1151,6 +1294,10 @@ private final class FakePacePushClient: PacePushClienting {
     var meResponse = MeResponse.seed
     var profileResponse = PublicProfileResponse.seed
     var publicProfileResponse = PublicProfileResponse.seed
+    var leaderboardResponsesByPeriod: [String: LeaderboardResponse] = [:]
+    var meResponsesByPeriod: [String: MeResponse] = [:]
+    var profileResponsesByPeriod: [String: PublicProfileResponse] = [:]
+    var responseDelayNanosecondsByPeriod: [String: UInt64] = [:]
     var settingsResponse = AccountSettingsResponse(login: "noc2", displayName: "David", publicLeaderboard: true, units: "metric")
     var distanceDaysResponse: DistanceDaysResponse?
     var exchangedPairingCodes: [String] = []
@@ -1205,18 +1352,21 @@ private final class FakePacePushClient: PacePushClienting {
     }
 
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse {
+        try await delayResponse(for: period)
         leaderboardPeriods.append(period)
-        return leaderboardResponse
+        return leaderboardResponsesByPeriod[period] ?? leaderboardResponse
     }
 
     func fetchMe(period: String) async throws -> MeResponse {
+        try await delayResponse(for: period)
         mePeriods.append(period)
-        return meResponse
+        return meResponsesByPeriod[period] ?? meResponse
     }
 
     func fetchProfile(period: String) async throws -> PublicProfileResponse {
+        try await delayResponse(for: period)
         profilePeriods.append(period)
-        return profileResponse
+        return profileResponsesByPeriod[period] ?? profileResponse
     }
 
     func fetchPublicProfile(login: String, period: String) async throws -> PublicProfileResponse {
@@ -1236,6 +1386,11 @@ private final class FakePacePushClient: PacePushClienting {
 
     func recordSyncRun(_ run: SyncRunRequest) async throws {
         recordedSyncRuns.append(run)
+    }
+
+    private func delayResponse(for period: String) async throws {
+        guard let delay = responseDelayNanosecondsByPeriod[period], delay > 0 else { return }
+        try await Task.sleep(nanoseconds: delay)
     }
 }
 

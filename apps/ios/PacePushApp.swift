@@ -609,6 +609,8 @@ struct PeriodRefreshIndicator: View {
         .padding(.horizontal, 10)
         .roundedBackground(Brand.surfacePanelHigh)
         .roundedBorder(Brand.orange.opacity(0.45), lineWidth: 1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Updating \(period.label)")
         .accessibilityIdentifier("profile-period-loading")
     }
 }
@@ -2962,12 +2964,14 @@ extension PacePushStore {
         let isUITesting = arguments.contains("-uiTesting") ||
             arguments.contains("-uiTestingSeeded") ||
             arguments.contains("-uiTestingReadyNoSync") ||
-            arguments.contains("-uiTestingPrivateLeaderboard")
+            arguments.contains("-uiTestingPrivateLeaderboard") ||
+            arguments.contains("-uiTestingSlowPeriodRefresh")
         guard isUITesting else { return PacePushStore() }
 
         let isSeeded = arguments.contains("-uiTestingSeeded")
         let isReadyWithoutSync = arguments.contains("-uiTestingReadyNoSync")
         let isPrivateLeaderboard = arguments.contains("-uiTestingPrivateLeaderboard")
+        let isSlowPeriodRefresh = arguments.contains("-uiTestingSlowPeriodRefresh")
         let hasConnectedSeed = isSeeded || isReadyWithoutSync || isPrivateLeaderboard
         var preferences: [String: Any] = hasConnectedSeed ? [
             "healthAuthorized": true,
@@ -2984,7 +2988,12 @@ extension PacePushStore {
             healthSync: UITestingHealthSync(),
             authSession: UITestingGitHubAuthSession(),
             preferences: UITestingPreferences(values: preferences),
-            apiClientFactory: { _, _ in UITestingPacePushClient(publicLeaderboard: !isPrivateLeaderboard) },
+            apiClientFactory: { _, _ in
+                UITestingPacePushClient(
+                    publicLeaderboard: !isPrivateLeaderboard,
+                    periodRefreshDelayNanoseconds: isSlowPeriodRefresh ? 900_000_000 : 0
+                )
+            },
             deviceLabel: { "UI Test iPhone" },
             now: { ISO8601DateFormatter.pacePush.date(from: "2026-07-06T12:00:00.000Z") ?? Date() },
             bootstrapSyncEnabled: false
@@ -3062,9 +3071,11 @@ private struct UITestingGitHubAuthSession: GitHubAuthenticating {
 
 private final class UITestingPacePushClient: PacePushClienting {
     private let publicLeaderboard: Bool
+    private let periodRefreshDelayNanoseconds: UInt64
 
-    init(publicLeaderboard: Bool = true) {
+    init(publicLeaderboard: Bool = true, periodRefreshDelayNanoseconds: UInt64 = 0) {
         self.publicLeaderboard = publicLeaderboard
+        self.periodRefreshDelayNanoseconds = periodRefreshDelayNanoseconds
     }
 
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String, codeChallenge: String) throws -> URL {
@@ -3092,57 +3103,56 @@ private final class UITestingPacePushClient: PacePushClienting {
     }
 
     func fetchLeaderboard(board: Board, period: String) async throws -> LeaderboardResponse {
-        LeaderboardResponse(
+        try await delayPeriodRefreshIfNeeded(period: period)
+        let score = scoreSummary(for: period)
+        return LeaderboardResponse(
             period: period,
             board: board,
             rows: [
-                LeaderboardRow(rank: 1, login: "noc2", displayName: "David", score: 94.2, commits: 312, kilometers: 86.4, streakDays: 11),
+                LeaderboardRow(
+                    rank: 1,
+                    login: "noc2",
+                    displayName: "David",
+                    score: score.score,
+                    commits: score.commits,
+                    kilometers: score.kilometers,
+                    streakDays: 11
+                ),
             ]
         )
     }
 
     func fetchMe(period: String) async throws -> MeResponse {
-        MeResponse(
+        try await delayPeriodRefreshIfNeeded(period: period)
+        return MeResponse(
             login: "noc2",
             displayName: "David",
             publicLeaderboard: publicLeaderboard,
             units: "metric",
-            score: ScoreSummary(period: period, score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z"),
+            score: scoreSummary(for: period),
             devices: [deviceExchangeResponse.device]
         )
     }
 
     func fetchProfile(period: String) async throws -> PublicProfileResponse {
-        PublicProfileResponse(
+        try await delayPeriodRefreshIfNeeded(period: period)
+        return PublicProfileResponse(
             login: "noc2",
             displayName: "David",
             bio: nil,
-            score: ScoreSummary(period: period, score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z"),
-            history: [
-                ProfileHistoryPoint(date: "2026-07-01", commits: 41, kilometers: 8.1, score: 42.8),
-                ProfileHistoryPoint(date: "2026-07-02", commits: 93, kilometers: 23.5, score: 68.4),
-                ProfileHistoryPoint(date: "2026-07-03", commits: 128, kilometers: 31.2, score: 75.6),
-                ProfileHistoryPoint(date: "2026-07-04", commits: 176, kilometers: 43.8, score: 80.9),
-                ProfileHistoryPoint(date: "2026-07-05", commits: 219, kilometers: 58.7, score: 86.3),
-                ProfileHistoryPoint(date: "2026-07-06", commits: 312, kilometers: 86.4, score: 94.2),
-            ]
+            score: scoreSummary(for: period),
+            history: history(for: period)
         )
     }
 
     func fetchPublicProfile(login: String, period: String) async throws -> PublicProfileResponse {
-        PublicProfileResponse(
+        try await delayPeriodRefreshIfNeeded(period: period)
+        return PublicProfileResponse(
             login: login,
             displayName: login.localizedCaseInsensitiveCompare("noc2") == .orderedSame ? "David" : login,
             bio: nil,
-            score: ScoreSummary(period: period, score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z"),
-            history: [
-                ProfileHistoryPoint(date: "2026-07-01", commits: 41, kilometers: 8.1, score: 42.8),
-                ProfileHistoryPoint(date: "2026-07-02", commits: 93, kilometers: 23.5, score: 68.4),
-                ProfileHistoryPoint(date: "2026-07-03", commits: 128, kilometers: 31.2, score: 75.6),
-                ProfileHistoryPoint(date: "2026-07-04", commits: 176, kilometers: 43.8, score: 80.9),
-                ProfileHistoryPoint(date: "2026-07-05", commits: 219, kilometers: 58.7, score: 86.3),
-                ProfileHistoryPoint(date: "2026-07-06", commits: 312, kilometers: 86.4, score: 94.2),
-            ]
+            score: scoreSummary(for: period),
+            history: history(for: period)
         )
     }
 
@@ -3160,6 +3170,44 @@ private final class UITestingPacePushClient: PacePushClienting {
     }
 
     func recordSyncRun(_ run: SyncRunRequest) async throws {}
+
+    private func delayPeriodRefreshIfNeeded(period: String) async throws {
+        guard periodRefreshDelayNanoseconds > 0, period != "2026-07" else { return }
+        try await Task.sleep(nanoseconds: periodRefreshDelayNanoseconds)
+    }
+
+    private func scoreSummary(for period: String) -> ScoreSummary {
+        switch period {
+        case "2026":
+            return ScoreSummary(period: period, score: 87.6, rank: 1, commits: 684, kilometers: 214.8, lastSyncAt: "2026-07-06T12:00:00.000Z")
+        case "2025":
+            return ScoreSummary(period: period, score: 76.3, rank: 2, commits: 438, kilometers: 166.2, lastSyncAt: "2026-07-06T12:00:00.000Z")
+        case "2024":
+            return ScoreSummary(period: period, score: 69.8, rank: 3, commits: 287, kilometers: 93.5, lastSyncAt: "2026-07-06T12:00:00.000Z")
+        default:
+            return ScoreSummary(period: period, score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z")
+        }
+    }
+
+    private func history(for period: String) -> [ProfileHistoryPoint] {
+        let score = scoreSummary(for: period)
+        if period.count == 4 {
+            return [
+                ProfileHistoryPoint(date: "\(period)-01-31", commits: max(1, score.commits / 4), kilometers: score.kilometers * 0.22, score: score.score * 0.45),
+                ProfileHistoryPoint(date: "\(period)-04-30", commits: max(1, score.commits / 2), kilometers: score.kilometers * 0.52, score: score.score * 0.70),
+                ProfileHistoryPoint(date: "\(period)-07-06", commits: score.commits, kilometers: score.kilometers, score: score.score),
+            ]
+        }
+
+        return [
+            ProfileHistoryPoint(date: "2026-07-01", commits: 41, kilometers: 8.1, score: 42.8),
+            ProfileHistoryPoint(date: "2026-07-02", commits: 93, kilometers: 23.5, score: 68.4),
+            ProfileHistoryPoint(date: "2026-07-03", commits: 128, kilometers: 31.2, score: 75.6),
+            ProfileHistoryPoint(date: "2026-07-04", commits: 176, kilometers: 43.8, score: 80.9),
+            ProfileHistoryPoint(date: "2026-07-05", commits: 219, kilometers: 58.7, score: 86.3),
+            ProfileHistoryPoint(date: "2026-07-06", commits: score.commits, kilometers: score.kilometers, score: score.score),
+        ]
+    }
 
     private var deviceExchangeResponse: DeviceExchangeResponse {
         DeviceExchangeResponse(

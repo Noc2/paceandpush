@@ -154,6 +154,31 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["profile-chart"].exists)
     }
 
+    func testSeededSlowPeriodChangeUpdatesProfileMetrics() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingSeeded", "-uiTestingSlowPeriodRefresh"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
+        let scoreValue = app.staticTexts["profile-score-value"]
+        let commitsValue = app.staticTexts["profile-commits-value"]
+        let distanceValue = app.staticTexts["profile-distance-value"]
+        XCTAssertTrue(scoreValue.waitForExistence(timeout: 5))
+        XCTAssertTrue(commitsValue.waitForExistence(timeout: 5))
+        XCTAssertTrue(distanceValue.waitForExistence(timeout: 5))
+
+        let initialScore = scoreValue.label
+        let initialCommits = commitsValue.label
+        let initialDistance = distanceValue.label
+
+        app.buttons["Years"].tap()
+
+        XCTAssertTrue(waitForLabelChange(scoreValue, from: initialScore))
+        XCTAssertTrue(waitForLabelChange(commitsValue, from: initialCommits))
+        XCTAssertTrue(waitForLabelChange(distanceValue, from: initialDistance))
+        XCTAssertFalse(app.descendants(matching: .any)["profile-period-loading"].exists)
+    }
+
     func testSeededLeaderboardRowOpensPublicProfile() {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-uiTestingSeeded"]
