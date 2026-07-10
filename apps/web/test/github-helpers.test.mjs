@@ -1259,7 +1259,10 @@ test("design borders use a consistent single-pixel weight", async () => {
   assert.match(brandSource, /css: "6px"/);
   assert.match(brandSource, /--score: \$\{colors\.secondaryOrange\}/);
   assert.match(brandSource, /--distance: \$\{colors\.rankBlue\}/);
-  assert.match(iosSource, /color: Brand\.orange[\s\S]*MetricTile\(title: "Commits"/);
+  assert.match(iosSource, /color: Brand\.orange[\s\S]*MetricTile\([\s\S]*title: "Commits"/);
+  assert.match(iosSource, /valueAccessibilityIdentifier: "profile-score-value"/);
+  assert.match(iosSource, /valueAccessibilityIdentifier: "profile-commits-value"/);
+  assert.match(iosSource, /valueAccessibilityIdentifier: "profile-distance-value"/);
   assert.match(iosSource, /title: units\.title,[\s\S]*color: Brand\.blue/);
   assert.match(iosSource, /ForEach\(ProfileChartSeries\.barSeries\)/);
   assert.match(iosSource, /linePath\(for: \.score, in: geometry\.size\)/);
