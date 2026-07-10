@@ -3,6 +3,7 @@ package com.paceandpush
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
@@ -115,6 +116,7 @@ class MainActivity : ComponentActivity() {
     private var dataLoading = false
     private var dataStatusMessage: String? = null
     private var dataStatusColor = muted
+    private var dataLoadStage = AccountDataLoadStage.AccountSummary
     private var remoteSnapshotLoaded = false
 
     private var me = emptyMeSummary()
@@ -159,7 +161,8 @@ class MainActivity : ComponentActivity() {
         paired = hasStoredDeviceToken(preferences)
         if (paired) {
             dataLoading = true
-            dataStatusMessage = "Loading your Pace & Push score..."
+            dataLoadStage = AccountDataLoadStage.AccountSummary
+            dataStatusMessage = dataLoadStage.message
             dataStatusColor = ink
         }
         units = DistanceUnits.from(preferences.getString(PREF_DISTANCE_UNITS, null))
@@ -517,35 +520,134 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private inner class LoadingStepIndicatorView(
+        private val state: LoadingStepState,
+    ) : View(this@MainActivity) {
+        private val indicatorPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val centerX = width / 2f
+            val centerY = height / 2f
+            val radius = minOf(width, height) / 2f - dp(3)
+
+            if (state == LoadingStepState.Complete) {
+                indicatorPaint.style = Paint.Style.FILL
+                indicatorPaint.color = green
+                canvas.drawCircle(centerX, centerY, radius, indicatorPaint)
+
+                indicatorPaint.style = Paint.Style.STROKE
+                indicatorPaint.strokeWidth = dp(2).toFloat()
+                indicatorPaint.strokeCap = Paint.Cap.ROUND
+                indicatorPaint.color = paper
+                val checkPath = Path().apply {
+                    moveTo(centerX - radius * 0.44f, centerY)
+                    lineTo(centerX - radius * 0.12f, centerY + radius * 0.32f)
+                    lineTo(centerX + radius * 0.48f, centerY - radius * 0.36f)
+                }
+                canvas.drawPath(checkPath, indicatorPaint)
+                indicatorPaint.strokeCap = Paint.Cap.BUTT
+                return
+            }
+
+            indicatorPaint.style = Paint.Style.STROKE
+            indicatorPaint.strokeWidth = dp(2).toFloat()
+            indicatorPaint.color = muted
+            canvas.drawCircle(centerX, centerY, radius, indicatorPaint)
+        }
+    }
+
     private fun accountDataLoadingPanel(): View {
         return panel(surfacePanelHigh) {
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            contentDescription = "Loading account. ${dataLoadStage.message}"
             addView(
-                LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    addView(
-                        ProgressBar(this@MainActivity).apply {
-                            isIndeterminate = true
-                        },
-                        LinearLayout.LayoutParams(dp(36), dp(36)).apply {
-                            rightMargin = dp(12)
-                        },
-                    )
-                    addView(
-                        LinearLayout(this@MainActivity).apply {
-                            orientation = LinearLayout.VERTICAL
-                            addView(titleText("Loading account", 22f))
-                            addView(bodyText(dataStatusMessage ?: "Loading your Pace & Push score...", 16f).apply {
-                                setTextColor(orange)
-                                setPadding(0, dp(4), 0, 0)
-                            })
-                        },
-                        LinearLayout.LayoutParams(0, -2, 1f),
-                    )
+                titleText("Loading account", 22f),
+            )
+            addView(bodyText(dataStatusMessage ?: dataLoadStage.message, 16f).apply {
+                setTextColor(orange)
+                setPadding(0, dp(4), 0, 0)
+            })
+            addView(
+                ProgressBar(
+                    this@MainActivity,
+                    null,
+                    android.R.attr.progressBarStyleHorizontal,
+                ).apply {
+                    isIndeterminate = false
+                    max = 100
+                    progress = dataLoadStage.progress
+                    progressTintList = ColorStateList.valueOf(orange)
+                    progressBackgroundTintList = ColorStateList.valueOf(line)
+                    contentDescription = "Account setup progress: ${dataLoadStage.accessibilityLabel}"
+                },
+                LinearLayout.LayoutParams(-1, dp(8)).apply {
+                    topMargin = dp(14)
                 },
             )
-            addView(bodyText("Fetching your GitHub identity, score, leaderboard, and profile history.", 15f).apply {
-                setPadding(0, dp(12), 0, 0)
+            addView(bodyText(dataLoadStage.detail, 15f).apply {
+                setPadding(0, dp(14), 0, 0)
+            })
+            accountDataLoadingSteps().forEach { step ->
+                addView(accountDataLoadingStepRow(step))
+            }
+        }
+    }
+
+    private fun accountDataLoadingSteps(): List<AccountDataLoadingStep> {
+        return listOf(
+            AccountDataLoadingStep("GitHub connection", LoadingStepState.Complete),
+            AccountDataLoadingStep(
+                "Account summary",
+                when (dataLoadStage) {
+                    AccountDataLoadStage.AccountSummary -> LoadingStepState.Active
+                    AccountDataLoadStage.ProfileHistory,
+                    AccountDataLoadStage.Leaderboard -> LoadingStepState.Complete
+                },
+            ),
+            AccountDataLoadingStep(
+                "Profile history",
+                when (dataLoadStage) {
+                    AccountDataLoadStage.AccountSummary -> LoadingStepState.Pending
+                    AccountDataLoadStage.ProfileHistory -> LoadingStepState.Active
+                    AccountDataLoadStage.Leaderboard -> LoadingStepState.Complete
+                },
+            ),
+            AccountDataLoadingStep(
+                "Leaderboard",
+                when (dataLoadStage) {
+                    AccountDataLoadStage.AccountSummary,
+                    AccountDataLoadStage.ProfileHistory -> LoadingStepState.Pending
+                    AccountDataLoadStage.Leaderboard -> LoadingStepState.Active
+                },
+            ),
+        )
+    }
+
+    private fun accountDataLoadingStepRow(step: AccountDataLoadingStep): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, 0)
+            contentDescription = "${step.label}, ${step.state.accessibilityLabel}"
+
+            val indicator = if (step.state == LoadingStepState.Active) {
+                ProgressBar(this@MainActivity).apply {
+                    isIndeterminate = true
+                    indeterminateTintList = ColorStateList.valueOf(orange)
+                }
+            } else {
+                LoadingStepIndicatorView(step.state)
+            }
+            addView(
+                indicator,
+                LinearLayout.LayoutParams(dp(24), dp(24)).apply {
+                    rightMargin = dp(10)
+                },
+            )
+            addView(bodyText(step.label, 15f).apply {
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(if (step.state == LoadingStepState.Active) ink else muted)
             })
         }
     }
@@ -1252,7 +1354,8 @@ class MainActivity : ComponentActivity() {
 
         if (showLoading) {
             dataLoading = true
-            dataStatusMessage = "Loading your Pace & Push score..."
+            dataLoadStage = AccountDataLoadStage.AccountSummary
+            dataStatusMessage = dataLoadStage.message
             dataStatusColor = ink
             render()
         }
@@ -1261,9 +1364,7 @@ class MainActivity : ComponentActivity() {
         val baseUrl = apiBaseUrl
         uiScope.launch {
             val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    fetchRemoteSnapshot(baseUrl, token, selectedBoard)
-                }
+                fetchRemoteSnapshot(baseUrl, token, selectedBoard)
             }
 
             dataLoading = false
@@ -1338,15 +1439,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun fetchRemoteSnapshot(baseUrl: String, token: String, selectedBoard: Board): RemoteSnapshot {
-        val meJson = jsonRequest("GET", baseUrl, "/api/mobile/me", token)
-        val profileJson = jsonRequest("GET", baseUrl, "/api/mobile/me/profile", token)
-        val leaderboardJson = jsonRequest(
-            "GET",
-            baseUrl,
-            "/api/leaderboard?board=${selectedBoard.apiValue}",
-            null,
-        )
+    private suspend fun fetchRemoteSnapshot(baseUrl: String, token: String, selectedBoard: Board): RemoteSnapshot {
+        updateAccountDataLoadStage(AccountDataLoadStage.AccountSummary)
+        val meJson = withContext(Dispatchers.IO) {
+            jsonRequest("GET", baseUrl, "/api/mobile/me", token)
+        }
+        updateAccountDataLoadStage(AccountDataLoadStage.ProfileHistory)
+        val profileJson = withContext(Dispatchers.IO) {
+            jsonRequest("GET", baseUrl, "/api/mobile/me/profile", token)
+        }
+        updateAccountDataLoadStage(AccountDataLoadStage.Leaderboard)
+        val leaderboardJson = withContext(Dispatchers.IO) {
+            jsonRequest(
+                "GET",
+                baseUrl,
+                "/api/leaderboard?board=${selectedBoard.apiValue}",
+                null,
+            )
+        }
 
         return RemoteSnapshot(
             me = parseMe(meJson),
@@ -1354,6 +1464,14 @@ class MainActivity : ComponentActivity() {
             rows = parseLeaderboardRows(leaderboardJson),
             history = parseHistory(profileJson),
         )
+    }
+
+    private fun updateAccountDataLoadStage(stage: AccountDataLoadStage) {
+        if (!dataLoading) return
+        dataLoadStage = stage
+        dataStatusMessage = stage.message
+        dataStatusColor = ink
+        render()
     }
 
     private fun uploadDistanceDays(
@@ -1943,6 +2061,43 @@ private enum class AppThemePreference(val rawValue: String, val title: String) {
         }
     }
 }
+
+private enum class AccountDataLoadStage(
+    val message: String,
+    val detail: String,
+    val progress: Int,
+    val accessibilityLabel: String,
+) {
+    AccountSummary(
+        "Loading account summary...",
+        "Fetching your GitHub identity and current score.",
+        36,
+        "Account summary",
+    ),
+    ProfileHistory(
+        "Loading profile history...",
+        "Reading score history and recent running totals.",
+        64,
+        "Profile history",
+    ),
+    Leaderboard(
+        "Loading leaderboard...",
+        "Finding your current board position.",
+        86,
+        "Leaderboard",
+    ),
+}
+
+private enum class LoadingStepState(val accessibilityLabel: String) {
+    Pending("pending"),
+    Active("in progress"),
+    Complete("complete"),
+}
+
+private data class AccountDataLoadingStep(
+    val label: String,
+    val state: LoadingStepState,
+)
 
 private enum class DistanceUnits(
     val rawValue: String,
