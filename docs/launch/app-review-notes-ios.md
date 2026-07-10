@@ -57,8 +57,11 @@ Reviewers can test the flow with a connected account:
    until GitHub is connected again.
 
 Apple Health access is requested separately and remains controlled by the
-user's iOS Health permissions. Pace & Push uploads only daily running distance
-totals bucketed by UTC calendar day, not raw workouts or routes.
+user's iOS Health permissions. Before requesting access, onboarding explains
+that Pace & Push uploads daily running distance totals and that those totals
+contribute to the user's public profile and leaderboard when public scoring is
+enabled. Totals are bucketed by UTC calendar day; raw workouts and routes remain
+in Apple Health and are not uploaded.
 
 ## Guideline Rationale
 

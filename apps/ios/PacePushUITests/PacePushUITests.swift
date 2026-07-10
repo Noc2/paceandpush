@@ -17,6 +17,12 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.buttons["confirm-public-leaderboard-button"].exists)
         XCTAssertTrue(app.buttons["connect-github-button"].exists)
         XCTAssertTrue(app.buttons["enable-health-button"].exists)
+        let healthDisclosure = app.staticTexts["onboarding-step-3-detail"]
+        XCTAssertTrue(healthDisclosure.exists)
+        XCTAssertEqual(
+            healthDisclosure.label,
+            "Pace & Push reads running workouts and uploads daily distance totals. Raw workouts and routes stay in Apple Health. Public scores use these totals on your profile and leaderboard."
+        )
         XCTAssertFalse(app.staticTexts["Sample data"].exists)
     }
 

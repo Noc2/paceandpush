@@ -135,7 +135,9 @@ struct OnboardingView: View {
                     OnboardingStep(
                         index: 3,
                         title: "Enable Apple Health",
-                        detail: store.healthAuthorized ? "Read-only workout access enabled" : "Pace & Push reads running workouts only.",
+                        detail: store.healthAuthorized
+                            ? "Daily distance totals upload to Pace & Push; raw workouts and routes stay in Apple Health."
+                            : "Pace & Push reads running workouts and uploads daily distance totals. Raw workouts and routes stay in Apple Health. Public scores use these totals on your profile and leaderboard.",
                         complete: store.healthAuthorized,
                     ) {
                         Button {
@@ -221,6 +223,7 @@ struct OnboardingStep<Actions: View>: View {
                     Text(detail)
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(Brand.muted)
+                        .accessibilityIdentifier("onboarding-step-\(index)-detail")
                 }
             }
 

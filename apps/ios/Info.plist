@@ -34,7 +34,7 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.healthcare-fitness</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Pace &amp; Push reads running workouts from HealthKit to calculate daily running distance.</string>
+	<string>Pace &amp; Push reads running workouts to calculate and upload daily distance totals. Raw workouts and routes are not uploaded.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Pace &amp; Push does not write Health data.</string>
 	<key>UIApplicationSceneManifest</key>
