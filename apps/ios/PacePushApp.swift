@@ -2963,23 +2963,25 @@ extension PacePushStore {
         #if DEBUG
         let isUITesting = arguments.contains("-uiTesting") ||
             arguments.contains("-uiTestingSeeded") ||
+            arguments.contains("-uiTestingAppStoreScreenshots") ||
             arguments.contains("-uiTestingReadyNoSync") ||
             arguments.contains("-uiTestingPrivateLeaderboard") ||
             arguments.contains("-uiTestingSlowPeriodRefresh")
         guard isUITesting else { return PacePushStore() }
 
         let isSeeded = arguments.contains("-uiTestingSeeded")
+        let isAppStoreScreenshots = arguments.contains("-uiTestingAppStoreScreenshots")
         let isReadyWithoutSync = arguments.contains("-uiTestingReadyNoSync")
         let isPrivateLeaderboard = arguments.contains("-uiTestingPrivateLeaderboard")
         let isSlowPeriodRefresh = arguments.contains("-uiTestingSlowPeriodRefresh")
-        let hasConnectedSeed = isSeeded || isReadyWithoutSync || isPrivateLeaderboard
+        let hasConnectedSeed = isSeeded || isAppStoreScreenshots || isReadyWithoutSync || isPrivateLeaderboard
         var preferences: [String: Any] = hasConnectedSeed ? [
             "healthAuthorized": true,
             "publicLeaderboardPreference": !isPrivateLeaderboard,
             "publicLeaderboardPreferenceChosen": true,
             "distanceUnits": "metric",
         ] : [:]
-        if isSeeded {
+        if isSeeded || isAppStoreScreenshots {
             preferences["firstSyncAt"] = "2026-07-06T12:00:00.000Z"
         }
 
@@ -2991,7 +2993,8 @@ extension PacePushStore {
             apiClientFactory: { _, _ in
                 UITestingPacePushClient(
                     publicLeaderboard: !isPrivateLeaderboard,
-                    periodRefreshDelayNanoseconds: isSlowPeriodRefresh ? 900_000_000 : 0
+                    periodRefreshDelayNanoseconds: isSlowPeriodRefresh ? 900_000_000 : 0,
+                    usesSampleIdentity: isAppStoreScreenshots
                 )
             },
             deviceLabel: { "UI Test iPhone" },
@@ -3072,10 +3075,16 @@ private struct UITestingGitHubAuthSession: GitHubAuthenticating {
 private final class UITestingPacePushClient: PacePushClienting {
     private let publicLeaderboard: Bool
     private let periodRefreshDelayNanoseconds: UInt64
+    private let usesSampleIdentity: Bool
 
-    init(publicLeaderboard: Bool = true, periodRefreshDelayNanoseconds: UInt64 = 0) {
+    init(
+        publicLeaderboard: Bool = true,
+        periodRefreshDelayNanoseconds: UInt64 = 0,
+        usesSampleIdentity: Bool = false
+    ) {
         self.publicLeaderboard = publicLeaderboard
         self.periodRefreshDelayNanoseconds = periodRefreshDelayNanoseconds
+        self.usesSampleIdentity = usesSampleIdentity
     }
 
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String, codeChallenge: String) throws -> URL {
@@ -3111,8 +3120,8 @@ private final class UITestingPacePushClient: PacePushClienting {
             rows: [
                 LeaderboardRow(
                     rank: 1,
-                    login: "noc2",
-                    displayName: "David",
+                    login: testLogin,
+                    displayName: testDisplayName,
                     score: score.score,
                     commits: score.commits,
                     kilometers: score.kilometers,
@@ -3125,8 +3134,8 @@ private final class UITestingPacePushClient: PacePushClienting {
     func fetchMe(period: String) async throws -> MeResponse {
         try await delayPeriodRefreshIfNeeded(period: period)
         return MeResponse(
-            login: "noc2",
-            displayName: "David",
+            login: testLogin,
+            displayName: testDisplayName,
             publicLeaderboard: publicLeaderboard,
             units: "metric",
             score: scoreSummary(for: period),
@@ -3137,9 +3146,9 @@ private final class UITestingPacePushClient: PacePushClienting {
     func fetchProfile(period: String) async throws -> PublicProfileResponse {
         try await delayPeriodRefreshIfNeeded(period: period)
         return PublicProfileResponse(
-            login: "noc2",
-            displayName: "David",
-            bio: nil,
+            login: testLogin,
+            displayName: testDisplayName,
+            bio: sampleProfileBio,
             score: scoreSummary(for: period),
             history: history(for: period)
         )
@@ -3149,8 +3158,8 @@ private final class UITestingPacePushClient: PacePushClienting {
         try await delayPeriodRefreshIfNeeded(period: period)
         return PublicProfileResponse(
             login: login,
-            displayName: login.localizedCaseInsensitiveCompare("noc2") == .orderedSame ? "David" : login,
-            bio: nil,
+            displayName: login.localizedCaseInsensitiveCompare(testLogin) == .orderedSame ? testDisplayName : login,
+            bio: sampleProfileBio,
             score: scoreSummary(for: period),
             history: history(for: period)
         )
@@ -3158,8 +3167,8 @@ private final class UITestingPacePushClient: PacePushClienting {
 
     func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse {
         AccountSettingsResponse(
-            login: "noc2",
-            displayName: "David",
+            login: testLogin,
+            displayName: testDisplayName,
             publicLeaderboard: publicLeaderboard ?? self.publicLeaderboard,
             units: units ?? "metric"
         )
@@ -3170,6 +3179,18 @@ private final class UITestingPacePushClient: PacePushClienting {
     }
 
     func recordSyncRun(_ run: SyncRunRequest) async throws {}
+
+    private var testLogin: String {
+        usesSampleIdentity ? "sample-builder" : "noc2"
+    }
+
+    private var testDisplayName: String {
+        usesSampleIdentity ? "Sample Builder" : "David"
+    }
+
+    private var sampleProfileBio: String? {
+        usesSampleIdentity ? "Sample App Store profile." : nil
+    }
 
     private func delayPeriodRefreshIfNeeded(period: String) async throws {
         guard periodRefreshDelayNanoseconds > 0, period != "2026-07" else { return }

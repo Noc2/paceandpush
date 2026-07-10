@@ -215,6 +215,55 @@ final class PacePushUITests: XCTestCase {
         )
     }
 
+    func testCaptureAppStoreScreenshots() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding-view"].waitForExistence(timeout: 5))
+        addScreenshot(named: "01-onboarding", from: app)
+
+        app.buttons["try-demo-button"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
+        addScreenshot(named: "02-profile", from: app)
+
+        let tabBar = app.tabBars.firstMatch
+        tabBar.buttons["Board"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
+        addScreenshot(named: "03-leaderboard", from: app)
+
+        tabBar.buttons["Settings"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
+        addScreenshot(named: "04-settings", from: app)
+
+        app.terminate()
+        app.launchArguments = [
+            "-uiTesting",
+            "-uiTestingAppStoreScreenshots",
+            "-AppleLanguages",
+            "(en)",
+            "-AppleLocale",
+            "en_US",
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Board"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-screen"].waitForExistence(timeout: 5))
+        let publicProfileRow = app.descendants(matching: .any)["leaderboard-row-sample-builder"]
+        XCTAssertTrue(publicProfileRow.waitForExistence(timeout: 5))
+        publicProfileRow.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["public-profile-screen"].waitForExistence(timeout: 5))
+        addScreenshot(named: "05-public-profile", from: app)
+    }
+
+    private func addScreenshot(named name: String, from app: XCUIApplication) {
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = name
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
     private func addSettingsScreenshot(from app: XCUIApplication) {
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Settings - Theme"
