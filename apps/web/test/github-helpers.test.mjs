@@ -167,7 +167,7 @@ test("GitHub access tokens round-trip through encrypted storage format", () => {
   }
 });
 
-test("GitHub OAuth authorize URL includes the explicit redirect URI", () => {
+test("GitHub OAuth authorize URL includes account picker prompt and explicit redirect URI", () => {
   const previousClientId = process.env.GITHUB_CLIENT_ID;
   process.env.GITHUB_CLIENT_ID = "github-client-id";
 
@@ -181,6 +181,7 @@ test("GitHub OAuth authorize URL includes the explicit redirect URI", () => {
     assert.equal(url.searchParams.get("client_id"), "github-client-id");
     assert.equal(url.searchParams.get("state"), "oauth-state");
     assert.equal(url.searchParams.get("scope"), "read:user");
+    assert.equal(url.searchParams.get("prompt"), "select_account");
     assert.equal(
       url.searchParams.get("redirect_uri"),
       "https://paceandpush.com/api/github/oauth/callback",

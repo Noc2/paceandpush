@@ -24,6 +24,7 @@ export function buildGitHubAuthorizeUrl(
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("state", state);
   url.searchParams.set("scope", "read:user");
+  url.searchParams.set("prompt", "select_account");
   if (options.redirectUri) {
     url.searchParams.set("redirect_uri", options.redirectUri);
   }
