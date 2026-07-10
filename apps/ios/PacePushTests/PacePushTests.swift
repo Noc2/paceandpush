@@ -497,6 +497,7 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(store.githubConnectionStatus, "@noc2")
         XCTAssertTrue(store.shouldShowAccountLoading)
         XCTAssertEqual(store.accountLoadPhase, .syncingInitialRun)
+        XCTAssertEqual(store.accountLoadPhase.progressValue, 0.78, accuracy: 0.001)
         XCTAssertEqual(store.accountLoadingMessage, "Syncing running totals...")
         XCTAssertEqual(store.lastSyncStatus, "In progress")
         XCTAssertTrue(store.hasLoadedAccountSnapshot)

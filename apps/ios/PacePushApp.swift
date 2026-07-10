@@ -580,17 +580,20 @@ struct AccountSetupLoadingPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                ProgressView()
-                    .tint(Brand.orange)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.title2.weight(.black))
-                    Text(message)
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(Brand.orange)
-                }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.title2.weight(.black))
+                Text(message)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(Brand.orange)
             }
+
+            ProgressView(value: phase.progressValue, total: 1)
+                .progressViewStyle(.linear)
+                .tint(Brand.orange)
+                .accessibilityLabel("Account setup progress")
+                .accessibilityValue(phase.progressAccessibilityValue)
+                .animation(.easeInOut(duration: 0.25), value: phase.progressValue)
 
             Text(detail)
                 .font(.callout.weight(.semibold))
@@ -1689,6 +1692,32 @@ enum AccountLoadPhase: Equatable {
             return "Fetching your GitHub identity, score, and leaderboard data."
         case .syncingInitialRun:
             return "Reading daily running totals from Apple Health and updating your score."
+        }
+    }
+
+    var progressValue: Double {
+        switch self {
+        case .idle:
+            return 0.25
+        case .connectingGitHub:
+            return 0.2
+        case .loadingAccount:
+            return 0.45
+        case .syncingInitialRun:
+            return 0.78
+        }
+    }
+
+    var progressAccessibilityValue: String {
+        switch self {
+        case .idle:
+            return "Preparing account"
+        case .connectingGitHub:
+            return "Connecting GitHub"
+        case .loadingAccount:
+            return "Loading GitHub profile"
+        case .syncingInitialRun:
+            return "Syncing running totals"
         }
     }
 }
