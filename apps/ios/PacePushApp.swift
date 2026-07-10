@@ -116,7 +116,7 @@ struct OnboardingView: View {
                     OnboardingStep(
                         index: 2,
                         title: "Connect GitHub",
-                        detail: store.isGitHubConnected ? "@\(store.me.login) connected" : "Used for commit counts and account identity.",
+                        detail: store.githubOnboardingStatus,
                         complete: store.isGitHubConnected,
                     ) {
                         Button {
@@ -359,19 +359,36 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                ProfileContentView(
-                    profile: store.profile,
-                    activePeriod: store.activePeriod,
-                    units: store.units,
-                    emptyHistoryMessage: "Sync running data to build your profile history."
-                ) { period in
-                    Task { await store.setActivePeriod(period) }
+                Group {
+                    if let error = store.accountContentError {
+                        ProfileErrorPanel(message: error) {
+                            Task { await store.refresh() }
+                        }
+                    } else if store.shouldShowAccountLoading {
+                        AccountSetupLoadingPanel(
+                            title: store.accountLoadingTitle,
+                            message: store.accountLoadingMessage,
+                            detail: store.accountLoadingDetail,
+                            phase: store.accountLoadPhase,
+                        )
+                    } else {
+                        ProfileContentView(
+                            profile: store.profile,
+                            activePeriod: store.activePeriod,
+                            units: store.units,
+                            emptyHistoryMessage: "Sync running data to build your profile history."
+                        ) { period in
+                            Task { await store.setActivePeriod(period) }
+                        }
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 .padding(.bottom, 20)
 
-                if let shareURL = store.shareProfileURL {
+                if !store.shouldShowAccountLoading,
+                   store.accountContentError == nil,
+                   let shareURL = store.shareProfileURL {
                     ShareLink(item: shareURL) {
                         Label("Share Profile", systemImage: "square.and.arrow.up")
                             .frame(maxWidth: .infinity)
@@ -546,6 +563,66 @@ struct LoadingPanel: View {
     }
 }
 
+struct AccountSetupLoadingPanel: View {
+    let title: String
+    let message: String
+    let detail: String
+    let phase: AccountLoadPhase
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                ProgressView()
+                    .tint(Brand.orange)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.title2.weight(.black))
+                    Text(message)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(Brand.orange)
+                }
+            }
+
+            Text(detail)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(Brand.muted)
+
+            VStack(alignment: .leading, spacing: 8) {
+                SetupProgressRow(
+                    label: "GitHub profile",
+                    isActive: phase == .loadingAccount,
+                    isComplete: phase == .syncingInitialRun,
+                )
+                SetupProgressRow(
+                    label: "Running totals",
+                    isActive: phase == .syncingInitialRun,
+                    isComplete: false,
+                )
+            }
+            .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .panelStyle()
+        .accessibilityIdentifier("account-loading-panel")
+    }
+}
+
+struct SetupProgressRow: View {
+    let label: String
+    let isActive: Bool
+    let isComplete: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isComplete ? Brand.green : isActive ? Brand.orange : Brand.muted)
+            Text(label)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(isActive ? Brand.ink : Brand.muted)
+        }
+    }
+}
+
 struct ProfileErrorPanel: View {
     let message: String
     let retry: () -> Void
@@ -588,7 +665,7 @@ struct SettingsView: View {
                     SettingsSectionPanel("Sync") {
                         StatusRow(
                             label: "GitHub",
-                            value: store.isGitHubConnected ? "@\(store.me.login)" : "Disconnected",
+                            value: store.githubConnectionStatus,
                         )
                         if store.isGitHubConnected {
                             SettingsActionButton(
@@ -625,9 +702,9 @@ struct SettingsView: View {
                             .accessibilityIdentifier("settings-enable-health-button")
                         }
 
-                        StatusRow(label: "Last sync", value: store.firstSyncAt ?? "Never")
+                        StatusRow(label: "Last sync", value: store.lastSyncStatus)
                         SettingsActionButton(
-                            store.busy ? "Syncing..." : "Sync Now",
+                            store.syncActionTitle,
                             systemImage: "arrow.triangle.2.circlepath",
                             tone: .primary,
                             isDisabled: store.busy || !store.healthAuthorized || !store.isGitHubConnected,
@@ -1565,6 +1642,48 @@ protocol URLSessionDataLoading {
 extension UserDefaults: PreferencesStoring {}
 extension URLSession: URLSessionDataLoading {}
 
+enum AccountLoadPhase: Equatable {
+    case idle
+    case connectingGitHub
+    case loadingAccount
+    case syncingInitialRun
+
+    var blocksAccountContent: Bool {
+        switch self {
+        case .connectingGitHub, .loadingAccount, .syncingInitialRun:
+            return true
+        case .idle:
+            return false
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .idle:
+            return "Loading your Pace & Push profile..."
+        case .connectingGitHub:
+            return "Connecting GitHub..."
+        case .loadingAccount:
+            return "Loading GitHub profile..."
+        case .syncingInitialRun:
+            return "Syncing running totals..."
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .idle:
+            return "Your account is connected. Pace & Push is fetching the first profile snapshot."
+        case .connectingGitHub:
+            return "Finishing secure sign-in and preparing your device connection."
+        case .loadingAccount:
+            return "Fetching your GitHub identity, score, and leaderboard data."
+        case .syncingInitialRun:
+            return "Reading daily running totals from Apple Health and updating your score."
+        }
+    }
+}
+
 @MainActor
 final class PacePushStore: ObservableObject {
     private let callbackScheme = "pacepush"
@@ -1606,6 +1725,8 @@ final class PacePushStore: ObservableObject {
     @Published var lastError: String?
     @Published var lastSuccess: String?
     @Published var busy = false
+    @Published var accountLoadPhase: AccountLoadPhase = .idle
+    @Published var hasLoadedAccountSnapshot = false
     @Published var themePreference: BrandThemePreference {
         didSet {
             preferences.set(themePreference.rawValue, forKey: themePreferenceKey)
@@ -1626,12 +1747,12 @@ final class PacePushStore: ObservableObject {
     }
 
     var shareProfileURL: URL? {
-        guard isGitHubConnected, firstSyncAt != nil else { return nil }
+        guard isGitHubConnected, hasLoadedAccountSnapshot, firstSyncAt != nil else { return nil }
         return SupportLinks.publicProfileURL(login: me.login)
     }
 
     func isCurrentUser(_ row: LeaderboardRow) -> Bool {
-        isGitHubConnected && row.login.localizedCaseInsensitiveCompare(me.login) == .orderedSame
+        isGitHubConnected && hasLoadedAccountSnapshot && row.login.localizedCaseInsensitiveCompare(me.login) == .orderedSame
     }
 
     var onboardingComplete: Bool {
@@ -1640,6 +1761,53 @@ final class PacePushStore: ObservableObject {
 
     var canRetryFirstSync: Bool {
         setupReadyForFirstSync && !busy
+    }
+
+    var githubConnectionStatus: String {
+        guard isGitHubConnected else { return "Disconnected" }
+        return hasLoadedAccountSnapshot ? "@\(me.login)" : "Loading..."
+    }
+
+    var githubOnboardingStatus: String {
+        guard isGitHubConnected else { return "Used for commit counts and account identity." }
+        return hasLoadedAccountSnapshot ? "@\(me.login) connected" : "Loading GitHub account..."
+    }
+
+    var lastSyncStatus: String {
+        if firstSyncAt == nil, shouldShowAccountLoading {
+            return "In progress"
+        }
+        return firstSyncAt ?? "Never"
+    }
+
+    var syncActionTitle: String {
+        if accountLoadPhase == .syncingInitialRun {
+            return "Syncing..."
+        }
+        return busy ? "Working..." : "Sync Now"
+    }
+
+    var shouldShowAccountLoading: Bool {
+        guard isGitHubConnected else { return false }
+        if accountLoadPhase.blocksAccountContent { return true }
+        return !hasLoadedAccountSnapshot && lastError == nil
+    }
+
+    var accountContentError: String? {
+        guard isGitHubConnected, !hasLoadedAccountSnapshot else { return nil }
+        return lastError
+    }
+
+    var accountLoadingTitle: String {
+        accountLoadPhase == .syncingInitialRun ? "Setting up Pace & Push" : "Loading account"
+    }
+
+    var accountLoadingMessage: String {
+        accountLoadPhase.message
+    }
+
+    var accountLoadingDetail: String {
+        accountLoadPhase.detail
     }
 
     init(
@@ -1693,9 +1861,15 @@ final class PacePushStore: ObservableObject {
         }
 
         busy = true
+        accountLoadPhase = .connectingGitHub
         lastError = nil
         lastSuccess = nil
-        defer { busy = false }
+        defer {
+            busy = false
+            if accountLoadPhase == .connectingGitHub {
+                accountLoadPhase = .idle
+            }
+        }
 
         do {
             let client = apiClientFactory(baseURL, nil)
@@ -1713,6 +1887,7 @@ final class PacePushStore: ObservableObject {
             try await finishGitHubCallback(callback, codeVerifier: pkce.verifier)
         } catch {
             pendingMobileAuthCodeVerifier = nil
+            accountLoadPhase = .idle
             lastError = userFacingGitHubConnectionError(error)
             lastSuccess = nil
         }
@@ -1728,9 +1903,19 @@ final class PacePushStore: ObservableObject {
     }
 
     func handleAuthCallback(_ url: URL) async {
+        busy = true
+        accountLoadPhase = .loadingAccount
+        defer {
+            busy = false
+            if accountLoadPhase != .idle {
+                accountLoadPhase = .idle
+            }
+        }
+
         do {
             try await finishGitHubCallback(url)
         } catch {
+            accountLoadPhase = .idle
             lastError = userFacingGitHubConnectionError(error)
             lastSuccess = nil
         }
@@ -1912,7 +2097,17 @@ final class PacePushStore: ObservableObject {
             return
         }
 
+        let isInitialSync = firstSyncAt == nil
         busy = true
+        if isInitialSync {
+            accountLoadPhase = .syncingInitialRun
+        }
+        defer {
+            busy = false
+            if isInitialSync {
+                accountLoadPhase = .idle
+            }
+        }
         lastError = nil
         lastSuccess = nil
         let startedAt = now()
@@ -1977,12 +2172,19 @@ final class PacePushStore: ObservableObject {
             lastError = error.localizedDescription
             lastSuccess = nil
         }
-
-        busy = false
     }
 
     func refresh(board: Board = .balanced) async {
         guard let baseURL = URL(string: apiBaseURL) else { return }
+        let shouldMarkAccountLoading = deviceToken != nil && !hasLoadedAccountSnapshot && accountLoadPhase == .idle
+        if shouldMarkAccountLoading {
+            accountLoadPhase = .loadingAccount
+        }
+        defer {
+            if shouldMarkAccountLoading {
+                accountLoadPhase = .idle
+            }
+        }
 
         do {
             let client = apiClientFactory(baseURL, deviceToken)
@@ -1997,6 +2199,7 @@ final class PacePushStore: ObservableObject {
                 preferences.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
                 preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
                 profile = try await profileResponse
+                hasLoadedAccountSnapshot = true
             } else {
                 leaderboard = try await leaderboardResponse
             }
@@ -2044,6 +2247,8 @@ final class PacePushStore: ObservableObject {
     func signOut() {
         try? keychain.delete(account: tokenKey)
         deviceToken = nil
+        hasLoadedAccountSnapshot = false
+        accountLoadPhase = .idle
         firstSyncAt = nil
         preferences.removeObject(forKey: firstSyncKey)
         preferences.removeObject(forKey: historicalDistanceSyncVersionKey)
@@ -2088,7 +2293,9 @@ final class PacePushStore: ObservableObject {
         let exchange = try await client.exchangeMobileAuthCode(code, codeVerifier: codeVerifier)
         pendingMobileAuthCodeVerifier = nil
         try keychain.saveString(exchange.token, account: tokenKey)
+        hasLoadedAccountSnapshot = false
         deviceToken = exchange.token
+        accountLoadPhase = .loadingAccount
         if shouldSyncPublicLeaderboardPreference {
             try? await savePublicLeaderboardPreference(
                 preferredPublicLeaderboard,
@@ -2104,6 +2311,7 @@ final class PacePushStore: ObservableObject {
                 lastSuccess = "GitHub connected. Next, enable Apple Health."
             }
         }
+        accountLoadPhase = .idle
     }
 
     private func userFacingGitHubConnectionError(_ error: Error) -> String {
@@ -2142,7 +2350,9 @@ final class PacePushStore: ObservableObject {
             label: deviceLabel(),
         )
         try keychain.saveString(exchange.token, account: tokenKey)
+        hasLoadedAccountSnapshot = false
         deviceToken = exchange.token
+        accountLoadPhase = .loadingAccount
 
         if allowsAPIBaseURLOverride, pairing.baseURL != nil {
             apiBaseURL = baseURL.absoluteString.trimmedTrailingSlash
@@ -2157,6 +2367,7 @@ final class PacePushStore: ObservableObject {
         }
         await refresh()
         await syncFirstRunIfReady()
+        accountLoadPhase = .idle
     }
 
     private var setupReadyForFirstSync: Bool {

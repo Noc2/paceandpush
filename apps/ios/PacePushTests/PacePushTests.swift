@@ -457,6 +457,60 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
+    func testStoreShowsAccountLoadingDuringSlowPostAuthSetup() async throws {
+        let keychain = InMemoryKeychain()
+        let preferences = InMemoryPreferences(values: [
+            "healthAuthorized": true,
+            "publicLeaderboardPreference": true,
+            "publicLeaderboardPreferenceChosen": true,
+        ])
+        let healthSync = FakeHealthSync(days: [
+            HealthKitDistanceDay(
+                id: "2026-07-02",
+                date: "2026-07-02",
+                meters: 1000,
+                sourcePlatform: "ios",
+                sourceHash: "healthkit-ios-running-2026-07-02-1000"
+            ),
+        ])
+        healthSync.collectDelayNanoseconds = 200_000_000
+        let client = FakePacePushClient()
+        client.deviceExchangeResponse = Self.deviceExchangeResponse(token: "device-token")
+        client.distanceDaysResponse = DistanceDaysResponse(accepted: 1, flagged: 0)
+        client.leaderboardResponse = LeaderboardResponse(period: "2026-07", board: .balanced, rows: [])
+        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.profileResponse = Self.profileResponse()
+
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: healthSync,
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in client },
+            deviceLabel: { "Test iPhone" },
+            now: { date("2026-07-06T12:00:00.000Z") }
+        )
+
+        let connectTask = Task { await store.connectGitHub() }
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertEqual(store.githubConnectionStatus, "@noc2")
+        XCTAssertTrue(store.shouldShowAccountLoading)
+        XCTAssertEqual(store.accountLoadPhase, .syncingInitialRun)
+        XCTAssertEqual(store.accountLoadingMessage, "Syncing running totals...")
+        XCTAssertEqual(store.lastSyncStatus, "In progress")
+        XCTAssertTrue(store.hasLoadedAccountSnapshot)
+        XCTAssertNotEqual(store.me.login, "guest")
+
+        await connectTask.value
+        XCTAssertEqual(store.githubConnectionStatus, "@noc2")
+        XCTAssertFalse(store.shouldShowAccountLoading)
+        XCTAssertEqual(store.accountLoadPhase, .idle)
+        XCTAssertNotNil(store.firstSyncAt)
+        XCTAssertEqual(store.lastSuccess, "Setup complete. Running data synced.")
+    }
+
+    @MainActor
     func testOnboardingCompletesWhenGitHubAndHealthAreReadyBeforeFirstSync() throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")
@@ -959,6 +1013,7 @@ private final class InMemoryPreferences: PreferencesStoring {
 private final class FakeHealthSync: HealthDistanceSyncing {
     var isAvailable = true
     var authorizationError: Error?
+    var collectDelayNanoseconds: UInt64 = 0
     let days: [HealthKitDistanceDay]
     private(set) var requestedRanges: [(start: Date, end: Date)] = []
 
@@ -973,6 +1028,9 @@ private final class FakeHealthSync: HealthDistanceSyncing {
     }
 
     func collectDistanceDays(from startDate: Date, through endDate: Date) async throws -> HealthKitDistanceSyncResult {
+        if collectDelayNanoseconds > 0 {
+            try await Task.sleep(nanoseconds: collectDelayNanoseconds)
+        }
         requestedRanges.append((startDate, endDate))
         return HealthKitDistanceSyncResult(days: days, startedAt: startDate, finishedAt: endDate)
     }
