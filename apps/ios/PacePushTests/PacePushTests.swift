@@ -876,7 +876,7 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
-    func testStoreClearsLocalDeviceTokenWhenGitHubDisconnectReturnsError() async throws {
+    func testStoreHidesGitHubDisconnectErrorAfterLocalSignOut() async throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")
         let preferences = InMemoryPreferences(values: [
@@ -905,7 +905,7 @@ final class PacePushTests: XCTestCase {
         XCTAssertNil(store.firstSyncAt)
         XCTAssertNil(preferences.string(forKey: "firstSyncAt"))
         XCTAssertNil(preferences.string(forKey: "historicalDistanceSyncVersion"))
-        XCTAssertTrue(store.lastError?.contains("Signed out on this device") ?? false)
+        XCTAssertNil(store.lastError)
         XCTAssertNil(store.lastSuccess)
     }
 

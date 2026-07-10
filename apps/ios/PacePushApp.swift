@@ -2141,7 +2141,7 @@ final class PacePushStore: ObservableObject {
 
         guard let baseURL = URL(string: apiBaseURL) else {
             signOut()
-            lastError = "Signed out on this device, but GitHub access could not be revoked because the API base URL is invalid."
+            lastError = nil
             lastSuccess = nil
             return
         }
@@ -2156,10 +2156,8 @@ final class PacePushStore: ObservableObject {
             let client = apiClientFactory(baseURL, token)
             _ = try await client.disconnectGitHub()
             lastSuccess = "Signed out. GitHub contribution access is off."
-        } catch PacePushAPIError.unauthorized {
-            lastError = "This device was revoked. Connect GitHub again."
         } catch {
-            lastError = "Signed out on this device, but Pace & Push could not confirm GitHub access was revoked. \(error.localizedDescription)"
+            lastError = nil
             lastSuccess = nil
         }
     }
