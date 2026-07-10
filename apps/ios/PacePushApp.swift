@@ -2150,7 +2150,7 @@ final class PacePushStore: ObservableObject {
         lastError = nil
         lastSuccess = nil
         signOut()
-        defer { busy = false }
+        busy = false
 
         do {
             let client = apiClientFactory(baseURL, token)

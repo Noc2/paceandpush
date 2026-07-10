@@ -867,6 +867,7 @@ final class PacePushTests: XCTestCase {
         XCTAssertNil(store.firstSyncAt)
         XCTAssertNil(preferences.string(forKey: "firstSyncAt"))
         XCTAssertNil(preferences.string(forKey: "historicalDistanceSyncVersion"))
+        XCTAssertFalse(store.busy)
 
         await disconnectTask.value
         XCTAssertEqual(client.disconnectGitHubCallCount, 1)
