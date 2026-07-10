@@ -393,6 +393,7 @@ struct ProfileView: View {
                                     profile: store.profile,
                                     activePeriod: store.activePeriod,
                                     units: store.units,
+                                    isPeriodRefreshing: store.isRefreshingActivePeriod,
                                     emptyHistoryMessage: "Sync running data to build your profile history."
                                 ) { period in
                                     Task { await store.setActivePeriod(period) }
@@ -445,6 +446,7 @@ struct PublicProfileView: View {
                         profile: profile,
                         activePeriod: selectedPeriod,
                         units: store.units,
+                        isPeriodRefreshing: isLoading,
                         emptyHistoryMessage: "No profile history for this period yet."
                     ) { period in
                         activePeriod = period
@@ -494,6 +496,7 @@ struct ProfileContentView: View {
     let profile: PublicProfileResponse
     let activePeriod: ScorePeriod
     let units: DistanceUnits
+    let isPeriodRefreshing: Bool
     let emptyHistoryMessage: String
     let onSelectPeriod: (ScorePeriod) -> Void
 
@@ -509,17 +512,23 @@ struct ProfileContentView: View {
                         .foregroundStyle(Brand.muted)
                 }
 
+                if isPeriodRefreshing {
+                    PeriodRefreshIndicator(period: activePeriod)
+                }
+
                 HStack(spacing: 12) {
                     MetricTile(
                         title: "Score",
                         value: profile.score.score.formatted(.number.precision(.fractionLength(1))),
                         color: Brand.orange,
+                        isLoading: isPeriodRefreshing,
                         valueAccessibilityIdentifier: "profile-score-value"
                     )
                     MetricTile(
                         title: "Commits",
                         value: "\(profile.score.commits)",
                         color: Brand.green,
+                        isLoading: isPeriodRefreshing,
                         valueAccessibilityIdentifier: "profile-commits-value"
                     )
                 }
@@ -529,17 +538,23 @@ struct ProfileContentView: View {
                         title: units.title,
                         value: units.format(profile.score.kilometers),
                         color: Brand.blue,
+                        isLoading: isPeriodRefreshing,
                         valueAccessibilityIdentifier: "profile-distance-value"
                     )
                     MetricTile(
                         title: "Rank",
                         value: profile.score.rank.map { "#\($0)" } ?? "-",
-                        color: Brand.ink
+                        color: Brand.ink,
+                        isLoading: isPeriodRefreshing
                     )
                 }
 
                 ScoreExplanationDisclosure()
                 ProfileChartView(history: profile.history, units: units)
+                    .blur(radius: isPeriodRefreshing ? 1.5 : 0)
+                    .opacity(isPeriodRefreshing ? 0.45 : 1)
+                    .redacted(reason: isPeriodRefreshing ? .placeholder : [])
+                    .animation(.easeInOut(duration: 0.2), value: isPeriodRefreshing)
 
                 if profile.history.isEmpty {
                     Text(emptyHistoryMessage)
@@ -568,10 +583,33 @@ struct ProfileContentView: View {
                             .borderedRow()
                         }
                     }
+                    .blur(radius: isPeriodRefreshing ? 1.5 : 0)
+                    .opacity(isPeriodRefreshing ? 0.45 : 1)
+                    .redacted(reason: isPeriodRefreshing ? .placeholder : [])
+                    .animation(.easeInOut(duration: 0.2), value: isPeriodRefreshing)
                 }
             }
             .panelStyle()
         }
+    }
+}
+
+struct PeriodRefreshIndicator: View {
+    let period: ScorePeriod
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .controlSize(.small)
+            Text("Updating \(period.label)...")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(Brand.muted)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .roundedBackground(Brand.surfacePanelHigh)
+        .roundedBorder(Brand.orange.opacity(0.45), lineWidth: 1)
+        .accessibilityIdentifier("profile-period-loading")
     }
 }
 
@@ -1299,12 +1337,14 @@ struct MetricTile: View {
     let title: String
     let value: String
     let color: Color
+    let isLoading: Bool
     let valueAccessibilityIdentifier: String
 
-    init(title: String, value: String, color: Color, valueAccessibilityIdentifier: String? = nil) {
+    init(title: String, value: String, color: Color, isLoading: Bool = false, valueAccessibilityIdentifier: String? = nil) {
         self.title = title
         self.value = value
         self.color = color
+        self.isLoading = isLoading
         self.valueAccessibilityIdentifier = valueAccessibilityIdentifier
             ?? "metric-\(title.lowercased().replacingOccurrences(of: " ", with: "-"))-value"
     }
@@ -1318,7 +1358,12 @@ struct MetricTile: View {
             Text(value)
                 .font(.title.bold())
                 .foregroundStyle(color)
+                .blur(radius: isLoading ? 2.5 : 0)
+                .opacity(isLoading ? 0.5 : 1)
+                .redacted(reason: isLoading ? .placeholder : [])
                 .accessibilityIdentifier(valueAccessibilityIdentifier)
+                .accessibilityValue(Text(isLoading ? "Updating" : value))
+                .animation(.easeInOut(duration: 0.2), value: isLoading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .panelStyle(surface: Brand.surfacePanel, stroke: Brand.line, lineWidth: 1)
