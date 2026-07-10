@@ -358,45 +358,54 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                Group {
-                    if let error = store.accountContentError {
-                        ProfileErrorPanel(message: error) {
-                            Task { await store.refresh() }
-                        }
-                    } else if store.shouldShowAccountLoading {
+            GeometryReader { geometry in
+                if store.accountContentError == nil, store.shouldShowAccountLoading {
+                    ScrollView {
                         AccountSetupLoadingPanel(
                             title: store.accountLoadingTitle,
                             message: store.accountLoadingMessage,
                             detail: store.accountLoadingDetail,
                             phase: store.accountLoadPhase,
                         )
-                    } else {
-                        ProfileContentView(
-                            profile: store.profile,
-                            activePeriod: store.activePeriod,
-                            units: store.units,
-                            emptyHistoryMessage: "Sync running data to build your profile history."
-                        ) { period in
-                            Task { await store.setActivePeriod(period) }
+                        .padding(.horizontal, 20)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: geometry.size.height, alignment: .center)
+                    }
+                } else {
+                    ScrollView {
+                        Group {
+                            if let error = store.accountContentError {
+                                ProfileErrorPanel(message: error) {
+                                    Task { await store.refresh() }
+                                }
+                            } else {
+                                ProfileContentView(
+                                    profile: store.profile,
+                                    activePeriod: store.activePeriod,
+                                    units: store.units,
+                                    emptyHistoryMessage: "Sync running data to build your profile history."
+                                ) { period in
+                                    Task { await store.setActivePeriod(period) }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 20)
+
+                        if !store.shouldShowAccountLoading,
+                           store.accountContentError == nil,
+                           let shareURL = store.shareProfileURL {
+                            ShareLink(item: shareURL) {
+                                Label("Share Profile", systemImage: "square.and.arrow.up")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(PrimaryButtonStyle())
+                            .accessibilityIdentifier("share-profile-button")
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 20)
                         }
                     }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 20)
-
-                if !store.shouldShowAccountLoading,
-                   store.accountContentError == nil,
-                   let shareURL = store.shareProfileURL {
-                    ShareLink(item: shareURL) {
-                        Label("Share Profile", systemImage: "square.and.arrow.up")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .accessibilityIdentifier("share-profile-button")
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
                 }
             }
             .accessibilityIdentifier("profile-screen")
