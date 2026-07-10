@@ -598,28 +598,19 @@ struct AccountSetupLoadingPanel: View {
                     .foregroundStyle(Brand.orange)
             }
 
-            ProgressView(value: phase.progressValue, total: 1)
-                .progressViewStyle(.linear)
-                .tint(Brand.orange)
-                .accessibilityLabel("Account setup progress")
-                .accessibilityValue(phase.progressAccessibilityValue)
-                .animation(.easeInOut(duration: 0.25), value: phase.progressValue)
+            AccountSetupProgressBar(
+                targetProgress: phase.progressValue,
+                accessibilityValue: phase.progressAccessibilityValue
+            )
 
             Text(detail)
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(Brand.muted)
 
             VStack(alignment: .leading, spacing: 8) {
-                SetupProgressRow(
-                    label: "GitHub profile",
-                    isActive: phase == .loadingAccount,
-                    isComplete: phase == .syncingInitialRun,
-                )
-                SetupProgressRow(
-                    label: "Running totals",
-                    isActive: phase == .syncingInitialRun,
-                    isComplete: false,
-                )
+                ForEach(phase.setupSteps) { step in
+                    SetupProgressRow(step: step)
+                }
             }
             .padding(.top, 2)
         }
@@ -629,18 +620,115 @@ struct AccountSetupLoadingPanel: View {
     }
 }
 
+struct AccountSetupProgressBar: View {
+    let targetProgress: Double
+    let accessibilityValue: String
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var displayedProgress = 0.08
+    @State private var shimmerOffset = -0.35
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = max(geometry.size.width, 1)
+            let fillWidth = max(8, width * min(max(displayedProgress, 0), 0.96))
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Brand.line.opacity(0.85))
+
+                Capsule()
+                    .fill(Brand.orange)
+                    .frame(width: fillWidth)
+
+                if !reduceMotion {
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0),
+                                    Color.white.opacity(0.42),
+                                    Color.white.opacity(0),
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: width * 0.28)
+                        .offset(x: shimmerOffset * width)
+                        .mask(Capsule())
+                }
+            }
+        }
+        .frame(height: 6)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Account setup progress")
+        .accessibilityValue(accessibilityValue)
+        .onAppear {
+            displayedProgress = max(0.08, min(targetProgress - 0.12, targetProgress))
+            withAnimation(.easeOut(duration: reduceMotion ? 0.01 : 0.9)) {
+                displayedProgress = targetProgress
+            }
+            startShimmer()
+        }
+        .onChange(of: targetProgress) { _, newValue in
+            withAnimation(.easeOut(duration: reduceMotion ? 0.01 : 0.55)) {
+                displayedProgress = max(displayedProgress, newValue)
+            }
+        }
+    }
+
+    private func startShimmer() {
+        guard !reduceMotion else { return }
+        shimmerOffset = -0.35
+        withAnimation(.linear(duration: 1.25).repeatForever(autoreverses: false)) {
+            shimmerOffset = 1.1
+        }
+    }
+}
+
 struct SetupProgressRow: View {
-    let label: String
-    let isActive: Bool
-    let isComplete: Bool
+    let step: AccountSetupStepStatus
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isSpinning = false
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(isComplete ? Brand.green : isActive ? Brand.orange : Brand.muted)
-            Text(label)
+            Image(systemName: iconName)
+                .foregroundStyle(step.state == .complete ? Brand.green : step.state == .active ? Brand.orange : Brand.muted)
+                .rotationEffect(step.state == .active && !reduceMotion ? .degrees(isSpinning ? 360 : 0) : .zero)
+                .animation(
+                    step.state == .active && !reduceMotion
+                        ? .linear(duration: 1.15).repeatForever(autoreverses: false)
+                        : .default,
+                    value: isSpinning
+                )
+                .accessibilityHidden(true)
+            Text(step.label)
                 .font(.callout.weight(.semibold))
-                .foregroundStyle(isActive ? Brand.ink : Brand.muted)
+                .foregroundStyle(step.state == .active ? Brand.ink : Brand.muted)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(step.label), \(step.state.accessibilityLabel)")
+        .onAppear {
+            if step.state == .active {
+                isSpinning = true
+            }
+        }
+        .onChange(of: step.state) { _, newState in
+            isSpinning = newState == .active
+        }
+    }
+
+    private var iconName: String {
+        switch step.state {
+        case .pending:
+            return "circle"
+        case .active:
+            return "arrow.triangle.2.circlepath.circle"
+        case .complete:
+            return "checkmark.circle.fill"
         }
     }
 }
@@ -1713,14 +1801,26 @@ extension URLSession: URLSessionDataLoading {}
 enum AccountLoadPhase: Equatable {
     case idle
     case connectingGitHub
+    case securingDevice
     case loadingAccount
-    case syncingInitialRun
+    case readingRunningTotals
+    case updatingScore
+    case refreshingScore
 
     var blocksAccountContent: Bool {
         switch self {
-        case .connectingGitHub, .loadingAccount, .syncingInitialRun:
+        case .connectingGitHub, .securingDevice, .loadingAccount, .readingRunningTotals, .updatingScore, .refreshingScore:
             return true
         case .idle:
+            return false
+        }
+    }
+
+    var isInitialRunSync: Bool {
+        switch self {
+        case .readingRunningTotals, .updatingScore, .refreshingScore:
+            return true
+        case .idle, .connectingGitHub, .securingDevice, .loadingAccount:
             return false
         }
     }
@@ -1731,10 +1831,16 @@ enum AccountLoadPhase: Equatable {
             return "Loading your Pace & Push profile..."
         case .connectingGitHub:
             return "Connecting GitHub..."
+        case .securingDevice:
+            return "Securing device session..."
         case .loadingAccount:
-            return "Loading GitHub profile..."
-        case .syncingInitialRun:
-            return "Syncing running totals..."
+            return "Loading profile and leaderboard..."
+        case .readingRunningTotals:
+            return "Reading running totals..."
+        case .updatingScore:
+            return "Updating your score..."
+        case .refreshingScore:
+            return "Refreshing Pace & Push profile..."
         }
     }
 
@@ -1744,23 +1850,35 @@ enum AccountLoadPhase: Equatable {
             return "Your account is connected. Pace & Push is fetching the first profile snapshot."
         case .connectingGitHub:
             return "Finishing secure sign-in and preparing your device connection."
+        case .securingDevice:
+            return "Creating a secure device session for your GitHub account."
         case .loadingAccount:
-            return "Fetching your GitHub identity, score, and leaderboard data."
-        case .syncingInitialRun:
-            return "Reading daily running totals from Apple Health and updating your score."
+            return "Fetching your GitHub identity, score, leaderboard, and profile history."
+        case .readingRunningTotals:
+            return "Reading daily running totals from Apple Health."
+        case .updatingScore:
+            return "Uploading daily totals and recalculating your Pace & Push score."
+        case .refreshingScore:
+            return "Pulling the updated profile, score, and leaderboard position."
         }
     }
 
     var progressValue: Double {
         switch self {
         case .idle:
-            return 0.25
+            return 0.12
         case .connectingGitHub:
-            return 0.2
+            return 0.18
+        case .securingDevice:
+            return 0.32
         case .loadingAccount:
-            return 0.45
-        case .syncingInitialRun:
-            return 0.78
+            return 0.52
+        case .readingRunningTotals:
+            return 0.68
+        case .updatingScore:
+            return 0.82
+        case .refreshingScore:
+            return 0.92
         }
     }
 
@@ -1770,12 +1888,110 @@ enum AccountLoadPhase: Equatable {
             return "Preparing account"
         case .connectingGitHub:
             return "Connecting GitHub"
+        case .securingDevice:
+            return "Securing device session"
         case .loadingAccount:
-            return "Loading GitHub profile"
-        case .syncingInitialRun:
-            return "Syncing running totals"
+            return "Loading profile and leaderboard"
+        case .readingRunningTotals:
+            return "Reading running totals"
+        case .updatingScore:
+            return "Updating score"
+        case .refreshingScore:
+            return "Refreshing profile"
         }
     }
+
+    var setupSteps: [AccountSetupStepStatus] {
+        let states: [AccountSetupStep: AccountSetupStepState]
+        switch self {
+        case .idle:
+            states = [
+                .githubConnection: .complete,
+                .accountSnapshot: .active,
+                .runningTotals: .pending,
+                .scoreUpdate: .pending,
+            ]
+        case .connectingGitHub, .securingDevice:
+            states = [
+                .githubConnection: .active,
+                .accountSnapshot: .pending,
+                .runningTotals: .pending,
+                .scoreUpdate: .pending,
+            ]
+        case .loadingAccount:
+            states = [
+                .githubConnection: .complete,
+                .accountSnapshot: .active,
+                .runningTotals: .pending,
+                .scoreUpdate: .pending,
+            ]
+        case .readingRunningTotals:
+            states = [
+                .githubConnection: .complete,
+                .accountSnapshot: .complete,
+                .runningTotals: .active,
+                .scoreUpdate: .pending,
+            ]
+        case .updatingScore, .refreshingScore:
+            states = [
+                .githubConnection: .complete,
+                .accountSnapshot: .complete,
+                .runningTotals: .complete,
+                .scoreUpdate: .active,
+            ]
+        }
+
+        return AccountSetupStep.allCases.map { step in
+            AccountSetupStepStatus(step: step, state: states[step] ?? .pending)
+        }
+    }
+}
+
+enum AccountSetupStep: CaseIterable, Identifiable {
+    case githubConnection
+    case accountSnapshot
+    case runningTotals
+    case scoreUpdate
+
+    var id: Self { self }
+
+    var label: String {
+        switch self {
+        case .githubConnection:
+            return "GitHub connection"
+        case .accountSnapshot:
+            return "Profile and leaderboard"
+        case .runningTotals:
+            return "Running totals"
+        case .scoreUpdate:
+            return "Score update"
+        }
+    }
+}
+
+enum AccountSetupStepState: Equatable {
+    case pending
+    case active
+    case complete
+
+    var accessibilityLabel: String {
+        switch self {
+        case .pending:
+            return "pending"
+        case .active:
+            return "in progress"
+        case .complete:
+            return "complete"
+        }
+    }
+}
+
+struct AccountSetupStepStatus: Identifiable {
+    let step: AccountSetupStep
+    let state: AccountSetupStepState
+
+    var id: AccountSetupStep { step }
+    var label: String { step.label }
 }
 
 @MainActor
@@ -1879,7 +2095,7 @@ final class PacePushStore: ObservableObject {
     }
 
     var syncActionTitle: String {
-        if accountLoadPhase == .syncingInitialRun {
+        if accountLoadPhase.isInitialRunSync {
             return "Syncing..."
         }
         return busy ? "Working..." : "Sync Now"
@@ -1897,7 +2113,7 @@ final class PacePushStore: ObservableObject {
     }
 
     var accountLoadingTitle: String {
-        accountLoadPhase == .syncingInitialRun ? "Setting up Pace & Push" : "Loading account"
+        accountLoadPhase.isInitialRunSync ? "Setting up Pace & Push" : "Loading account"
     }
 
     var accountLoadingMessage: String {
@@ -2243,7 +2459,7 @@ final class PacePushStore: ObservableObject {
         let isInitialSync = firstSyncAt == nil
         busy = true
         if isInitialSync {
-            accountLoadPhase = .syncingInitialRun
+            accountLoadPhase = .readingRunningTotals
         }
         defer {
             busy = false
@@ -2266,6 +2482,9 @@ final class PacePushStore: ObservableObject {
             let foundRunningDistance = result.days.contains { $0.meters > 0 }
             var acceptedDays = 0
             var flaggedDays = 0
+            if isInitialSync {
+                accountLoadPhase = .updatingScore
+            }
             for batchStart in stride(from: 0, to: result.days.count, by: Self.distanceUploadBatchSize) {
                 let batchEnd = min(batchStart + Self.distanceUploadBatchSize, result.days.count)
                 let batch = Array(result.days[batchStart..<batchEnd])
@@ -2290,6 +2509,9 @@ final class PacePushStore: ObservableObject {
             firstSyncAt = now().isoString
             preferences.set(firstSyncAt, forKey: firstSyncKey)
             preferences.set(Self.historicalDistanceSyncVersion, forKey: historicalDistanceSyncVersionKey)
+            if isInitialSync {
+                accountLoadPhase = .refreshingScore
+            }
             await refresh()
             if lastError == nil {
                 lastSuccess = foundRunningDistance
@@ -2482,6 +2704,7 @@ final class PacePushStore: ObservableObject {
             throw PacePushAPIError.server("GitHub sign-in expired. Please start GitHub connection again.")
         }
 
+        accountLoadPhase = .securingDevice
         let preferredPublicLeaderboard = publicLeaderboardPreference
         let shouldSyncPublicLeaderboardPreference = publicLeaderboardPreferenceChosen
         let client = apiClientFactory(baseURL, nil)
@@ -2539,6 +2762,7 @@ final class PacePushStore: ObservableObject {
         let preferredPublicLeaderboard = publicLeaderboardPreference
         let shouldSyncPublicLeaderboardPreference = publicLeaderboardPreferenceChosen
         let client = apiClientFactory(baseURL, nil)
+        accountLoadPhase = .securingDevice
         let exchange = try await client.exchangeDevicePairing(
             code: pairing.code,
             platform: "ios",
