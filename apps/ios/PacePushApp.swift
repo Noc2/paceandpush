@@ -693,16 +693,6 @@ struct SettingsView: View {
                                 store.exitDemoMode()
                             }
                             .accessibilityIdentifier("settings-exit-demo-button")
-
-                            SettingsActionButton(
-                                "Connect GitHub",
-                                systemImage: "chevron.right.square",
-                                tone: .primary,
-                                isDisabled: store.busy,
-                            ) {
-                                Task { await store.connectGitHub() }
-                            }
-                            .accessibilityIdentifier("settings-demo-connect-github-button")
                         }
                     }
 

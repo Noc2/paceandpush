@@ -40,7 +40,8 @@ final class PacePushUITests: XCTestCase {
         tabBar.buttons["Settings"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["settings-exit-demo-button"].exists)
-        XCTAssertTrue(app.buttons["settings-demo-connect-github-button"].exists)
+        XCTAssertFalse(app.buttons["settings-demo-connect-github-button"].exists)
+        XCTAssertFalse(app.buttons["settings-connect-github-button"].exists)
         XCTAssertFalse(app.buttons["settings-export-data-button"].exists)
         XCTAssertFalse(app.buttons["settings-delete-account-button"].exists)
 

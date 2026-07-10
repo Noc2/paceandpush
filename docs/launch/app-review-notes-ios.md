@@ -17,8 +17,7 @@ Demo review steps:
 2. Tap "Try Demo".
 3. Review the sample Profile chart, Board/leaderboard, and Settings tabs.
 4. Open Settings > Demo mode > Exit Demo to return to setup.
-5. If a real account flow is needed, use Settings > Demo mode > Connect GitHub
-   or return to setup and choose Connect GitHub.
+5. If a real account flow is needed, return to setup and choose Connect GitHub.
 
 Pace & Push is a GitHub-specific client. GitHub sign-in is required because the
 core product reads the user's GitHub contribution summaries, combines those
