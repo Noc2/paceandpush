@@ -23,6 +23,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -114,10 +115,17 @@ class MainActivity : ComponentActivity() {
     private var dataLoading = false
     private var dataStatusMessage: String? = null
     private var dataStatusColor = muted
+    private var remoteSnapshotLoaded = false
 
     private var me = emptyMeSummary()
     private var rows = emptyList<LeaderboardRow>()
     private var history = emptyList<ProfileHistoryPoint>()
+
+    private val hasLoadedRemoteSnapshot: Boolean
+        get() = paired && remoteSnapshotLoaded
+
+    private val shouldShowInitialDataLoading: Boolean
+        get() = paired && dataLoading && !hasLoadedRemoteSnapshot
 
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val healthSync: HealthConnectDistanceSync by lazy {
@@ -149,6 +157,11 @@ class MainActivity : ComponentActivity() {
         }
         migrateLegacyDeviceToken(preferences)
         paired = hasStoredDeviceToken(preferences)
+        if (paired) {
+            dataLoading = true
+            dataStatusMessage = "Loading your Pace & Push score..."
+            dataStatusColor = ink
+        }
         units = DistanceUnits.from(preferences.getString(PREF_DISTANCE_UNITS, null))
         render()
         refreshHealthConnectStatus()
@@ -265,12 +278,6 @@ class MainActivity : ComponentActivity() {
         }
 
         return column {
-            dataStatusMessage?.let { message ->
-                addView(bodyText(message, 16f).apply {
-                    setTextColor(dataStatusColor)
-                    setPadding(0, 0, 0, dp(12))
-                })
-            }
             addView(leaderboardSearchControls())
             addView(
                 LinearLayout(this@MainActivity).apply {
@@ -298,6 +305,20 @@ class MainActivity : ComponentActivity() {
                     }
                 },
             )
+            if (paired && !hasLoadedRemoteSnapshot && !dataLoading) {
+                addView(accountDataUnavailablePanel())
+                return@column
+            }
+            if (shouldShowInitialDataLoading) {
+                addView(accountDataLoadingPanel())
+                return@column
+            }
+            dataStatusMessage?.let { message ->
+                addView(bodyText(message, 16f).apply {
+                    setTextColor(dataStatusColor)
+                    setPadding(0, 0, 0, dp(12))
+                })
+            }
             if (board == Board.Balanced) {
                 addView(scoreExplanationPanel())
             }
@@ -394,6 +415,14 @@ class MainActivity : ComponentActivity() {
                 return@panel
             }
 
+            if (paired && !hasLoadedRemoteSnapshot && !dataLoading) {
+                addView(accountDataUnavailablePanel())
+                return@panel
+            }
+            if (shouldShowInitialDataLoading) {
+                addView(accountDataLoadingPanel())
+                return@panel
+            }
             dataStatusMessage?.let { message ->
                 addView(bodyText(message, 16f).apply {
                     setTextColor(dataStatusColor)
@@ -485,6 +514,61 @@ class MainActivity : ComponentActivity() {
             setTextColor(muted)
             background = borderedBackground(surfacePanel, line)
             layoutParams = LinearLayout.LayoutParams(-1, dp(144))
+        }
+    }
+
+    private fun accountDataLoadingPanel(): View {
+        return panel(surfacePanelHigh) {
+            addView(
+                LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(
+                        ProgressBar(this@MainActivity).apply {
+                            isIndeterminate = true
+                        },
+                        LinearLayout.LayoutParams(dp(36), dp(36)).apply {
+                            rightMargin = dp(12)
+                        },
+                    )
+                    addView(
+                        LinearLayout(this@MainActivity).apply {
+                            orientation = LinearLayout.VERTICAL
+                            addView(titleText("Loading account", 22f))
+                            addView(bodyText(dataStatusMessage ?: "Loading your Pace & Push score...", 16f).apply {
+                                setTextColor(orange)
+                                setPadding(0, dp(4), 0, 0)
+                            })
+                        },
+                        LinearLayout.LayoutParams(0, -2, 1f),
+                    )
+                },
+            )
+            addView(bodyText("Fetching your GitHub identity, score, leaderboard, and profile history.", 15f).apply {
+                setPadding(0, dp(12), 0, 0)
+            })
+        }
+    }
+
+    private fun accountDataUnavailablePanel(): View {
+        return panel(surfacePanelHigh) {
+            addView(titleText("Account data not loaded", 22f))
+            addView(bodyText(dataStatusMessage ?: "Could not load Pace & Push data.", 16f).apply {
+                setTextColor(dataStatusColor)
+                setPadding(0, dp(8), 0, dp(12))
+            })
+            addView(
+                Button(this@MainActivity).apply {
+                    text = "Retry"
+                    isAllCaps = false
+                    isEnabled = !dataLoading
+                    setTextColor(ink)
+                    background = solidBackground(orange)
+                    setOnClickListener {
+                        refreshRemoteData(showLoading = true)
+                    }
+                },
+            )
         }
     }
 
@@ -934,6 +1018,7 @@ class MainActivity : ComponentActivity() {
                         }.onSuccess {
                             apiBaseUrl = targetBaseUrl
                             paired = true
+                            remoteSnapshotLoaded = false
                             pairingStatusMessage = "Device paired."
                             pairingStatusColor = green
                             refreshHealthConnectStatus()
@@ -1071,6 +1156,7 @@ class MainActivity : ComponentActivity() {
         val token = storedDeviceToken(getPreferences(MODE_PRIVATE))
         if (token.isNullOrBlank()) {
             paired = false
+            remoteSnapshotLoaded = false
             healthStatusMessage = "Pairing credentials are missing. Pair this device again."
             healthStatusColor = red
             activeTab = Tab.Settings
@@ -1154,6 +1240,7 @@ class MainActivity : ComponentActivity() {
         val token = storedDeviceToken(getPreferences(MODE_PRIVATE))
         if (token.isNullOrBlank()) {
             paired = false
+            remoteSnapshotLoaded = false
             me = emptyMeSummary()
             rows = emptyList()
             history = emptyList()
@@ -1183,6 +1270,7 @@ class MainActivity : ComponentActivity() {
             result
                 .onSuccess { snapshot ->
                     paired = true
+                    remoteSnapshotLoaded = true
                     me = snapshot.me
                     rows = snapshot.rows
                     history = snapshot.history
@@ -1203,6 +1291,7 @@ class MainActivity : ComponentActivity() {
         if (token.isNullOrBlank()) {
             clearStoredPairingCredentials()
             paired = false
+            remoteSnapshotLoaded = false
             me = emptyMeSummary()
             rows = emptyList()
             history = emptyList()
@@ -1219,6 +1308,7 @@ class MainActivity : ComponentActivity() {
         activeTab = Tab.Settings
         clearStoredPairingCredentials()
         paired = false
+        remoteSnapshotLoaded = false
         me = emptyMeSummary()
         rows = emptyList()
         history = emptyList()
