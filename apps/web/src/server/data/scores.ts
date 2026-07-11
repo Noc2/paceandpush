@@ -7,6 +7,7 @@ import { getDb } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, users } from "@/server/db/schema";
 import { fetchGitHubContributionDays } from "@/server/github/contributions";
 import { currentPeriod, periodBounds } from "@/lib/periods";
+import { hasCurrentPublicHealthDataConsent } from "@/server/privacy/public-health-data-consent";
 import { and, eq, gte, lte, notInArray, sql } from "drizzle-orm";
 
 interface ScoreTotals {
@@ -158,7 +159,12 @@ async function recomputeScoreSnapshotsUnlocked(period: string): Promise<{
   snapshots: number;
 }> {
   const totals = await getScoreTotals(period);
-  const scoredRows = scoreCohort(totals);
+  const publicTotals = totals.filter((row) => row.publicLeaderboard);
+  const privateTotals = totals.filter((row) => !row.publicLeaderboard);
+  const scoredRows = [
+    ...scoreCohort(publicTotals),
+    ...privateTotals.map((row) => scoreCohort([...publicTotals, row]).at(-1)!),
+  ];
   const boards: Board[] = ["balanced", "commits", "distance"];
   let snapshots = 0;
 
@@ -259,6 +265,9 @@ async function getScoreTotals(period: string): Promise<ScoreTotals[]> {
       .select({
         id: users.id,
         publicLeaderboard: users.publicLeaderboard,
+        publicHealthDataConsentVersion: users.publicHealthDataConsentVersion,
+        publicHealthDataConsentedAt: users.publicHealthDataConsentedAt,
+        publicHealthDataConsentRevokedAt: users.publicHealthDataConsentRevokedAt,
       })
       .from(users),
     db
@@ -299,7 +308,7 @@ async function getScoreTotals(period: string): Promise<ScoreTotals[]> {
 
   return userRows.map((user) => ({
     userId: user.id,
-    publicLeaderboard: user.publicLeaderboard,
+    publicLeaderboard: hasCurrentPublicHealthDataConsent(user),
     commits: commitsByUser.get(user.id) ?? 0,
     kilometers: (metersByUser.get(user.id) ?? 0) / 1000,
   }));

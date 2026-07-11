@@ -794,7 +794,7 @@ test("public leaderboard rows are capped", async () => {
   assert.match(leaderboardQuery, /\.limit\(leaderboardRowLimit\)/);
 });
 
-test("public discovery responses use invalidatable server caching instead of CDN caching", async () => {
+test("public discovery responses bypass caches so consent withdrawal is immediate", async () => {
   const [cacheSource, leaderboardRoute, searchRoute] = await Promise.all([
     readFile(
       new URL("../src/server/data/public-discovery-cache.ts", import.meta.url),
@@ -804,18 +804,45 @@ test("public discovery responses use invalidatable server caching instead of CDN
     readFile(new URL("../src/app/api/search/users/route.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.match(cacheSource, /unstable_cache/);
-  assert.match(cacheSource, /revalidate: publicDiscoveryRevalidateSeconds/);
-  assert.match(cacheSource, /tags: \[publicDiscoveryCacheTag\]/);
-  assert.match(cacheSource, /revalidateTag\(publicDiscoveryCacheTag, \{ expire: 0 \}\)/);
-  assert.match(cacheSource, /public-leaderboard-private-default-v2/);
-  assert.match(cacheSource, /public-user-search-private-default-v2/);
+  assert.doesNotMatch(cacheSource, /unstable_cache|revalidateTag|revalidate:/);
+  assert.match(cacheSource, /return getLeaderboard\(board, period\)/);
+  assert.match(cacheSource, /return searchPublicUsers\(\{ limit, period, query \}\)/);
   assert.match(leaderboardRoute, /getCachedLeaderboard\(board, period\)/);
   assert.match(searchRoute, /searchCachedPublicUsers\(\{ limit, period, query \}\)/);
   for (const route of [leaderboardRoute, searchRoute]) {
     assert.match(route, /"cache-control": "no-store"/);
     assert.doesNotMatch(route, /s-maxage|stale-while-revalidate/);
   }
+});
+
+test("anonymous health-derived surfaces require current consent and gate dated history", async () => {
+  const [consentSource, readModel, scoreSource] = await Promise.all([
+    readFile(
+      new URL("../src/server/privacy/public-health-data-consent.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../src/server/data/read-model.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/data/scores.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(consentSource, /currentPublicHealthDataConsentVersion = "public-health-v1"/);
+  assert.match(consentSource, /isNotNull\(users\.publicHealthDataConsentedAt\)/);
+  assert.match(consentSource, /isNull\(users\.publicHealthDataConsentRevokedAt\)/);
+  assert.ok(
+    readModel.match(/currentPublicHealthDataConsentCondition\(\)/g)?.length >= 3,
+    "leaderboard, search, and public profiles all require current consent",
+  );
+  assert.match(
+    readModel,
+    /history: user\.publicActivityHistory[\s\S]*\? await getProfileHistory[\s\S]*: \[\]/,
+  );
+  assert.match(
+    readModel,
+    /historyVisibility: user\.publicActivityHistory \? "public" : "private"/,
+  );
+  assert.match(scoreSource, /const publicTotals = totals\.filter\(\(row\) => row\.publicLeaderboard\)/);
+  assert.match(scoreSource, /hasCurrentPublicHealthDataConsent\(user\)/);
+  assert.match(scoreSource, /scoreCohort\(\[\.\.\.publicTotals, row\]\)/);
 });
 
 test("leaderboard visibility defaults and existing accounts reset to private", async () => {

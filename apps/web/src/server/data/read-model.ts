@@ -21,6 +21,7 @@ import { getDb, isDatabaseConfigured } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/server/db/schema";
 import { isCurrentOrPreviousPeriod } from "@/lib/periods";
 import { calculateStreakDays } from "@/lib/streaks";
+import { currentPublicHealthDataConsentCondition } from "@/server/privacy/public-health-data-consent";
 import { and, desc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm";
 
 type LeaderboardSnapshotRow = {
@@ -130,7 +131,7 @@ async function getLeaderboardSnapshotRows(
       and(
         eq(scoreSnapshots.period, period),
         eq(scoreSnapshots.board, board),
-        eq(users.publicLeaderboard, true),
+        currentPublicHealthDataConsentCondition(),
       ),
     )
     .orderBy(scoreSnapshots.rank)
@@ -164,7 +165,7 @@ async function getPublicUserSearchRows(
       and(
         eq(scoreSnapshots.period, period),
         eq(scoreSnapshots.board, "balanced"),
-        eq(users.publicLeaderboard, true),
+        currentPublicHealthDataConsentCondition(),
         sql`${searchDocument} LIKE ${containsPattern} ESCAPE '!'`,
       ),
     )
@@ -212,7 +213,12 @@ export async function getPublicProfile(
   const [user] = await getDb()
     .select()
     .from(users)
-    .where(and(eq(sql`lower(${users.login})`, login.toLowerCase()), eq(users.publicLeaderboard, true)))
+    .where(
+      and(
+        eq(sql`lower(${users.login})`, login.toLowerCase()),
+        currentPublicHealthDataConsentCondition(),
+      ),
+    )
     .orderBy(desc(users.updatedAt))
     .limit(1);
 
@@ -233,8 +239,10 @@ export async function getPublicProfile(
     displayName: user.displayName,
     bio: user.bio,
     score,
-    history: await getProfileHistory(user.id, period, score.score),
-    historyVisibility: "public",
+    history: user.publicActivityHistory
+      ? await getProfileHistory(user.id, period, score.score)
+      : [],
+    historyVisibility: user.publicActivityHistory ? "public" : "private",
   };
 }
 
