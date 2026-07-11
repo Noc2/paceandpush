@@ -16,7 +16,9 @@ The public privacy policy now lives in the web app at
   when preparing daily aggregate totals.
 - Device sync metadata: platform, device label, sync status, and timestamps.
 - Session cookies and OAuth state cookies.
-- Public leaderboard/profile visibility settings.
+- Private-first sync state; versioned consent and timestamps for the public
+  exact-summary bundle; withdrawal state; and a separate default-off dated
+  activity-history preference.
 - Data export and deletion controls.
 - Website analytics through Simple Analytics, including aggregate page paths,
   referrers/UTM sources, country, language, device/browser information,

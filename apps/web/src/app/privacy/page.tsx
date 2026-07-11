@@ -24,7 +24,7 @@ export default function PrivacyPage() {
           <h1>Privacy Policy</h1>
           <p>
             This policy explains how {brandName} processes account, coding, and
-            distance data. Last updated: July 9, 2026.
+            distance data. Last updated: July 11, 2026.
           </p>
         </section>
 
@@ -84,11 +84,20 @@ export default function PrivacyPage() {
                 Daily distance totals are health- and fitness-derived data and
                 are treated as sensitive data for product and review purposes.
               </li>
+              <li>
+                The first mobile sync stores these aggregates in your private
+                account. Granting HealthKit or Health Connect access does not
+                make the aggregates public.
+              </li>
             </ul>
 
             <h3>Profile and settings</h3>
             <ul>
-              <li>Leaderboard visibility, unit preference, and public profile data.</li>
+              <li>
+                Versioned public-health-data consent, its timestamp, withdrawal
+                state, dated-history preference, unit preference, and public
+                profile data.
+              </li>
               <li>Score snapshots, ranks, streaks, and profile history.</li>
             </ul>
 
@@ -119,8 +128,9 @@ export default function PrivacyPage() {
                 mobile permission and consent, plus service operation where needed.
               </li>
               <li>
-                Public leaderboard/profile display: your leaderboard visibility
-                setting and service operation.
+                Public leaderboard/profile display: your separate, explicit
+                publication consent. Platform health permission alone is not
+                publication consent.
               </li>
               <li>
                 Health- and fitness-derived distance totals: your explicit
@@ -142,13 +152,26 @@ export default function PrivacyPage() {
           <section className="legal-section">
             <h2>Public Leaderboard Data</h2>
             <p>
-              Public leaderboard visibility is off by default. You can opt in
-              during app onboarding or later in settings. When it is on, the
-              public leaderboard and profile pages may show your
-              GitHub username, display name, score, rank, GitHub commit total,
-              distance total, streak, and score history. Commit totals may include
-              restricted/private contribution aggregates that GitHub makes visible
-              to your signed-in account.
+              Public discovery is off by default. Mobile setup connects GitHub
+              and completes the first daily-distance sync while your account is
+              private. You can then separately choose to publish. Before that
+              choice, {brandName} names the audience and fields: anyone on the
+              internet can view your GitHub username and display name, profile
+              bio, last-sync time, exact running distance for the selected
+              period, GitHub commit total, combined score, rank, and streak
+              without an account. Other people may copy or share information
+              you publish. Commit totals may include restricted/private
+              contribution aggregates that GitHub makes visible to your
+              signed-in account.
+            </p>
+            <p>
+              Dated activity history is a separate option and is off by
+              default because changes between daily cumulative points can reveal
+              when you were active. You can publish the summary without
+              publishing that history. You can withdraw public sharing in
+              Settings; anonymous leaderboard, search, profile, and dated-history
+              reads require a current consent record and are not served from a
+              stale public-result cache after withdrawal.
             </p>
           </section>
 

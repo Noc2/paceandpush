@@ -15,8 +15,12 @@ Target flow for a platform that ships health-data sync:
 3. Store the returned Pace & Push mobile bearer token in the platform
    keychain/keystore.
 4. Request read-only Apple Health or Health Connect access.
-5. Run the first foreground sync before showing the main app tabs.
-6. Send daily running distance totals to `/api/mobile/distance-days`.
+5. Send daily running distance totals to `/api/mobile/distance-days` while the
+   account remains private.
+6. After the first sync, show the exact public summary and let the user either
+   keep it private or grant current versioned publication consent. Keep dated
+   activity history as a separate default-off choice.
+7. Show the main app tabs only after the user has made that publication decision.
 
 The website-generated pairing code remains useful as a fallback and manual test
 path, but it should not be the primary iOS onboarding path.
@@ -37,11 +41,14 @@ path, but it should not be the primary iOS onboarding path.
 - Redirect back through the `pacepush://auth/callback` URL scheme.
 - Exchange the native auth code for a mobile device bearer token.
 - Store the bearer token in Keychain.
-- Gate the tab UI behind GitHub connection, HealthKit permission, and first sync.
+- Gate the tab UI behind GitHub connection, HealthKit permission, first sync,
+  and a current private-or-public publication decision.
 - Read HealthKit running workouts.
 - Request read-only HealthKit workout access.
 - Aggregate running distance by UTC day.
 - Upload daily totals, not raw workouts.
+- Always establish the mobile device privately; never reuse a stale local
+  public preference during authentication.
 
 ## Android
 
@@ -49,6 +56,9 @@ path, but it should not be the primary iOS onboarding path.
   loads `/api/mobile/me`, `/api/mobile/me/profile`, and `/api/leaderboard`,
   requests Health Connect permission, and uploads daily totals plus sync-run
   status.
+- Android Settings requires current server consent before displaying a public
+  state and provides explicit publish, separate dated-history, and withdrawal
+  actions.
 - Before public Google Play distribution, complete the real-device checklist
   with one Android Health Connect device, confirm the GitHub Actions Android
   build is green on `main`, and complete Play Console Health Connect review.

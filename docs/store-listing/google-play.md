@@ -1,8 +1,8 @@
 # Google Play Listing Draft
 
-Android is internal-testing only until the real API client, Health Connect
-permission flow, upload flow, launcher assets, and repeatable build path are
-verified on a physical device.
+Android is internal-testing only until Health Connect sync and withdrawal,
+public-sharing consent, launcher assets, and the repeatable release path are
+verified on a physical device and the Play Console declarations are approved.
 
 ## App Name
 
@@ -22,6 +22,12 @@ It uploads daily aggregate running distance totals and does not upload raw
 workouts, GPS routes, maps, heart-rate samples, or step-by-step Health Connect
 records.
 
+The initial aggregate sync is private. Publishing exact period kilometers,
+identity, commit total, derived score, rank, streak, bio, and last-sync time is
+a separate optional action with a clear no-account public audience disclosure.
+Dated activity history is a separate default-off option, and public sharing can
+be withdrawn from Settings.
+
 Users can revoke Health Connect permissions, sign out of GitHub, revoke
 connected devices, export data, and delete the account.
 
@@ -37,11 +43,15 @@ Requested data:
 Purpose:
 
 - App functionality only: combine running distance with GitHub contribution
-  summaries for the user's score and leaderboard/profile surfaces.
+  summaries for the user's private score and, only after separate explicit
+  consent, optional social fitness leaderboard/profile surfaces.
 
 Data handling:
 
 - Upload daily aggregate running distance totals only.
+- Sync aggregates privately before offering optional public sharing.
+- Require explicit informed consent before public display or social sharing;
+  keep dated history as a separate default-off choice.
 - Do not upload raw workouts, raw health samples, GPS routes, or maps.
 - Keep Health Connect access revocable through Android settings.
 - Keep production API traffic over HTTPS.
@@ -58,7 +68,17 @@ Declare collection of:
 - App interactions/settings: leaderboard visibility, units, selected period,
   device metadata, and revocation metadata.
 
-No advertising, no sale of data, and no tracking across apps or sites.
+No advertising, no sale of data, no eligibility/insurance/employment use, and
+no tracking across apps or sites.
+
+Policy references:
+
+- Health Content and Services:
+  https://support.google.com/googleplay/android-developer/answer/16679511
+- Android health permissions guidance:
+  https://support.google.com/googleplay/android-developer/answer/12991134
+- Prominent disclosure and consent:
+  https://support.google.com/googleplay/android-developer/answer/11150561
 
 ## Release Contact
 
@@ -67,9 +87,10 @@ No advertising, no sale of data, and no tracking across apps or sites.
 
 ## Public Release Blockers
 
-- Real Android API reads for profile and leaderboard.
-- Health Connect runtime permission request and denial/retry states.
 - Successful `/api/mobile/distance-days` and `/api/mobile/sync-runs` upload on
   a physical device.
+- Successful private-first sync, versioned publication, separate dated-history
+  consent, and withdrawal on a physical device.
 - Android launcher/adaptive icon assets.
-- Repeatable CI or documented local Gradle build path.
+- Approved Health Apps, Health Connect, and Data safety declarations that match
+  the live privacy policy and in-app disclosure.

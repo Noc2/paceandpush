@@ -25,7 +25,17 @@ contain account or health-derived data.
 - Apple Health grant path succeeds.
 - Apple Health denial path shows recovery guidance.
 - Zero-workout account explains why distance is zero.
-- First sync uploads daily aggregate running distance only.
+- Before Apple Health authorization, the app explains aggregate upload, private
+  first sync, and separate optional publication.
+- First sync uploads daily aggregate running distance only and remains private.
+- Publication preview names the no-account internet audience and exact public
+  identity, distance, commit, score, rank, streak, bio, and sync-time fields.
+- Keep Private completes setup without exposing leaderboard, search, or profile data.
+- Publish Exact Totals exposes the summary only after server confirmation.
+- Dated history is off by default, can be enabled separately, and disappears
+  from anonymous profiles after it is disabled.
+- Make Profile Private removes the user from anonymous discovery immediately;
+  a simulated failure retains the prior visible state and offers retry.
 - Resync is idempotent and updates sync status.
 - Leaderboard, profile, settings, export, account deletion, and sign-out work.
 - Sign-out remains visible and revokes GitHub server access.
@@ -37,8 +47,12 @@ contain account or health-derived data.
   permissions.
 - Health Connect permission denial shows retry guidance.
 - Health Connect grant path reads running sessions only.
+- The pre-permission rationale explains private aggregate upload and separate
+  optional public sharing.
 - No-running-session state explains why distance is zero.
 - One real running session syncs to `/api/mobile/distance-days`.
+- Exact summary publication, dated-history opt-in, and one-tap withdrawal each
+  match the authoritative server response.
 - `/api/mobile/sync-runs` records success and failure states.
 - Token revocation disables further mobile API access.
 - App data backup/restore does not restore usable bearer credentials.

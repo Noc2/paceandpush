@@ -34,18 +34,20 @@ across independent reviewers:
    The geometric mean hands every newcomer — and every injured or vacationing
    user — a public zero. Both inputs are trivially forgeable. This is the
    most fixable of the critical problems, and several concrete fixes exist.
-3. **The privacy default is the product's central unresolved decision.** The
-   docs still conflict (public-by-default in the plan, opt-in in the
-   acceptance criteria). For health-derived data tied to real GitHub
-   identities, from an unknown solo developer, opt-in is the only posture
-   that survives an HN comment section — and it gates the viral loop, so it
-   must be designed around deliberately, not defaulted into.
+3. **The privacy default was the product's central unresolved decision and is
+   now resolved private-first.** GitHub connection and the first aggregate
+   health sync remain private. Publishing exact period totals requires a
+   separate versioned confirmation that names the audience and fields, while
+   dated activity history is an independent default-off choice. The remaining
+   work is real-device and store-review evidence, not ambiguity in the product
+   behavior.
 4. **One existential risk sits upstream of everything: app-store health-data
    policy.** Apple's guideline 5.1.3 and Google's Health Connect permitted-use
    policy restrict how HealthKit/Health Connect-derived data may be exposed.
    "Publish users' running distance on a public leaderboard" is exactly the
-   shape reviewers scrutinize hardest. This should be de-risked before more
-   is built on top of it.
+   shape reviewers scrutinize hardest. The private-first, express-consent
+   design materially reduces this risk without removing exact kilometers, but
+   approval is still an external gate and not guaranteed by implementation.
 
 The good news: the reviewers converged not just on the problems but on the
 same small set of fixes — embed-first positioning, fixed-anchor or
@@ -341,12 +343,13 @@ recording so future-you doesn't re-litigate them:
 The reviewers converged independently on a small set of moves. Ordered by
 leverage:
 
-1. **De-risk app-store approvability first.** Before building further on the
-   public-health-leaderboard shape, get a concrete read on Apple 5.1.3 and
-   Health Connect permitted-use for "user-consented public display of
-   running totals" — via review notes, developer support inquiry, or design
-   adjustments (e.g., the public surface displays a score and band, not raw
-   health quantities). Everything else is downstream of this.
+1. **De-risk app-store approvability first.** The implementation now provides
+   private-first sync, exact-field preview, versioned express consent,
+   separate dated-history consent, immediate withdrawal, and matching review
+   notes. Submit those facts in TestFlight/App Review and Play declarations;
+   use developer support or a pre-submission inquiry if available. Keep exact
+   period kilometers because they are core product value, but treat approval
+   as an external release gate and retain a score-only fallback design.
 2. **Invert the product: embed first, board second.** Position as
    "github-readme-stats for your code AND your body." A beautiful
    dual-sparkline card works at n=1, rides an 80k-star-proven channel, and
@@ -370,15 +373,14 @@ leverage:
    loop, contains any cheater's blast radius to 29 people, and is the only
    proven leaderboard form at launch scale. It is also the future B2B
    monetization wedge if one is ever wanted.
-5. **Resolve privacy to opt-in, granularly, and make it the brand.**
-   Onboarding ends privately with your own score; going public is an
-   explicit, celebrated step with an exact-preview screen. Split visibility:
-   GitHub-derived stats publicly, running visibility as its own one-tap
-   opt-in at the moment of first sync success (peak pride). Publish bands
-   and period totals, not daily series; noindex profiles by default; add a
-   display-name/alias option. "Nothing is public until you say so" is the
-   only launch posture that survives HN — and it converts the biggest attack
-   surface into the differentiator.
+5. **Privacy is now opt-in and partially granular; make it the brand.**
+   Onboarding connects and syncs privately, then presents an exact-field
+   publication preview. Public identity, exact period kilometers, commits,
+   score, rank, streak, bio, and last-sync time form one understandable
+   summary consent because splitting them would break the core leaderboard.
+   Dated cumulative history is a separate default-off consent because it can
+   reveal day-to-day activity. "Nothing is public until you say so" should be
+   the launch message. Alias/noindex controls remain useful follow-up work.
 6. **Build rest into the mechanics and market the anti-burnout position.**
    Rolling 28-day windows (or decay) instead of hard zeroing; freeze/injury
    tokens; a creditable-days cap so rest is score-neutral. Then say it

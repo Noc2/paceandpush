@@ -58,20 +58,40 @@ Reviewers can test the flow with a connected account:
 
 Apple Health access is requested separately and remains controlled by the
 user's iOS Health permissions. Before requesting access, onboarding explains
-that Pace & Push uploads daily running distance totals and that those totals
-contribute to the user's public profile and leaderboard when public scoring is
-enabled. Totals are bucketed by UTC calendar day; raw workouts and routes remain
-in Apple Health and are not uploaded.
+that Pace & Push reads running workouts, derives daily running-distance
+aggregates, and uploads only those aggregates to calculate the user's totals
+and score. It also says that the initial sync is private and that raw workouts
+and routes remain in Apple Health and are not uploaded. Totals are bucketed by
+UTC calendar day.
 
-Leaderboard visibility is private by default. During setup, the user must
-explicitly choose whether to keep the score private or opt into public profile
-and leaderboard discovery before GitHub connection is enabled. The iOS app
-sends that choice in the one-time, PKCE-protected device exchange. The server
-applies the choice and returns the authoritative setting; the app verifies the
-response before saving the device credential, loading account data, or starting
-the first Apple Health sync. If the setting cannot be confirmed, setup stops,
-no device credential is saved, no Health data is uploaded, and the user sees an
-error with a retry path.
+The real-account setup is private first:
+
+1. GitHub is connected with `publicLeaderboard: false` in the one-time,
+   PKCE-protected device exchange.
+2. Apple Health authorization and the automatic first aggregate sync complete
+   while the account remains private.
+3. The app then shows a separate publication screen. It states that anyone on
+   the internet can view the information without an account and previews the
+   user's GitHub identity, exact period distance, commit total, combined score,
+   rank, and streak. It also names the profile bio and last-sync time and warns
+   that viewers may copy or share published information.
+4. The user chooses either **Publish These Exact Totals** or **Keep My Profile
+   Private**. Dated activity history is an independent option that defaults off
+   because daily changes can reveal when the user was active.
+
+Publication uses consent version `public-health-v1`, an exact-distance
+acknowledgement, the dated-history choice, and a server-recorded timestamp. The
+iOS app changes its visible state only after the server returns matching,
+authoritative consent fields. Anonymous leaderboard, search, and profile reads
+also require that current consent. A user can withdraw from Settings with
+**Make profile private**; the server revokes publication and the app keeps the
+previous visible state and presents a retry error if confirmation fails.
+
+The product purpose is health and fitness: it helps users review and compare
+their own running consistency alongside a coding habit in an optional social
+fitness challenge. Health-derived data is not sold, used for advertising or
+data mining, provided to an insurer or employer, used for eligibility or
+credit decisions, or tied to prizes or financial rewards.
 
 ## Guideline Rationale
 
@@ -90,7 +110,16 @@ relevant to core functionality and requires an in-app mechanism to revoke
 social-network credentials and disable data access. Pace & Push satisfies this
 through Settings > Sync > GitHub > Sign out.
 
+Apple's HealthKit documentation recognizes social health and fitness challenge
+experiences while requiring clear disclosure and express permission before
+sharing HealthKit-derived information. Pace & Push therefore separates Apple
+Health permission, private aggregate sync, and optional public publication.
+
 Sources:
 
 - Apple App Review Guidelines:
   https://developer.apple.com/app-store/review/guidelines/
+- HealthKit — Protecting user privacy:
+  https://developer.apple.com/documentation/healthkit/protecting-user-privacy
+- HealthKit overview (including social challenge use cases):
+  https://developer.apple.com/documentation/healthkit

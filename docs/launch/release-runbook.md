@@ -114,12 +114,16 @@ Final signed submission:
    chart, and settings flow. No GitHub credentials are required for review."
 6. Record the uploaded version, build number, archive date, privacy-report file,
    tester group, and TestFlight review status in the release note.
+7. On a real account, confirm GitHub connection and first HealthKit aggregate
+   sync remain private, exact-summary publication requires
+   `public-health-v1`, dated history remains separately optional, and
+   withdrawal removes anonymous discovery immediately.
 
 ## Android Internal Testing
 
-Android remains internal-testing only until the real API, Health Connect
-permission/upload flow, launcher assets, CI debug build, and physical-device
-sync evidence are verified.
+Android remains internal-testing only until Health Connect sync, explicit
+public-sharing consent and withdrawal, launcher assets, CI debug build, and
+physical-device evidence are verified.
 
 Release requirements before Play internal testing:
 
@@ -127,15 +131,17 @@ Release requirements before Play internal testing:
   policy, and Play Console declaration.
 - Production builds pin `https://paceandpush.com`.
 - Signing keys and keystore passwords are stored outside the repository.
-- The GitHub Actions Android job passes `gradle -p apps/android :app:assembleDebug --no-daemon`.
+- The GitHub Actions Android job passes
+  `gradle -p apps/android :app:testDebugUnitTest :app:assembleDebug --no-daemon`.
 - At least one physical Android device has completed pairing, permission grant,
-  sync upload, sync-run reporting, token revocation, and app data backup/restore
+  private sync upload, public-summary consent, dated-history opt-in,
+  withdrawal, sync-run reporting, token revocation, and app data backup/restore
   checks.
 
 Use this command for local debug verification when Gradle is installed:
 
 ```sh
-gradle -p apps/android :app:assembleDebug --no-daemon
+gradle -p apps/android :app:testDebugUnitTest :app:assembleDebug --no-daemon
 ```
 
 For signed Play submissions, keep keystores and passwords outside the repo and

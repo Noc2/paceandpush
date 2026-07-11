@@ -29,14 +29,18 @@ FEATURES
 - Explore week, month, and year progress with visual charts.
 - Compare Balanced, Commits, and Running leaderboards.
 - Browse public developer profiles.
-- Choose kilometers or miles and control leaderboard visibility.
+- Choose kilometers or miles, keep your first sync private, and separately
+  choose whether to publish exact totals.
 - Export your data, disconnect GitHub, or delete your account in Settings.
 
 PRIVACY
 
 The app uploads only daily aggregate running distance totals. It does not upload
 raw workouts, GPS routes, maps, heart-rate samples, or step-by-step HealthKit
-records. Apple Health is read only when you sync while the app is open.
+records. Apple Health is read only when you sync while the app is open. The
+first sync is private. Public profile and leaderboard sharing is optional,
+requires a separate confirmation that names the exact public fields, and can be
+withdrawn in Settings. Dated activity history has its own default-off option.
 
 Pace & Push is not a medical, diagnostic, coaching, betting, or prize app.
 
@@ -76,6 +80,8 @@ Declare data linked to the user and used for app functionality:
 - User content/activity: GitHub contribution and commit-count summaries visible
   to the user's GitHub token.
 - Fitness: daily aggregate running distance totals from Apple Health.
+- User choices: versioned public-health-data consent, consent timestamp,
+  withdrawal state, and the separate dated-history preference.
 - Identifiers/diagnostics/product interaction: device pairing metadata, sync
   status, sync timestamps, error summaries, leaderboard settings, unit
   preference, selected period, score snapshots, and revocation metadata.
