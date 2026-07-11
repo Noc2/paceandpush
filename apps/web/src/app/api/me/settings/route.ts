@@ -3,7 +3,7 @@ import { getSessionUser } from "@/server/auth/session";
 import { getAccountUser, updateAccountSettings } from "@/server/data/accounts";
 import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
 import { refreshScoresAfterLeaderboardVisibilityChange } from "@/server/data/scores";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(request: NextRequest) {
   const user = await getAccountUser(await getSessionUser());
@@ -38,10 +38,16 @@ export async function PATCH(request: NextRequest) {
       updatedUser.publicActivityHistory !== user.publicActivityHistory)
   ) {
     invalidatePublicDiscoveryCache();
-    await refreshScoresAfterLeaderboardVisibilityChange({
-      userId: user.id,
-      login: user.login,
-      publicLeaderboard: updatedUser.publicLeaderboard,
+    after(async () => {
+      try {
+        await refreshScoresAfterLeaderboardVisibilityChange({
+          userId: user.id,
+          login: user.login,
+          publicLeaderboard: updatedUser.publicLeaderboard,
+        });
+      } catch (error) {
+        console.error("[web settings] Post-response score refresh failed", error);
+      }
     });
   }
 

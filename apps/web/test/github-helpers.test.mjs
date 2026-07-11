@@ -926,8 +926,13 @@ test("privacy changes and account deletion purge public discovery data", async (
     );
     assert.ok(
       source.lastIndexOf("invalidatePublicDiscoveryCache()") <
+        source.indexOf("after(async () =>"),
+    );
+    assert.ok(
+      source.indexOf("after(async () =>") <
         source.indexOf("await refreshScoresAfterLeaderboardVisibilityChange"),
     );
+    assert.match(source, /Post-response score refresh failed/);
   }
 
   for (const source of routes.slice(2)) {

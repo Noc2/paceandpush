@@ -3,7 +3,7 @@ import { updateAccountSettings } from "@/server/data/accounts";
 import { verifyDeviceToken } from "@/server/data/mobile";
 import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
 import { refreshScoresAfterLeaderboardVisibilityChange } from "@/server/data/scores";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(request: NextRequest) {
   const auth = await verifyDeviceToken(request.headers.get("authorization"));
@@ -33,10 +33,16 @@ export async function PATCH(request: NextRequest) {
 
   if (typeof nextPublicLeaderboard === "boolean") {
     invalidatePublicDiscoveryCache();
-    await refreshScoresAfterLeaderboardVisibilityChange({
-      userId: auth.user.id,
-      login: auth.user.login,
-      publicLeaderboard: updatedUser.publicLeaderboard,
+    after(async () => {
+      try {
+        await refreshScoresAfterLeaderboardVisibilityChange({
+          userId: auth.user.id,
+          login: auth.user.login,
+          publicLeaderboard: updatedUser.publicLeaderboard,
+        });
+      } catch (error) {
+        console.error("[mobile settings] Post-response score refresh failed", error);
+      }
     });
   }
 
