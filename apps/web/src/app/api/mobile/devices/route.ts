@@ -19,6 +19,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (
+      body.publicLeaderboard !== undefined &&
+      typeof body.publicLeaderboard !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "Public leaderboard preference must be a boolean." },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(await exchangeMobilePairingCode(body));
   } catch (error) {
     return NextResponse.json(

@@ -1,4 +1,4 @@
-export const contractVersion = "2026-07-07";
+export const contractVersion = "2026-07-11";
 
 export const jsonSchemas = {
   scoreSummary: {

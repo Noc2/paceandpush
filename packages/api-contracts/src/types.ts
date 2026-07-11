@@ -90,16 +90,19 @@ export interface DeviceExchangeRequest {
   code: string;
   platform: Platform;
   label: string;
+  publicLeaderboard?: boolean;
 }
 
 export interface DeviceExchangeResponse {
   device: MobileDeviceSummary;
   token: string;
+  publicLeaderboard: boolean;
 }
 
 export interface MobileAuthExchangeRequest {
   code: string;
   codeVerifier: string;
+  publicLeaderboard?: boolean;
 }
 
 export interface DistanceDayInput {

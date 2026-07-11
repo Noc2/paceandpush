@@ -9,6 +9,9 @@ import type {
   SyncRunRequest,
   SyncRunResponse,
 } from "@paceandpush/api-contracts";
+import { updateAccountSettings } from "@/server/data/accounts";
+import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
+import { refreshScoresAfterLeaderboardVisibilityChange } from "@/server/data/scores";
 import { getDb } from "@/server/db/client";
 import {
   distanceDays,
@@ -117,21 +120,25 @@ export async function createMobilePairingCode({
 export async function exchangeMobileAuthCode({
   code,
   codeVerifier,
+  publicLeaderboard,
 }: {
   code: string;
   codeVerifier: string;
+  publicLeaderboard: boolean;
 }): Promise<DeviceExchangeResponse> {
   if (!isPKCECodeVerifier(codeVerifier)) {
     throw new Error("Code verifier is invalid.");
   }
 
   const now = new Date();
+  const codeChallenge = codeChallengeForVerifier(codeVerifier);
   const [exchange] = await getDb()
     .update(mobileAuthExchanges)
     .set({ consumedAt: now })
     .where(
       and(
         eq(mobileAuthExchanges.codeHash, hashMobileAuthCode(code)),
+        eq(mobileAuthExchanges.codeChallenge, codeChallenge),
         isNull(mobileAuthExchanges.consumedAt),
         gt(mobileAuthExchanges.expiresAt, now),
       ),
@@ -140,16 +147,11 @@ export async function exchangeMobileAuthCode({
       userId: mobileAuthExchanges.userId,
       platform: mobileAuthExchanges.platform,
       label: mobileAuthExchanges.label,
-      codeChallenge: mobileAuthExchanges.codeChallenge,
     });
 
   if (!exchange) {
     throw new Error("Mobile auth code is invalid or expired.");
   }
-  if (!exchange.codeChallenge || codeChallengeForVerifier(codeVerifier) !== exchange.codeChallenge) {
-    throw new Error("Mobile auth code verifier is invalid.");
-  }
-
   const [user] = await getDb()
     .select({
       githubId: users.githubId,
@@ -166,8 +168,12 @@ export async function exchangeMobileAuthCode({
     throw new Error("Mobile auth exchange is incomplete.");
   }
 
+  const updatedUser = await applyMobileLeaderboardPreference({
+    publicLeaderboard,
+    userId: exchange.userId,
+  });
   const deviceExchange = createDeviceExchange({
-    user,
+    user: updatedUser,
     platform: exchange.platform,
     label: exchange.label,
   });
@@ -175,6 +181,7 @@ export async function exchangeMobileAuthCode({
     deviceExchange,
     githubId: user.githubId,
   });
+  await refreshMobileVisibilityScores(updatedUser);
   return deviceExchange;
 }
 
@@ -182,6 +189,7 @@ export async function exchangeMobilePairingCode({
   code,
   label,
   platform,
+  publicLeaderboard,
 }: DeviceExchangeRequest): Promise<DeviceExchangeResponse> {
   const normalizedPlatform = assertPlatform(platform);
   const normalizedLabel = normalizeDeviceLabel(label, normalizedPlatform);
@@ -212,6 +220,7 @@ export async function exchangeMobilePairingCode({
     .select({
       githubId: users.githubId,
       login: users.login,
+      publicLeaderboard: users.publicLeaderboard,
     })
     .from(users)
     .where(eq(users.id, exchange.userId))
@@ -221,8 +230,18 @@ export async function exchangeMobilePairingCode({
     throw new Error("Pairing user does not exist.");
   }
 
+  const nextPublicLeaderboard =
+    typeof publicLeaderboard === "boolean"
+      ? publicLeaderboard
+      : normalizedPlatform === "ios"
+        ? false
+        : user.publicLeaderboard;
+  const updatedUser = await applyMobileLeaderboardPreference({
+    publicLeaderboard: nextPublicLeaderboard,
+    userId: exchange.userId,
+  });
   const deviceExchange = createDeviceExchange({
-    user,
+    user: updatedUser,
     platform: normalizedPlatform,
     label: normalizedLabel,
   });
@@ -230,7 +249,37 @@ export async function exchangeMobilePairingCode({
     deviceExchange,
     githubId: user.githubId,
   });
+  await refreshMobileVisibilityScores(updatedUser);
   return deviceExchange;
+}
+
+async function applyMobileLeaderboardPreference({
+  publicLeaderboard,
+  userId,
+}: {
+  publicLeaderboard: boolean;
+  userId: string;
+}) {
+  const updatedUser = await updateAccountSettings({
+    userId,
+    publicLeaderboard,
+  });
+  invalidatePublicDiscoveryCache();
+  return updatedUser;
+}
+
+async function refreshMobileVisibilityScores(
+  user: Awaited<ReturnType<typeof updateAccountSettings>>,
+): Promise<void> {
+  try {
+    await refreshScoresAfterLeaderboardVisibilityChange({
+      userId: user.id,
+      login: user.login,
+      publicLeaderboard: user.publicLeaderboard,
+    });
+  } catch (error) {
+    console.error("[mobile-auth] score refresh after privacy choice failed", error);
+  }
 }
 
 export async function getStoredDeviceByToken({

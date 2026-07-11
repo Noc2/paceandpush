@@ -87,6 +87,23 @@ test("OpenAPI documents mobile request bodies and bearer auth", () => {
     ),
     "mobile auth start requires a PKCE code challenge",
   );
+  assert.equal(
+    api.components.schemas.MobileAuthExchangeRequest.properties.publicLeaderboard.type,
+    "boolean",
+  );
+  assert.equal(
+    api.components.schemas.DeviceExchangeRequest.properties.publicLeaderboard.type,
+    "boolean",
+  );
+  assert.ok(
+    api.components.schemas.DeviceExchangeResponse.required.includes("publicLeaderboard"),
+  );
+  for (const path of ["/api/mobile/auth/exchange", "/api/mobile/devices"]) {
+    assert.equal(
+      api.paths[path].post.responses["200"].content["application/json"].schema.$ref,
+      "#/components/schemas/DeviceExchangeResponse",
+    );
+  }
 });
 
 test("distance-day schemas include server-enforced limits", () => {

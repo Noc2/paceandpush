@@ -1,5 +1,6 @@
 import { upsertGitHubAccount } from "@/server/data/accounts";
 import { createMobileAuthExchange } from "@/server/data/mobile";
+import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
 import {
   recomputeScoreSnapshots,
   refreshGitHubCommitsForUser,
@@ -31,7 +32,9 @@ export async function GET(request: NextRequest) {
       user: await fetchGitHubUser(token.accessToken),
       accessToken: token.accessToken,
       scopes: token.scopes,
+      publicLeaderboard: false,
     });
+    invalidatePublicDiscoveryCache();
 
     try {
       await refreshGitHubCommitsForUser({

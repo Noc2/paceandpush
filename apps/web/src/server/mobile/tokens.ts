@@ -81,7 +81,7 @@ export function createDeviceExchange({
   platform,
   label,
 }: {
-  user: Pick<SessionUser, "githubId" | "login">;
+  user: Pick<SessionUser, "githubId" | "login"> & { publicLeaderboard: boolean };
   platform: Platform;
   label: string;
 }): DeviceExchangeResponse {
@@ -97,6 +97,7 @@ export function createDeviceExchange({
 
   return {
     device,
+    publicLeaderboard: user.publicLeaderboard,
     token: signToken(deviceTokenPrefix, {
       kind: "device",
       sub: user.githubId,

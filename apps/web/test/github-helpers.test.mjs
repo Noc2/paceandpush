@@ -406,7 +406,49 @@ test("mobile auth routes require PKCE challenge and verifier", async () => {
   assert.match(startRoute, /codeChallenge/);
   assert.match(callbackRoute, /codeChallenge: mobileState\.codeChallenge/);
   assert.match(exchangeRoute, /body\.codeVerifier/);
-  assert.match(mobileData, /codeChallengeForVerifier\(codeVerifier\) !== exchange\.codeChallenge/);
+  assert.match(mobileData, /const codeChallenge = codeChallengeForVerifier\(codeVerifier\)/);
+  assert.match(
+    mobileData,
+    /eq\(mobileAuthExchanges\.codeChallenge, codeChallenge\)/,
+  );
+});
+
+test("mobile auth applies an authoritative privacy choice before issuing a device token", async () => {
+  const [accountsSource, callbackRoute, exchangeRoute, mobileData, tokenSource] =
+    await Promise.all([
+      readFile(new URL("../src/server/data/accounts.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../src/app/api/github/oauth/callback/mobile/route.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../src/app/api/mobile/auth/exchange/route.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../src/server/data/mobile.ts", import.meta.url), "utf8"),
+      readFile(new URL("../src/server/mobile/tokens.ts", import.meta.url), "utf8"),
+    ]);
+
+  assert.match(accountsSource, /publicLeaderboard: publicLeaderboard \?\? false/);
+  assert.match(
+    accountsSource,
+    /\.\.\.\(typeof publicLeaderboard === "boolean" \? \{ publicLeaderboard \} : \{\}\)/,
+  );
+
+  const callbackPrivate = callbackRoute.indexOf("publicLeaderboard: false");
+  const callbackRefresh = callbackRoute.lastIndexOf("await refreshGitHubCommitsForUser");
+  assert.ok(callbackPrivate !== -1 && callbackPrivate < callbackRefresh);
+  assert.match(callbackRoute, /invalidatePublicDiscoveryCache\(\)/);
+
+  assert.match(exchangeRoute, /publicLeaderboard: body\.publicLeaderboard \?\? false/);
+  assert.match(exchangeRoute, /typeof body\.publicLeaderboard !== "boolean"/);
+
+  const applyPreference = mobileData.indexOf("await applyMobileLeaderboardPreference");
+  const createDevice = mobileData.indexOf("const deviceExchange = createDeviceExchange");
+  assert.ok(applyPreference !== -1 && applyPreference < createDevice);
+  assert.match(mobileData, /normalizedPlatform === "ios"\s+\? false/);
+  assert.match(mobileData, /invalidatePublicDiscoveryCache\(\)/);
+  assert.match(tokenSource, /publicLeaderboard: user\.publicLeaderboard/);
 });
 
 test("high-risk routes expose structured rate limits", async () => {
@@ -790,7 +832,7 @@ test("leaderboard visibility defaults and existing accounts reset to private", a
     schemaSource,
     /publicLeaderboard: boolean\("public_leaderboard"\)\.notNull\(\)\.default\(false\)/,
   );
-  assert.match(accountsSource, /publicLeaderboard: false,/);
+  assert.match(accountsSource, /publicLeaderboard: publicLeaderboard \?\? false,/);
   assert.match(migrationSource, /ALTER COLUMN public_leaderboard SET DEFAULT false/);
   assert.match(migrationSource, /UPDATE users\s+SET public_leaderboard = false/);
   assert.doesNotMatch(migrationSource, /SET public_leaderboard = true/);

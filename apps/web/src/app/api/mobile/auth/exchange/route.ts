@@ -23,11 +23,21 @@ export async function POST(request: NextRequest) {
     if (!body.code || !body.codeVerifier) {
       return NextResponse.json({ error: "Code and code verifier are required." }, { status: 400 });
     }
+    if (
+      body.publicLeaderboard !== undefined &&
+      typeof body.publicLeaderboard !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "Public leaderboard preference must be a boolean." },
+        { status: 400 },
+      );
+    }
 
     return NextResponse.json(
       await exchangeMobileAuthCode({
         code: body.code,
         codeVerifier: body.codeVerifier,
+        publicLeaderboard: body.publicLeaderboard ?? false,
       }),
     );
   } catch (error) {

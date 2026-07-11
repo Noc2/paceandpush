@@ -35,10 +35,12 @@ export async function upsertGitHubAccount({
   user,
   accessToken,
   scopes,
+  publicLeaderboard,
 }: {
   user: SessionUser;
   accessToken: string;
   scopes: string[];
+  publicLeaderboard?: boolean;
 }): Promise<AccountUser> {
   const db = getDb();
   const now = new Date();
@@ -52,7 +54,7 @@ export async function upsertGitHubAccount({
       login: user.login,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
-      publicLeaderboard: false,
+      publicLeaderboard: publicLeaderboard ?? false,
       updatedAt: now,
     })
     .onConflictDoUpdate({
@@ -61,6 +63,7 @@ export async function upsertGitHubAccount({
         login: user.login,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
+        ...(typeof publicLeaderboard === "boolean" ? { publicLeaderboard } : {}),
         updatedAt: now,
       },
     })
