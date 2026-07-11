@@ -52,6 +52,7 @@ export async function upsertGitHubAccount({
       login: user.login,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
+      publicLeaderboard: false,
       updatedAt: now,
     })
     .onConflictDoUpdate({

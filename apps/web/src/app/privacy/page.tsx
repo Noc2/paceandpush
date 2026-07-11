@@ -142,9 +142,9 @@ export default function PrivacyPage() {
           <section className="legal-section">
             <h2>Public Leaderboard Data</h2>
             <p>
-              Public leaderboard visibility is on by default for new accounts,
-              and you can turn it off during app onboarding or in settings. When
-              it is on, the public leaderboard and profile pages may show your
+              Public leaderboard visibility is off by default. You can opt in
+              during app onboarding or later in settings. When it is on, the
+              public leaderboard and profile pages may show your
               GitHub username, display name, score, rank, GitHub commit total,
               distance total, streak, and score history. Commit totals may include
               restricted/private contribution aggregates that GitHub makes visible

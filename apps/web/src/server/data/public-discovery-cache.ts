@@ -7,7 +7,7 @@ const publicDiscoveryRevalidateSeconds = 300;
 
 export const getCachedLeaderboard = unstable_cache(
   async (board: Board, period: string) => getLeaderboard(board, period),
-  ["public-leaderboard"],
+  ["public-leaderboard-private-default-v2"],
   {
     revalidate: publicDiscoveryRevalidateSeconds,
     tags: [publicDiscoveryCacheTag],
@@ -17,7 +17,7 @@ export const getCachedLeaderboard = unstable_cache(
 export const searchCachedPublicUsers = unstable_cache(
   async ({ limit, period, query }: { limit?: number; period: string; query: string }) =>
     searchPublicUsers({ limit, period, query }),
-  ["public-user-search"],
+  ["public-user-search-private-default-v2"],
   {
     revalidate: publicDiscoveryRevalidateSeconds,
     tags: [publicDiscoveryCacheTag],

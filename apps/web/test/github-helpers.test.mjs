@@ -765,12 +765,37 @@ test("public discovery responses use invalidatable server caching instead of CDN
   assert.match(cacheSource, /revalidate: publicDiscoveryRevalidateSeconds/);
   assert.match(cacheSource, /tags: \[publicDiscoveryCacheTag\]/);
   assert.match(cacheSource, /revalidateTag\(publicDiscoveryCacheTag, \{ expire: 0 \}\)/);
+  assert.match(cacheSource, /public-leaderboard-private-default-v2/);
+  assert.match(cacheSource, /public-user-search-private-default-v2/);
   assert.match(leaderboardRoute, /getCachedLeaderboard\(board, period\)/);
   assert.match(searchRoute, /searchCachedPublicUsers\(\{ limit, period, query \}\)/);
   for (const route of [leaderboardRoute, searchRoute]) {
     assert.match(route, /"cache-control": "no-store"/);
     assert.doesNotMatch(route, /s-maxage|stale-while-revalidate/);
   }
+});
+
+test("leaderboard visibility defaults and existing accounts reset to private", async () => {
+  const [schemaSource, accountsSource, migrationSource, embedRoute] = await Promise.all([
+    readFile(new URL("../src/server/db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/data/accounts.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0012_private_leaderboard_default.sql", import.meta.url), "utf8"),
+    readFile(
+      new URL("../src/app/api/embed/[login]/chart.svg/route.ts", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(
+    schemaSource,
+    /publicLeaderboard: boolean\("public_leaderboard"\)\.notNull\(\)\.default\(false\)/,
+  );
+  assert.match(accountsSource, /publicLeaderboard: false,/);
+  assert.match(migrationSource, /ALTER COLUMN public_leaderboard SET DEFAULT false/);
+  assert.match(migrationSource, /UPDATE users\s+SET public_leaderboard = false/);
+  assert.doesNotMatch(migrationSource, /SET public_leaderboard = true/);
+  assert.match(embedRoute, /"cache-control": "no-store"/);
+  assert.doesNotMatch(embedRoute, /s-maxage|stale-while-revalidate/);
 });
 
 test("privacy changes and account deletion purge public discovery data", async () => {

@@ -16,7 +16,8 @@ and Health Connect data ingestion.
   - Commits
   - Run kilometers
 - Show user profiles with commit, distance, and score history.
-- Show users on the public leaderboard by default, with clear opt-out controls.
+- Keep users private by default and show them publicly only after an explicit
+  leaderboard opt-in.
 - Let users delete their Pace & Push data and revoke mobile devices.
 - Let native apps connect to GitHub directly through backend-mediated OAuth and
   store Pace & Push mobile device tokens securely. Keep web-generated pairing
@@ -104,7 +105,8 @@ Guardrails:
 - Count running distance only for the balanced score.
 - Flag implausible daily running distance for review rather than silently
   removing it.
-- Keep public leaderboard participation user-controllable, defaulting to public.
+- Keep public leaderboard participation user-controllable and private by
+  default.
 
 ## Mobile App MVP Screens
 

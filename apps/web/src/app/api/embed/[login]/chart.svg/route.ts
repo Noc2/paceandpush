@@ -28,7 +28,7 @@ export async function GET(
   return new NextResponse(renderProfileChartSvg(profile, units, theme), {
     headers: {
       "content-type": "image/svg+xml; charset=utf-8",
-      "cache-control": "public, max-age=300, s-maxage=900, stale-while-revalidate=3600",
+      "cache-control": "no-store",
       "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
       "x-content-type-options": "nosniff",
     },
