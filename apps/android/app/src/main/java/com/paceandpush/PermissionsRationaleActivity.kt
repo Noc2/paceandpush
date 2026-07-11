@@ -9,7 +9,7 @@ class PermissionsRationaleActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(
             TextView(this).apply {
-                text = "Pace & Push reads running exercise sessions and daily running distance totals from Health Connect to calculate your leaderboard score. Raw workouts are not uploaded in the PoC."
+                text = "Pace & Push reads running exercise sessions from Health Connect to calculate daily running-distance aggregates for your score. Only those daily totals are uploaded to your private Pace & Push account; raw workouts and routes are not uploaded. Granting Health Connect access does not make anything public. Publishing exact period kilometers and other profile totals is a separate, optional choice in Settings."
                 textSize = 18f
                 setPadding(48, 48, 48, 48)
             },

@@ -22,6 +22,7 @@ import android.util.Base64
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -118,6 +119,10 @@ class MainActivity : ComponentActivity() {
     private var dataStatusColor = muted
     private var dataLoadStage = AccountDataLoadStage.AccountSummary
     private var remoteSnapshotLoaded = false
+    private var publicSharingInProgress = false
+    private var publicSharingStatusMessage: String? = null
+    private var publicSharingStatusColor = muted
+    private var publicActivityHistoryDraft = false
 
     private var me = emptyMeSummary()
     private var rows = emptyList<LeaderboardRow>()
@@ -138,7 +143,7 @@ class MainActivity : ComponentActivity() {
     ) { grantedPermissions ->
         healthAuthorized = grantedPermissions.containsAll(healthSync.permissions)
         healthStatusMessage = if (healthAuthorized) {
-            "Health Connect access granted. Sync now to upload daily running totals."
+            "Health Connect access granted. Sync now to upload daily running totals privately. Publishing is a separate choice."
         } else {
             "Health Connect permission was not granted. You can retry from Settings."
         }
@@ -736,6 +741,12 @@ class MainActivity : ComponentActivity() {
             }
 
             addView(labelText("Health Connect").apply { setPadding(0, dp(12), 0, 0) })
+            addView(bodyText(
+                "Pace & Push reads running exercise sessions, calculates daily running-distance totals, and uploads only those aggregates to your private account. Raw workouts and routes are not uploaded. Health Connect permission does not publish anything; public sharing is a separate choice below.",
+                15f,
+            ).apply {
+                setPadding(0, dp(6), 0, dp(8))
+            })
             addView(bodyText(healthStatusMessage, 16f).apply {
                 setTextColor(healthStatusColor)
             })
@@ -753,6 +764,7 @@ class MainActivity : ComponentActivity() {
                     },
                 )
             }
+            addView(publicHealthSharingPanel())
             addView(
                 Button(this@MainActivity).apply {
                     text = if (syncInProgress) "Syncing..." else "Sync Now"
@@ -830,7 +842,104 @@ class MainActivity : ComponentActivity() {
             }
             addView(labelText("Distance units").apply { setPadding(0, dp(12), 0, 0) })
             addView(unitSelector())
-            addView(bodyText("Public leaderboard: ${if (me.publicLeaderboard) "On" else "Off"}", 16f))
+        }
+    }
+
+    private fun publicHealthSharingPanel(): View {
+        return panel(surfacePanelHigh) {
+            addView(labelText("Public health-data sharing"))
+            if (!paired) {
+                addView(bodyText(
+                    "Pair this device first. Health Connect totals stay private unless you later publish them here.",
+                    15f,
+                ).apply { setPadding(0, dp(6), 0, 0) })
+                return@panel
+            }
+
+            addView(bodyText(
+                "Optional. If you publish, anyone on the internet can view your profile without an account. It shows your GitHub login and display name, bio, exact kilometers for the active period, commit total, derived score, rank, streak, and last-sync time. Other people may copy or share these values.",
+                15f,
+            ).apply { setPadding(0, dp(6), 0, dp(8)) })
+            addView(bodyText(
+                "Current exact totals: ${formatDistance(me.score.kilometers, includeUnit = true)}, ${me.score.commits} commits, score ${me.score.score.toFixed(1)}, rank ${me.score.rank?.toString() ?: "not ranked"}, ${me.streakDays}-day streak.",
+                15f,
+            ).apply {
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(ink)
+                setPadding(0, 0, 0, dp(8))
+            })
+
+            val historyToggle = CheckBox(this@MainActivity).apply {
+                text = "Also publish dated activity history"
+                isChecked = publicActivityHistoryDraft
+                isEnabled = !publicSharingInProgress
+                setTextColor(ink)
+                buttonTintList = ColorStateList.valueOf(orange)
+                setOnCheckedChangeListener { _, checked ->
+                    publicActivityHistoryDraft = checked
+                }
+            }
+            addView(historyToggle)
+            addView(bodyText(
+                "Dated history is a separate opt-in and is off by default. Publishing it can reveal day-to-day running patterns from changes in the daily aggregates.",
+                14f,
+            ).apply { setPadding(dp(32), 0, 0, dp(8)) })
+
+            addView(
+                Button(this@MainActivity).apply {
+                    text = when {
+                        publicSharingInProgress -> "Saving..."
+                        me.publicLeaderboard -> "Update public sharing"
+                        else -> "Publish these totals"
+                    }
+                    isAllCaps = false
+                    isEnabled = remoteSnapshotLoaded && !publicSharingInProgress
+                    setTextColor(ink)
+                    background = solidBackground(if (isEnabled) orange else line)
+                    setOnClickListener {
+                        updatePublicHealthSharing(
+                            publish = true,
+                            shareDatedHistory = historyToggle.isChecked,
+                        )
+                    }
+                },
+            )
+
+            if (me.publicLeaderboard) {
+                addView(
+                    Button(this@MainActivity).apply {
+                        text = "Make my profile private"
+                        isAllCaps = false
+                        isEnabled = !publicSharingInProgress
+                        setTextColor(ink)
+                        background = solidBackground(surfacePanel)
+                        setOnClickListener {
+                            updatePublicHealthSharing(
+                                publish = false,
+                                shareDatedHistory = false,
+                            )
+                        }
+                    },
+                )
+            }
+
+            addView(bodyText(
+                if (me.publicLeaderboard) {
+                    "Public summary is on. Dated history is ${if (me.publicActivityHistory) "on" else "off"}."
+                } else {
+                    "Your profile and synced running totals are private."
+                },
+                15f,
+            ).apply {
+                setTextColor(if (me.publicLeaderboard) orange else green)
+                setPadding(0, dp(8), 0, 0)
+            })
+            publicSharingStatusMessage?.let { status ->
+                addView(bodyText(status, 15f).apply {
+                    setTextColor(publicSharingStatusColor)
+                    setPadding(0, dp(6), 0, 0)
+                })
+            }
         }
     }
 
@@ -1202,9 +1311,9 @@ class MainActivity : ComponentActivity() {
 
             healthAuthorized = hasPermissions.getOrDefault(false)
             healthStatusMessage = if (healthAuthorized) {
-                "Health Connect access is enabled for running distance sync."
+                "Health Connect access is enabled. Daily running-distance aggregates sync privately until you separately publish them."
             } else {
-                "Health Connect access is not enabled yet."
+                "Health Connect access is not enabled. If granted, daily running-distance aggregates initially sync to your private account."
             }
             healthStatusColor = if (healthAuthorized) green else muted
             render()
@@ -1234,7 +1343,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        healthStatusMessage = "Opening Health Connect permission request..."
+        healthStatusMessage = "Opening Health Connect permission request. Any uploaded daily aggregates remain private until you separately publish them."
         healthStatusColor = ink
         activeTab = Tab.Settings
         render()
@@ -1373,6 +1482,7 @@ class MainActivity : ComponentActivity() {
                     paired = true
                     remoteSnapshotLoaded = true
                     me = snapshot.me
+                    publicActivityHistoryDraft = snapshot.me.publicActivityHistory
                     rows = snapshot.rows
                     history = snapshot.history
                     units = snapshot.units
@@ -1384,6 +1494,84 @@ class MainActivity : ComponentActivity() {
                     dataStatusColor = red
                 }
             render()
+        }
+    }
+
+    private fun updatePublicHealthSharing(
+        publish: Boolean,
+        shareDatedHistory: Boolean,
+    ) {
+        val token = storedDeviceToken(getPreferences(MODE_PRIVATE))
+        if (token.isNullOrBlank()) {
+            publicSharingStatusMessage = "Pair this device again before changing public sharing."
+            publicSharingStatusColor = red
+            render()
+            return
+        }
+
+        publicSharingInProgress = true
+        publicSharingStatusMessage = if (publish) {
+            "Confirming your public-health-data consent..."
+        } else {
+            "Making your profile private..."
+        }
+        publicSharingStatusColor = ink
+        activeTab = Tab.Settings
+        render()
+
+        val baseUrl = apiBaseUrl
+        uiScope.launch {
+            val result = runCatching {
+                val response = withContext(Dispatchers.IO) {
+                    jsonRequest(
+                        method = "PATCH",
+                        baseUrl = baseUrl,
+                        path = "/api/mobile/me/settings",
+                        token = token,
+                        body = publicHealthSettingsPayload(
+                            publish = publish,
+                            publicActivityHistory = publish && shareDatedHistory,
+                        ),
+                    )
+                }
+                val state = parsePublicHealthSharingState(response)
+                if (!confirmsPublicHealthSharingRequest(
+                        state = state,
+                        publish = publish,
+                        publicActivityHistory = shareDatedHistory,
+                    )
+                ) {
+                    throw IOException("The server did not confirm the requested privacy setting.")
+                }
+                state
+            }
+
+            publicSharingInProgress = false
+            result
+                .onSuccess { state ->
+                    me = me.copy(
+                        publicLeaderboard = state.isPublic,
+                        publicActivityHistory = state.sharesDatedHistory,
+                        publicHealthDataConsentVersion = state.consentVersion,
+                        publicHealthDataConsentedAt = state.consentedAt,
+                    )
+                    publicActivityHistoryDraft = state.sharesDatedHistory
+                    publicSharingStatusMessage = if (state.isPublic) {
+                        "Public sharing updated. You can make your profile private here at any time."
+                    } else {
+                        "Your profile and synced running totals are private."
+                    }
+                    publicSharingStatusColor = green
+                    render()
+                    refreshRemoteData(showLoading = false)
+                }
+                .onFailure { error ->
+                    publicActivityHistoryDraft = me.publicActivityHistory
+                    publicSharingStatusMessage =
+                        "Privacy setting was not changed. ${error.message ?: "Try again."}"
+                    publicSharingStatusColor = red
+                    render()
+                }
         }
     }
 
@@ -1684,11 +1872,21 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun parseMe(json: JSONObject): MeSummary {
+        val publicHealthSharing = parsePublicHealthSharingState(json)
+        if (json.optBoolean("publicLeaderboard", false) && !publicHealthSharing.isPublic) {
+            publicSharingStatusMessage =
+                "Public sharing is off because the server did not return current consent confirmation."
+            publicSharingStatusColor = red
+        }
         return MeSummary(
             login = json.optString("login").ifBlank { "you" },
             displayName = json.optString("displayName").ifBlank { json.optString("login").ifBlank { "Pace & Push" } },
             score = parseScore(json.optJSONObject("score") ?: JSONObject()),
-            publicLeaderboard = json.optBoolean("publicLeaderboard", false),
+            streakDays = json.optInt("streakDays", 0),
+            publicLeaderboard = publicHealthSharing.isPublic,
+            publicActivityHistory = publicHealthSharing.sharesDatedHistory,
+            publicHealthDataConsentVersion = publicHealthSharing.consentVersion,
+            publicHealthDataConsentedAt = publicHealthSharing.consentedAt,
         )
     }
 
@@ -2124,7 +2322,11 @@ private data class MeSummary(
     val login: String,
     val displayName: String,
     val score: ScoreSummary,
+    val streakDays: Int,
     val publicLeaderboard: Boolean,
+    val publicActivityHistory: Boolean,
+    val publicHealthDataConsentVersion: String?,
+    val publicHealthDataConsentedAt: String?,
 )
 
 private data class ScoreSummary(
@@ -2204,6 +2406,10 @@ private fun emptyMeSummary(): MeSummary {
             kilometers = 0.0,
             lastSyncAt = null,
         ),
+        streakDays = 0,
         publicLeaderboard = false,
+        publicActivityHistory = false,
+        publicHealthDataConsentVersion = null,
+        publicHealthDataConsentedAt = null,
     )
 }

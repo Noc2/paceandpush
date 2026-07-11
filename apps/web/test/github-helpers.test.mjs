@@ -1657,7 +1657,10 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidWorkflow, /grep -rl "packages\.microsoft\.com" \/etc\/apt\/sources\.list\.d/);
   assert.match(androidWorkflow, /npx playwright install --with-deps webkit/);
   assert.match(androidWorkflow, /gradle-version: "8\.11\.1"/);
-  assert.match(androidWorkflow, /gradle -p apps\/android :app:assembleDebug --no-daemon/);
+  assert.match(
+    androidWorkflow,
+    /gradle -p apps\/android :app:testDebugUnitTest :app:assembleDebug --no-daemon/,
+  );
   assert.match(androidRootBuild, /com\.android\.application"\) version "8\.9\.2"/);
   assert.match(androidGradleProperties, /android\.useAndroidX=true/);
   assert.match(androidGradleProperties, /android\.suppressUnsupportedCompileSdk=36/);
