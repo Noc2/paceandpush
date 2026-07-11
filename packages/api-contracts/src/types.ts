@@ -4,6 +4,14 @@ export type Platform = "ios" | "android";
 
 export type SyncStatus = "success" | "warning" | "error";
 
+export const publicHealthDataConsentVersion = "public-health-v1" as const;
+
+export interface PublicHealthDataConsentRequest {
+  version: typeof publicHealthDataConsentVersion;
+  publishExactPeriodKilometers: true;
+  publicActivityHistory: boolean;
+}
+
 export interface ScoreSummary {
   period: string;
   score: number;
@@ -48,12 +56,16 @@ export interface PublicProfileResponse {
   bio: string | null;
   score: ScoreSummary;
   history: ProfileHistoryPoint[];
+  historyVisibility: "owner" | "public" | "private";
 }
 
 export interface MeResponse {
   login: string;
   displayName: string;
   publicLeaderboard: boolean;
+  publicActivityHistory: boolean;
+  publicHealthDataConsentVersion: string | null;
+  publicHealthDataConsentedAt: string | null;
   units: "metric" | "imperial";
   score: ScoreSummary;
   github: GitHubConnectionSummary;
@@ -91,18 +103,39 @@ export interface DeviceExchangeRequest {
   platform: Platform;
   label: string;
   publicLeaderboard?: boolean;
+  publicHealthDataConsent?: PublicHealthDataConsentRequest;
 }
 
 export interface DeviceExchangeResponse {
   device: MobileDeviceSummary;
   token: string;
   publicLeaderboard: boolean;
+  publicActivityHistory: boolean;
+  publicHealthDataConsentVersion: string | null;
+  publicHealthDataConsentedAt: string | null;
 }
 
 export interface MobileAuthExchangeRequest {
   code: string;
   codeVerifier: string;
   publicLeaderboard?: boolean;
+  publicHealthDataConsent?: PublicHealthDataConsentRequest;
+}
+
+export interface AccountSettingsRequest {
+  publicLeaderboard?: boolean;
+  publicHealthDataConsent?: PublicHealthDataConsentRequest;
+  units?: "metric" | "imperial";
+}
+
+export interface AccountSettingsResponse {
+  login: string;
+  displayName: string;
+  publicLeaderboard: boolean;
+  publicActivityHistory: boolean;
+  publicHealthDataConsentVersion: string | null;
+  publicHealthDataConsentedAt: string | null;
+  units: "metric" | "imperial";
 }
 
 export interface DistanceDayInput {

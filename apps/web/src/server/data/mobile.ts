@@ -121,10 +121,12 @@ export async function exchangeMobileAuthCode({
   code,
   codeVerifier,
   publicLeaderboard,
+  publicHealthDataConsent,
 }: {
   code: string;
   codeVerifier: string;
   publicLeaderboard: boolean;
+  publicHealthDataConsent?: DeviceExchangeRequest["publicHealthDataConsent"];
 }): Promise<DeviceExchangeResponse> {
   if (!isPKCECodeVerifier(codeVerifier)) {
     throw new Error("Code verifier is invalid.");
@@ -156,6 +158,10 @@ export async function exchangeMobileAuthCode({
     .select({
       githubId: users.githubId,
       login: users.login,
+      publicLeaderboard: users.publicLeaderboard,
+      publicActivityHistory: users.publicActivityHistory,
+      publicHealthDataConsentVersion: users.publicHealthDataConsentVersion,
+      publicHealthDataConsentedAt: users.publicHealthDataConsentedAt,
     })
     .from(users)
     .where(eq(users.id, exchange.userId))
@@ -168,12 +174,8 @@ export async function exchangeMobileAuthCode({
     throw new Error("Mobile auth exchange is incomplete.");
   }
 
-  const updatedUser = await applyMobileLeaderboardPreference({
-    publicLeaderboard,
-    userId: exchange.userId,
-  });
   const deviceExchange = createDeviceExchange({
-    user: updatedUser,
+    user,
     platform: exchange.platform,
     label: exchange.label,
   });
@@ -181,8 +183,13 @@ export async function exchangeMobileAuthCode({
     deviceExchange,
     githubId: user.githubId,
   });
+  const updatedUser = await applyMobileLeaderboardPreference({
+    publicLeaderboard,
+    publicHealthDataConsent,
+    userId: exchange.userId,
+  });
   await refreshMobileVisibilityScores(updatedUser);
-  return deviceExchange;
+  return withAuthoritativePublicConsent(deviceExchange, updatedUser);
 }
 
 export async function exchangeMobilePairingCode({
@@ -190,6 +197,7 @@ export async function exchangeMobilePairingCode({
   label,
   platform,
   publicLeaderboard,
+  publicHealthDataConsent,
 }: DeviceExchangeRequest): Promise<DeviceExchangeResponse> {
   const normalizedPlatform = assertPlatform(platform);
   const normalizedLabel = normalizeDeviceLabel(label, normalizedPlatform);
@@ -221,6 +229,10 @@ export async function exchangeMobilePairingCode({
       githubId: users.githubId,
       login: users.login,
       publicLeaderboard: users.publicLeaderboard,
+      publicActivityHistory: users.publicActivityHistory,
+      publicHealthDataConsentVersion: users.publicHealthDataConsentVersion,
+      publicHealthDataConsentedAt: users.publicHealthDataConsentedAt,
+      publicHealthDataConsentRevokedAt: users.publicHealthDataConsentRevokedAt,
     })
     .from(users)
     .where(eq(users.id, exchange.userId))
@@ -236,12 +248,8 @@ export async function exchangeMobilePairingCode({
       : normalizedPlatform === "ios"
         ? false
         : user.publicLeaderboard;
-  const updatedUser = await applyMobileLeaderboardPreference({
-    publicLeaderboard: nextPublicLeaderboard,
-    userId: exchange.userId,
-  });
   const deviceExchange = createDeviceExchange({
-    user: updatedUser,
+    user,
     platform: normalizedPlatform,
     label: normalizedLabel,
   });
@@ -249,20 +257,42 @@ export async function exchangeMobilePairingCode({
     deviceExchange,
     githubId: user.githubId,
   });
+  const updatedUser = await applyMobileLeaderboardPreference({
+    publicLeaderboard: nextPublicLeaderboard,
+    publicHealthDataConsent,
+    userId: exchange.userId,
+  });
   await refreshMobileVisibilityScores(updatedUser);
-  return deviceExchange;
+  return withAuthoritativePublicConsent(deviceExchange, updatedUser);
+}
+
+function withAuthoritativePublicConsent(
+  deviceExchange: DeviceExchangeResponse,
+  user: Awaited<ReturnType<typeof updateAccountSettings>>,
+): DeviceExchangeResponse {
+  return {
+    ...deviceExchange,
+    publicLeaderboard: user.publicLeaderboard,
+    publicActivityHistory: user.publicActivityHistory,
+    publicHealthDataConsentVersion: user.publicHealthDataConsentVersion,
+    publicHealthDataConsentedAt:
+      user.publicHealthDataConsentedAt?.toISOString() ?? null,
+  };
 }
 
 async function applyMobileLeaderboardPreference({
   publicLeaderboard,
+  publicHealthDataConsent,
   userId,
 }: {
   publicLeaderboard: boolean;
+  publicHealthDataConsent?: DeviceExchangeRequest["publicHealthDataConsent"];
   userId: string;
 }) {
   const updatedUser = await updateAccountSettings({
     userId,
     publicLeaderboard,
+    publicHealthDataConsent,
   });
   invalidatePublicDiscoveryCache();
   return updatedUser;

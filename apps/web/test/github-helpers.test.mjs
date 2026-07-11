@@ -443,12 +443,13 @@ test("mobile auth applies an authoritative privacy choice before issuing a devic
   assert.match(exchangeRoute, /publicLeaderboard: body\.publicLeaderboard \?\? false/);
   assert.match(exchangeRoute, /typeof body\.publicLeaderboard !== "boolean"/);
 
+  const persistDevice = mobileData.indexOf("await persistMobileDevice");
   const applyPreference = mobileData.indexOf("await applyMobileLeaderboardPreference");
-  const createDevice = mobileData.indexOf("const deviceExchange = createDeviceExchange");
-  assert.ok(applyPreference !== -1 && applyPreference < createDevice);
+  assert.ok(persistDevice !== -1 && persistDevice < applyPreference);
   assert.match(mobileData, /normalizedPlatform === "ios"\s+\? false/);
   assert.match(mobileData, /invalidatePublicDiscoveryCache\(\)/);
   assert.match(tokenSource, /publicLeaderboard: user\.publicLeaderboard/);
+  assert.match(tokenSource, /publicActivityHistory: user\.publicActivityHistory/);
 });
 
 test("high-risk routes expose structured rate limits", async () => {
@@ -838,6 +839,43 @@ test("leaderboard visibility defaults and existing accounts reset to private", a
   assert.doesNotMatch(migrationSource, /SET public_leaderboard = true/);
   assert.match(embedRoute, /"cache-control": "no-store"/);
   assert.doesNotMatch(embedRoute, /s-maxage|stale-while-revalidate/);
+});
+
+test("public health-data publication requires current versioned consent", async () => {
+  const [schemaSource, migrationSource, payloadSource, accountsSource, webRoute, mobileRoute] =
+    await Promise.all([
+      readFile(new URL("../src/server/db/schema.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../drizzle/0013_public_health_data_consent.sql", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../src/server/api/payloads.ts", import.meta.url), "utf8"),
+      readFile(new URL("../src/server/data/accounts.ts", import.meta.url), "utf8"),
+      readFile(new URL("../src/app/api/me/settings/route.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../src/app/api/mobile/me/settings/route.ts", import.meta.url),
+        "utf8",
+      ),
+    ]);
+
+  assert.match(schemaSource, /publicActivityHistory: boolean\("public_activity_history"\)/);
+  assert.match(schemaSource, /publicHealthDataConsentVersion: text\("public_health_data_consent_version"\)/);
+  assert.match(migrationSource, /public_activity_history boolean NOT NULL DEFAULT false/);
+  assert.match(migrationSource, /public_health_data_consent_required/);
+  assert.match(migrationSource, /NOT public_activity_history OR public_leaderboard/);
+  assert.match(migrationSource, /UPDATE users[\s\S]*public_leaderboard = false/);
+  assert.match(payloadSource, /value\.version === currentPublicHealthDataConsentVersion/);
+  assert.match(payloadSource, /value\.publishExactPeriodKilometers === true/);
+  assert.match(accountsSource, /publicHealthDataConsent\.publicActivityHistory/);
+  assert.match(accountsSource, /publicHealthDataConsentVersion: publicHealthDataConsent\.version/);
+  assert.match(accountsSource, /publicLeaderboard === true && !hasCurrentConsent/);
+  assert.match(accountsSource, /publicLeaderboard: false,[\s\S]*publicActivityHistory: false/);
+
+  for (const route of [webRoute, mobileRoute]) {
+    assert.match(route, /publicHealthDataConsent: body\.publicHealthDataConsent/);
+    assert.match(route, /publicActivityHistory: updatedUser\.publicActivityHistory/);
+    assert.match(route, /publicHealthDataConsentVersion: updatedUser\.publicHealthDataConsentVersion/);
+  }
 });
 
 test("privacy changes and account deletion purge public discovery data", async () => {

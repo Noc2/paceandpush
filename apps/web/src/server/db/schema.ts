@@ -28,6 +28,14 @@ export const users = pgTable(
     avatarUrl: text("avatar_url"),
     bio: text("bio"),
     publicLeaderboard: boolean("public_leaderboard").notNull().default(false),
+    publicActivityHistory: boolean("public_activity_history").notNull().default(false),
+    publicHealthDataConsentVersion: text("public_health_data_consent_version"),
+    publicHealthDataConsentedAt: timestamp("public_health_data_consented_at", {
+      withTimezone: true,
+    }),
+    publicHealthDataConsentRevokedAt: timestamp("public_health_data_consent_revoked_at", {
+      withTimezone: true,
+    }),
     units: text("units").notNull().default("metric"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

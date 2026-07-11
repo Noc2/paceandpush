@@ -81,7 +81,12 @@ export function createDeviceExchange({
   platform,
   label,
 }: {
-  user: Pick<SessionUser, "githubId" | "login"> & { publicLeaderboard: boolean };
+  user: Pick<SessionUser, "githubId" | "login"> & {
+    publicLeaderboard: boolean;
+    publicActivityHistory: boolean;
+    publicHealthDataConsentVersion: string | null;
+    publicHealthDataConsentedAt: Date | null;
+  };
   platform: Platform;
   label: string;
 }): DeviceExchangeResponse {
@@ -98,6 +103,9 @@ export function createDeviceExchange({
   return {
     device,
     publicLeaderboard: user.publicLeaderboard,
+    publicActivityHistory: user.publicActivityHistory,
+    publicHealthDataConsentVersion: user.publicHealthDataConsentVersion,
+    publicHealthDataConsentedAt: user.publicHealthDataConsentedAt?.toISOString() ?? null,
     token: signToken(deviceTokenPrefix, {
       kind: "device",
       sub: user.githubId,

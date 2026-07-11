@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { contractVersion, jsonSchemas } from "../src/schemas.ts";
+import { publicHealthDataConsentVersion } from "../src/types.ts";
 
 const api = JSON.parse(
   await readFile(new URL("../openapi/paceandpush.v1.json", import.meta.url), "utf8"),
@@ -98,6 +99,35 @@ test("OpenAPI documents mobile request bodies and bearer auth", () => {
   assert.ok(
     api.components.schemas.DeviceExchangeResponse.required.includes("publicLeaderboard"),
   );
+  assert.equal(
+    api.components.schemas.PublicHealthDataConsentRequest.properties.version.const,
+    publicHealthDataConsentVersion,
+  );
+  assert.equal(
+    api.components.schemas.PublicHealthDataConsentRequest.properties.publishExactPeriodKilometers.const,
+    true,
+  );
+  assert.equal(
+    api.components.schemas.PublicHealthDataConsentRequest.properties.publicActivityHistory.type,
+    "boolean",
+  );
+  assert.equal(
+    api.components.schemas.AccountSettingsPatch.properties.publicHealthDataConsent.$ref,
+    "#/components/schemas/PublicHealthDataConsentRequest",
+  );
+  for (const schemaName of ["MobileAuthExchangeRequest", "DeviceExchangeRequest"]) {
+    assert.equal(
+      api.components.schemas[schemaName].properties.publicHealthDataConsent.$ref,
+      "#/components/schemas/PublicHealthDataConsentRequest",
+    );
+  }
+  for (const field of [
+    "publicActivityHistory",
+    "publicHealthDataConsentVersion",
+    "publicHealthDataConsentedAt",
+  ]) {
+    assert.ok(api.components.schemas.DeviceExchangeResponse.required.includes(field));
+  }
   for (const path of ["/api/mobile/auth/exchange", "/api/mobile/devices"]) {
     assert.equal(
       api.paths[path].post.responses["200"].content["application/json"].schema.$ref,

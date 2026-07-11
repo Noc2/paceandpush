@@ -10,3 +10,9 @@ Distance-day uploads use UTC calendar dates in `YYYY-MM-DD` format. Native
 clients should bucket HealthKit or Health Connect running sessions by the
 session start time's UTC date before sending `/api/mobile/distance-days`, so
 week/month/year leaderboard periods match the backend scoring calendar.
+
+Publishing health-derived statistics is a separate, versioned action. A request
+that enables `publicLeaderboard` must include the current
+`PublicHealthDataConsentRequest`, including an explicit choice for dated public
+activity history. Legacy clients may still sync privately, but cannot create a
+new public-health-data consent without the current disclosure version.

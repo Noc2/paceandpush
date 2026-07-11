@@ -27,6 +27,7 @@ export async function PATCH(request: NextRequest) {
   const updatedUser = await updateAccountSettings({
     userId: auth.user.id,
     publicLeaderboard: nextPublicLeaderboard,
+    publicHealthDataConsent: body.publicHealthDataConsent,
     units: body.units === "imperial" || body.units === "metric" ? body.units : undefined,
   });
 
@@ -35,7 +36,7 @@ export async function PATCH(request: NextRequest) {
     await refreshScoresAfterLeaderboardVisibilityChange({
       userId: auth.user.id,
       login: auth.user.login,
-      publicLeaderboard: nextPublicLeaderboard,
+      publicLeaderboard: updatedUser.publicLeaderboard,
     });
   }
 
@@ -43,6 +44,10 @@ export async function PATCH(request: NextRequest) {
     login: updatedUser.login,
     displayName: updatedUser.displayName,
     publicLeaderboard: updatedUser.publicLeaderboard,
+    publicActivityHistory: updatedUser.publicActivityHistory,
+    publicHealthDataConsentVersion: updatedUser.publicHealthDataConsentVersion,
+    publicHealthDataConsentedAt:
+      updatedUser.publicHealthDataConsentedAt?.toISOString() ?? null,
     units: updatedUser.units,
   });
 }

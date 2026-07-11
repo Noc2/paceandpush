@@ -1,17 +1,53 @@
 import type {
+  AccountSettingsRequest,
   DistanceDayInput,
   Platform,
   SyncRunRequest,
   SyncStatus,
 } from "@paceandpush/api-contracts";
 
-export type AccountSettingsPatch = Partial<{
-  publicLeaderboard: boolean;
-  units: "metric" | "imperial";
-}>;
+const currentPublicHealthDataConsentVersion = "public-health-v1";
+
+export type AccountSettingsPatch = AccountSettingsRequest;
 
 export function isAccountSettingsPatch(value: unknown): value is AccountSettingsPatch {
-  return isPlainObject(value);
+  if (!isPlainObject(value)) return false;
+  const allowedKeys = new Set(["publicLeaderboard", "publicHealthDataConsent", "units"]);
+  if (Object.keys(value).some((key) => !allowedKeys.has(key))) return false;
+  if (
+    value.publicLeaderboard !== undefined &&
+    typeof value.publicLeaderboard !== "boolean"
+  ) {
+    return false;
+  }
+  if (
+    value.units !== undefined &&
+    value.units !== "metric" &&
+    value.units !== "imperial"
+  ) {
+    return false;
+  }
+  if (value.publicHealthDataConsent === undefined) return true;
+  return (
+    value.publicLeaderboard === true &&
+    isPublicHealthDataConsentRequest(value.publicHealthDataConsent)
+  );
+}
+
+export function isPublicHealthDataConsentRequest(
+  value: unknown,
+): value is NonNullable<AccountSettingsRequest["publicHealthDataConsent"]> {
+  if (!isPlainObject(value)) return false;
+  const keys = Object.keys(value);
+  return (
+    keys.length === 3 &&
+    keys.every((key) =>
+      ["version", "publishExactPeriodKilometers", "publicActivityHistory"].includes(key),
+    ) &&
+    value.version === currentPublicHealthDataConsentVersion &&
+    value.publishExactPeriodKilometers === true &&
+    typeof value.publicActivityHistory === "boolean"
+  );
 }
 
 export function isDistanceDayInput(

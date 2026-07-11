@@ -1,4 +1,4 @@
-export const contractVersion = "2026-07-11";
+export const contractVersion = "2026-07-11-public-health-consent-v1";
 
 export const jsonSchemas = {
   scoreSummary: {

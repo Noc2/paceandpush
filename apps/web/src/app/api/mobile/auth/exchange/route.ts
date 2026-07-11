@@ -1,6 +1,7 @@
 import { exchangeMobileAuthCode } from "@/server/data/mobile";
 import { rateLimit } from "@/server/api/rate-limit";
 import { mobileAuthExchangeErrorMessage } from "@/server/mobile/callback-errors";
+import { isPublicHealthDataConsentRequest } from "@/server/api/payloads";
 import type { MobileAuthExchangeRequest } from "@paceandpush/api-contracts";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -32,12 +33,23 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+    if (
+      body.publicHealthDataConsent !== undefined &&
+      (body.publicLeaderboard !== true ||
+        !isPublicHealthDataConsentRequest(body.publicHealthDataConsent))
+    ) {
+      return NextResponse.json(
+        { error: "Public health data consent is invalid or outdated." },
+        { status: 400 },
+      );
+    }
 
     return NextResponse.json(
       await exchangeMobileAuthCode({
         code: body.code,
         codeVerifier: body.codeVerifier,
         publicLeaderboard: body.publicLeaderboard ?? false,
+        publicHealthDataConsent: body.publicHealthDataConsent,
       }),
     );
   } catch (error) {

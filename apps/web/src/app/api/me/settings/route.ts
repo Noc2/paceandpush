@@ -28,18 +28,20 @@ export async function PATCH(request: NextRequest) {
   const updatedUser = await updateAccountSettings({
     userId: user.id,
     publicLeaderboard: nextPublicLeaderboard,
+    publicHealthDataConsent: body.publicHealthDataConsent,
     units: body.units === "imperial" || body.units === "metric" ? body.units : undefined,
   });
 
   if (
     typeof nextPublicLeaderboard === "boolean" &&
-    nextPublicLeaderboard !== user.publicLeaderboard
+    (updatedUser.publicLeaderboard !== user.publicLeaderboard ||
+      updatedUser.publicActivityHistory !== user.publicActivityHistory)
   ) {
     invalidatePublicDiscoveryCache();
     await refreshScoresAfterLeaderboardVisibilityChange({
       userId: user.id,
       login: user.login,
-      publicLeaderboard: nextPublicLeaderboard,
+      publicLeaderboard: updatedUser.publicLeaderboard,
     });
   }
 
@@ -47,6 +49,10 @@ export async function PATCH(request: NextRequest) {
     login: updatedUser.login,
     displayName: updatedUser.displayName,
     publicLeaderboard: updatedUser.publicLeaderboard,
+    publicActivityHistory: updatedUser.publicActivityHistory,
+    publicHealthDataConsentVersion: updatedUser.publicHealthDataConsentVersion,
+    publicHealthDataConsentedAt:
+      updatedUser.publicHealthDataConsentedAt?.toISOString() ?? null,
     units: updatedUser.units,
   });
 }

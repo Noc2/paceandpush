@@ -234,6 +234,7 @@ export async function getPublicProfile(
     bio: user.bio,
     score,
     history: await getProfileHistory(user.id, period, score.score),
+    historyVisibility: "public",
   };
 }
 
@@ -258,6 +259,7 @@ export async function getAccountProfile({
     bio,
     score,
     history: await getProfileHistory(userId, period, score.score),
+    historyVisibility: "owner",
   };
 }
 
@@ -270,6 +272,9 @@ export async function getMe(
       login: sessionUser?.login ?? "guest",
       displayName: sessionUser?.displayName ?? "Guest",
       publicLeaderboard: false,
+      publicActivityHistory: false,
+      publicHealthDataConsentVersion: null,
+      publicHealthDataConsentedAt: null,
       units: "metric",
       score: emptyScore(period),
       github: emptyGitHubConnection(),
@@ -284,6 +289,9 @@ export async function getMe(
       login: sessionUser?.login ?? "guest",
       displayName: sessionUser?.displayName ?? "Guest",
       publicLeaderboard: false,
+      publicActivityHistory: false,
+      publicHealthDataConsentVersion: null,
+      publicHealthDataConsentedAt: null,
       units: "metric",
       score: emptyScore(period),
       github: emptyGitHubConnection(),
@@ -297,6 +305,10 @@ export async function getMe(
     login: account.login,
     displayName: account.displayName,
     publicLeaderboard: account.publicLeaderboard,
+    publicActivityHistory: account.publicActivityHistory,
+    publicHealthDataConsentVersion: account.publicHealthDataConsentVersion,
+    publicHealthDataConsentedAt:
+      account.publicHealthDataConsentedAt?.toISOString() ?? null,
     units: account.units,
     score,
     github: await getGitHubConnectionSummary(account.id),

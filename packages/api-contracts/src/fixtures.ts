@@ -60,6 +60,9 @@ export const seedMe: MeResponse = {
   login: "Noc2",
   displayName: "David Hawig",
   publicLeaderboard: true,
+  publicActivityHistory: true,
+  publicHealthDataConsentVersion: "public-health-v1",
+  publicHealthDataConsentedAt: "2026-07-03T13:40:00.000Z",
   units: "metric",
   score: {
     period: "2026-07",
@@ -91,4 +94,5 @@ export const seedProfile: PublicProfileResponse = {
     { date: "2026-07-06", commits: 260, kilometers: 71.5, score: 90.4 },
     { date: "2026-07-07", commits: 312, kilometers: 86.4, score: 94.2 },
   ],
+  historyVisibility: "public",
 };

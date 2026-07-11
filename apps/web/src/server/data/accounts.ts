@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { PublicHealthDataConsentRequest } from "@paceandpush/api-contracts";
 import type { SessionUser } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import {
@@ -17,6 +18,7 @@ import {
   githubTokenEncryptionKeyId,
 } from "@/server/github/token-crypto";
 import { eq } from "drizzle-orm";
+import { currentPublicHealthDataConsentVersion } from "@/server/privacy/public-health-data-consent";
 
 export interface GitHubConnectionSummary {
   connected: boolean;
@@ -28,6 +30,10 @@ export interface AccountUser extends SessionUser {
   id: string;
   bio: string | null;
   publicLeaderboard: boolean;
+  publicActivityHistory: boolean;
+  publicHealthDataConsentVersion: string | null;
+  publicHealthDataConsentedAt: Date | null;
+  publicHealthDataConsentRevokedAt: Date | null;
   units: "metric" | "imperial";
 }
 
@@ -42,6 +48,9 @@ export async function upsertGitHubAccount({
   scopes: string[];
   publicLeaderboard?: boolean;
 }): Promise<AccountUser> {
+  if (publicLeaderboard === true) {
+    throw new Error("Public health data requires versioned consent.");
+  }
   const db = getDb();
   const now = new Date();
   const encryptedAccessToken = encryptGitHubAccessToken(accessToken);
@@ -64,6 +73,12 @@ export async function upsertGitHubAccount({
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
         ...(typeof publicLeaderboard === "boolean" ? { publicLeaderboard } : {}),
+        ...(publicLeaderboard === false
+          ? {
+              publicActivityHistory: false,
+              publicHealthDataConsentRevokedAt: now,
+            }
+          : {}),
         updatedAt: now,
       },
     })
@@ -179,6 +194,10 @@ export async function getAccountUser(
     avatarUrl: row.avatarUrl,
     bio: row.bio,
     publicLeaderboard: row.publicLeaderboard,
+    publicActivityHistory: row.publicActivityHistory,
+    publicHealthDataConsentVersion: row.publicHealthDataConsentVersion,
+    publicHealthDataConsentedAt: row.publicHealthDataConsentedAt,
+    publicHealthDataConsentRevokedAt: row.publicHealthDataConsentRevokedAt,
     units: row.units === "imperial" ? "imperial" : "metric",
   };
 }
@@ -186,18 +205,60 @@ export async function getAccountUser(
 export async function updateAccountSettings({
   userId,
   publicLeaderboard,
+  publicHealthDataConsent,
   units,
 }: {
   userId: string;
   publicLeaderboard?: boolean;
+  publicHealthDataConsent?: PublicHealthDataConsentRequest;
   units?: "metric" | "imperial";
 }): Promise<AccountUser> {
+  const now = new Date();
+  const [currentUser] = await getDb()
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!currentUser) {
+    throw new Error("Account does not exist.");
+  }
+  if (publicHealthDataConsent && publicLeaderboard !== true) {
+    throw new Error("Public health data consent requires public visibility.");
+  }
+
+  const hasCurrentConsent =
+    currentUser.publicLeaderboard &&
+    currentUser.publicHealthDataConsentVersion === currentPublicHealthDataConsentVersion &&
+    currentUser.publicHealthDataConsentedAt !== null &&
+    currentUser.publicHealthDataConsentRevokedAt === null;
+  const publicationUpdate =
+    publicLeaderboard === true && publicHealthDataConsent
+      ? {
+          publicLeaderboard: true,
+          publicActivityHistory: publicHealthDataConsent.publicActivityHistory,
+          publicHealthDataConsentVersion: publicHealthDataConsent.version,
+          publicHealthDataConsentedAt: now,
+          publicHealthDataConsentRevokedAt: null,
+        }
+      : publicLeaderboard === true && !hasCurrentConsent
+        ? {
+            publicLeaderboard: false,
+            publicActivityHistory: false,
+          }
+        : publicLeaderboard === false
+          ? {
+              publicLeaderboard: false,
+              publicActivityHistory: false,
+              publicHealthDataConsentRevokedAt: now,
+            }
+          : {};
+
   const [updatedUser] = await getDb()
     .update(users)
     .set({
-      ...(typeof publicLeaderboard === "boolean" ? { publicLeaderboard } : {}),
+      ...publicationUpdate,
       ...(units ? { units } : {}),
-      updatedAt: new Date(),
+      updatedAt: now,
     })
     .where(eq(users.id, userId))
     .returning();
@@ -210,6 +271,10 @@ export async function updateAccountSettings({
     avatarUrl: updatedUser.avatarUrl,
     bio: updatedUser.bio,
     publicLeaderboard: updatedUser.publicLeaderboard,
+    publicActivityHistory: updatedUser.publicActivityHistory,
+    publicHealthDataConsentVersion: updatedUser.publicHealthDataConsentVersion,
+    publicHealthDataConsentedAt: updatedUser.publicHealthDataConsentedAt,
+    publicHealthDataConsentRevokedAt: updatedUser.publicHealthDataConsentRevokedAt,
     units: updatedUser.units === "imperial" ? "imperial" : "metric",
   };
 }
@@ -324,6 +389,10 @@ function toAccountUser(user: typeof users.$inferSelect): AccountUser {
     ...toSessionUser(user),
     bio: user.bio,
     publicLeaderboard: user.publicLeaderboard,
+    publicActivityHistory: user.publicActivityHistory,
+    publicHealthDataConsentVersion: user.publicHealthDataConsentVersion,
+    publicHealthDataConsentedAt: user.publicHealthDataConsentedAt,
+    publicHealthDataConsentRevokedAt: user.publicHealthDataConsentRevokedAt,
     units: user.units === "imperial" ? "imperial" : "metric",
   };
 }

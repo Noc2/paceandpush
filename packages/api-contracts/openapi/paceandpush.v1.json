@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Pace & Push API",
-    "version": "2026-07-11"
+    "version": "2026-07-11-public-health-consent-v1"
   },
   "paths": {
     "/api/me": {
@@ -514,7 +514,18 @@
         "type": "object",
         "properties": {
           "publicLeaderboard": { "type": "boolean" },
+          "publicHealthDataConsent": { "$ref": "#/components/schemas/PublicHealthDataConsentRequest" },
           "units": { "enum": ["metric", "imperial"] }
+        },
+        "additionalProperties": false
+      },
+      "PublicHealthDataConsentRequest": {
+        "type": "object",
+        "required": ["version", "publishExactPeriodKilometers", "publicActivityHistory"],
+        "properties": {
+          "version": { "const": "public-health-v1" },
+          "publishExactPeriodKilometers": { "const": true },
+          "publicActivityHistory": { "type": "boolean" }
         },
         "additionalProperties": false
       },
@@ -525,17 +536,21 @@
           "code": { "type": "string" },
           "platform": { "enum": ["ios", "android"] },
           "label": { "type": "string", "maxLength": 64 },
-          "publicLeaderboard": { "type": "boolean" }
+          "publicLeaderboard": { "type": "boolean" },
+          "publicHealthDataConsent": { "$ref": "#/components/schemas/PublicHealthDataConsentRequest" }
         },
         "additionalProperties": false
       },
       "DeviceExchangeResponse": {
         "type": "object",
-        "required": ["device", "token", "publicLeaderboard"],
+        "required": ["device", "token", "publicLeaderboard", "publicActivityHistory", "publicHealthDataConsentVersion", "publicHealthDataConsentedAt"],
         "properties": {
           "device": { "$ref": "#/components/schemas/MobileDeviceSummary" },
           "token": { "type": "string" },
-          "publicLeaderboard": { "type": "boolean" }
+          "publicLeaderboard": { "type": "boolean" },
+          "publicActivityHistory": { "type": "boolean" },
+          "publicHealthDataConsentVersion": { "type": ["string", "null"] },
+          "publicHealthDataConsentedAt": { "type": ["string", "null"], "format": "date-time" }
         }
       },
       "MobileAuthExchangeRequest": {
@@ -544,7 +559,8 @@
         "properties": {
           "code": { "type": "string" },
           "codeVerifier": { "type": "string", "minLength": 43, "maxLength": 128 },
-          "publicLeaderboard": { "type": "boolean" }
+          "publicLeaderboard": { "type": "boolean" },
+          "publicHealthDataConsent": { "$ref": "#/components/schemas/PublicHealthDataConsentRequest" }
         },
         "additionalProperties": false
       },
