@@ -76,30 +76,42 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
           action={`/users/${encodeURIComponent(profile.login)}`}
         />
 
-        <section className="chart-panel" aria-label="Embeddable profile chart">
-          <ProfileChartEmbed
-            darkChartPath={darkChartPath}
-            darkEmbedMarkdown={darkEmbedMarkdown}
-            distanceLabel={runningDistanceShortLabel(units).toLowerCase()}
-            lightChartPath={lightChartPath}
-            lightEmbedMarkdown={lightEmbedMarkdown}
-            login={profile.login}
-          />
-        </section>
+        {profile.historyVisibility === "public" ? (
+          <>
+            <section className="chart-panel" aria-label="Embeddable profile chart">
+              <ProfileChartEmbed
+                darkChartPath={darkChartPath}
+                darkEmbedMarkdown={darkEmbedMarkdown}
+                distanceLabel={runningDistanceShortLabel(units).toLowerCase()}
+                lightChartPath={lightChartPath}
+                lightEmbedMarkdown={lightEmbedMarkdown}
+                login={profile.login}
+              />
+            </section>
 
-        <section className="history-list" aria-label={`${periodLabel} history`}>
-          <h2>{periodLabel} history</h2>
-          {profile.history.map((point) => (
-            <div key={point.date}>
-              <span>{point.date}</span>
-              <strong className="metric-score">{point.score.toFixed(1)}</strong>
-              <span className="metric-commits">{point.commits} commits</span>
-              <span className="metric-distance">
-                {formatDistance(point.kilometers, units)} {distanceUnitAbbreviation(units)}
-              </span>
-            </div>
-          ))}
-        </section>
+            <section className="history-list" aria-label={`${periodLabel} history`}>
+              <h2>{periodLabel} history</h2>
+              {profile.history.map((point) => (
+                <div key={point.date}>
+                  <span>{point.date}</span>
+                  <strong className="metric-score">{point.score.toFixed(1)}</strong>
+                  <span className="metric-commits">{point.commits} commits</span>
+                  <span className="metric-distance">
+                    {formatDistance(point.kilometers, units)} {distanceUnitAbbreviation(units)}
+                  </span>
+                </div>
+              ))}
+            </section>
+          </>
+        ) : (
+          <section className="history-private-notice" aria-label={`${periodLabel} history private`}>
+            <h2>{periodLabel} history is private</h2>
+            <p>
+              This athlete shares their exact period totals, but has not chosen to publish dated
+              activity history.
+            </p>
+          </section>
+        )}
       </section>
     </main>
   );

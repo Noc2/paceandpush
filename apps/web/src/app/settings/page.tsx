@@ -88,7 +88,12 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           {me.login === "guest" ? (
             <SettingsRow label="Leaderboard" value="Private" />
           ) : (
-            <LeaderboardVisibilityControl initialPublicLeaderboard={me.publicLeaderboard} />
+            <LeaderboardVisibilityControl
+              initialPublicActivityHistory={me.publicActivityHistory}
+              initialPublicHealthDataConsentedAt={me.publicHealthDataConsentedAt}
+              initialPublicHealthDataConsentVersion={me.publicHealthDataConsentVersion}
+              initialPublicLeaderboard={me.publicLeaderboard}
+            />
           )}
           {me.login === "guest" ? (
             <SettingsRow label="Units" value={distanceUnitLabel(me.units)} />

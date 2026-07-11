@@ -1217,6 +1217,59 @@ test("settings exposes a logout control that clears the session cookie", async (
   assert.match(controlSource, /fetch\("\/api\/auth\/logout", \{ method: "POST" \}\)/);
 });
 
+test("web public health sharing requires explicit versioned consent", async () => {
+  const pageSource = await readFile(
+    new URL("../src/app/settings/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const controlSource = await readFile(
+    new URL("../src/app/settings/LeaderboardVisibilityControl.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(pageSource, /initialPublicActivityHistory=\{me\.publicActivityHistory\}/);
+  assert.match(
+    pageSource,
+    /initialPublicHealthDataConsentVersion=\{me\.publicHealthDataConsentVersion\}/,
+  );
+  assert.match(
+    pageSource,
+    /initialPublicHealthDataConsentedAt=\{me\.publicHealthDataConsentedAt\}/,
+  );
+  assert.match(controlSource, /anyone on the internet/);
+  assert.match(controlSource, /without a Pace &amp;[\s\S]*Push account/);
+  assert.match(controlSource, /GitHub login, display name, bio, and last sync time/);
+  assert.match(controlSource, /exact running distance in kilometers/);
+  assert.match(controlSource, /commit total, combined score, leaderboard rank, and streak/);
+  assert.match(controlSource, /copy,[\s\S]*save, or share/);
+  assert.match(controlSource, /Also publish dated activity history/);
+  assert.match(controlSource, /Off by default/);
+  assert.match(controlSource, /version: publicHealthDataConsentVersion/);
+  assert.match(controlSource, /publishExactPeriodKilometers: true/);
+  assert.match(controlSource, /publicActivityHistory: includeHistory/);
+  assert.match(
+    controlSource,
+    /body: JSON\.stringify\(\{ publicLeaderboard: false \}\)/,
+  );
+  assert.doesNotMatch(controlSource, /setSharing\([\s\S]{0,250}fetch\("\/api\/me\/settings"/);
+  assert.match(controlSource, /The server did not confirm withdrawal/);
+});
+
+test("public profiles explain when dated activity history remains private", async () => {
+  const profileSource = await readFile(
+    new URL("../src/app/users/[login]/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(profileSource, /profile\.historyVisibility === "public"/);
+  assert.match(
+    profileSource,
+    /profile\.historyVisibility === "public"[\s\S]*<ProfileChartEmbed/,
+  );
+  assert.match(profileSource, /history is private/);
+  assert.match(profileSource, /has not chosen to publish dated[\s\S]*activity history/);
+});
+
 test("manual mobile pairing codes are database backed and single use", async () => {
   const pairingRoute = await readFile(
     new URL("../src/app/api/mobile/pairing-codes/route.ts", import.meta.url),
