@@ -63,6 +63,7 @@ struct MainTabsView: View {
 
 struct OnboardingView: View {
     @EnvironmentObject private var store: PacePushStore
+    @State private var includesPublicActivityHistory = false
 
     var body: some View {
         NavigationStack {
@@ -82,42 +83,7 @@ struct OnboardingView: View {
 
                     OnboardingStep(
                         index: 1,
-                        title: "Choose leaderboard visibility",
-                        detail: store.publicLeaderboardPreference ? "Your score can appear on public boards." : "Your score stays private.",
-                        complete: store.publicLeaderboardPreferenceChosen,
-                        showsActionsWhenComplete: true,
-                    ) {
-                        Toggle(
-                            "Public leaderboard",
-                            isOn: Binding(
-                                get: { store.publicLeaderboardPreference },
-                                set: { value in
-                                    Task { await store.setPublicLeaderboardPreference(value) }
-                                },
-                            ),
-                        )
-                        .accessibilityIdentifier("public-leaderboard-toggle")
-                        .disabled(store.busy)
-
-                        if !store.publicLeaderboardPreferenceChosen {
-                            Button {
-                                Task { await store.confirmPublicLeaderboardPreference() }
-                            } label: {
-                                Label(
-                                    store.publicLeaderboardPreference ? "Use Public Leaderboard" : "Keep Score Private",
-                                    systemImage: store.publicLeaderboardPreference ? "eye.square" : "eye.slash",
-                                )
-                                .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .accessibilityIdentifier("confirm-public-leaderboard-button")
-                            .disabled(store.busy)
-                        }
-                    }
-
-                    OnboardingStep(
-                        index: 2,
-                        title: "Connect GitHub",
+                        title: "Connect GitHub privately",
                         detail: store.githubOnboardingStatus,
                         complete: store.isGitHubConnected,
                     ) {
@@ -129,16 +95,16 @@ struct OnboardingView: View {
                         }
                         .buttonStyle(PrimaryButtonStyle())
                         .accessibilityIdentifier("connect-github-button")
-                        .disabled(store.busy || !store.publicLeaderboardPreferenceChosen)
+                        .disabled(store.busy)
                     }
 
                     OnboardingStep(
-                        index: 3,
-                        title: "Enable Apple Health",
-                        detail: store.healthAuthorized
-                            ? "Daily distance totals upload to Pace & Push; raw workouts and routes stay in Apple Health."
-                            : "Pace & Push reads running workouts and uploads daily distance totals. Raw workouts and routes stay in Apple Health. Public scores use these totals on your profile and leaderboard.",
-                        complete: store.healthAuthorized,
+                        index: 2,
+                        title: "Sync Apple Health privately",
+                        detail: store.firstSyncAt != nil
+                            ? "Your initial daily running-distance aggregates were uploaded privately. Raw workouts and routes stay in Apple Health."
+                            : "Pace & Push reads running workouts and uploads daily distance aggregates to calculate your totals and score. Your initial sync stays private; raw workouts and routes are never uploaded.",
+                        complete: store.healthAuthorized && store.firstSyncAt != nil,
                     ) {
                         Button {
                             Task { await store.requestHealthAccess() }
@@ -148,7 +114,44 @@ struct OnboardingView: View {
                         }
                         .buttonStyle(PrimaryButtonStyle())
                         .accessibilityIdentifier("enable-health-button")
-                        .disabled(store.busy)
+                        .disabled(store.busy || !store.isGitHubConnected)
+                    }
+
+                    OnboardingStep(
+                        index: 3,
+                        title: "Choose whether to publish",
+                        detail: store.publicLeaderboardPreferenceChosen
+                            ? (store.publicLeaderboardPreference ? "Your exact totals are public." : "Your profile and totals are private.")
+                            : "Review the exact public fields after your private first sync.",
+                        complete: store.publicLeaderboardPreferenceChosen,
+                        showsActionsWhenComplete: true,
+                    ) {
+                        PublicHealthPublicationDisclosure(includesHistory: $includesPublicActivityHistory)
+
+                        Button {
+                            Task {
+                                await store.setPublicHealthDataPublication(
+                                    isPublic: true,
+                                    includeHistory: includesPublicActivityHistory
+                                )
+                            }
+                        } label: {
+                            Label("Publish These Exact Totals", systemImage: "eye.square")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .accessibilityIdentifier("publish-health-totals-button")
+                        .disabled(store.busy || store.firstSyncAt == nil)
+
+                        Button {
+                            Task { await store.setPublicHealthDataPublication(isPublic: false) }
+                        } label: {
+                            Label("Keep My Profile Private", systemImage: "eye.slash")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("keep-health-totals-private-button")
+                        .disabled(store.busy || store.firstSyncAt == nil)
                     }
 
                     if let error = store.lastError {
@@ -177,9 +180,60 @@ struct OnboardingView: View {
                     }
                 }
                 .padding(20)
+                .onAppear {
+                    includesPublicActivityHistory = store.publicActivityHistoryPreference
+                }
             }
             .accessibilityIdentifier("onboarding-view")
             .background(Brand.paper)
+        }
+    }
+}
+
+struct PublicHealthPublicationDisclosure: View {
+    @EnvironmentObject private var store: PacePushStore
+    @Binding var includesHistory: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Optional public sharing")
+                .font(.headline.weight(.bold))
+            Text("If you publish, anyone on the internet can see these fields without an account:")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(Brand.muted)
+
+            disclosureRow("GitHub login and display name", value: "@\(store.me.login)")
+            disclosureRow("Exact distance this period", value: store.formatDistance(store.me.score.kilometers, includeUnit: true))
+            disclosureRow("GitHub commits", value: "\(store.me.score.commits)")
+            disclosureRow("Pace & Push score", value: store.me.score.score.formatted(.number.precision(.fractionLength(1))))
+            disclosureRow("Leaderboard rank", value: store.me.score.rank.map { "#\($0)" } ?? "Not ranked")
+            disclosureRow("Running streak", value: "\(store.me.streakDays) days")
+
+            Text("Your profile bio and last-sync time are also public. Other people may copy or share this information. Publishing is optional and can be withdrawn in Settings.")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Brand.muted)
+
+            Toggle("Also publish dated progress history", isOn: $includesHistory)
+                .tint(Brand.orange)
+                .accessibilityIdentifier("public-activity-history-toggle")
+
+            Text("Dated history is separate because changes between days can reveal when you were active. It is off unless you enable it.")
+                .font(.footnote)
+                .foregroundStyle(Brand.muted)
+        }
+        .padding(14)
+        .roundedBackground(Brand.surfacePanelHigh)
+        .roundedBorder(lineWidth: 1)
+    }
+
+    private func disclosureRow(_ label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(label)
+                .font(.footnote.weight(.semibold))
+            Spacer()
+            Text(value)
+                .font(.footnote.monospacedDigit().weight(.bold))
+                .multilineTextAlignment(.trailing)
         }
     }
 }
@@ -340,7 +394,7 @@ struct LeaderboardView: View {
 }
 
 struct LeaderboardPrivacyNotice: View {
-    private let message = "Your score is private. Select Public leaderboard in Settings to appear on this leaderboard."
+    private let message = "Your score is private. Choose Publish exact totals in Settings to appear on this leaderboard."
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -819,6 +873,7 @@ struct SettingsView: View {
     @State private var isSignOutConfirmationPresented = false
     @State private var isDeleteAccountConfirmationPresented = false
     @State private var accountExportItem: AccountExportItem?
+    @State private var includesPublicActivityHistory = false
 
     var body: some View {
         NavigationStack {
@@ -870,6 +925,9 @@ struct SettingsView: View {
 
                         StatusRow(label: "Apple Health", value: store.isDemoMode ? "Demo data" : store.healthAuthorized ? "Enabled" : "Needs permission")
                         if !store.isDemoMode && !store.healthAuthorized {
+                            Text("Pace & Push reads running workouts and uploads daily distance aggregates to your private account to calculate totals and score. Raw workouts and routes are not uploaded. Public sharing is a separate choice after sync.")
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(Brand.muted)
                             SettingsActionButton(
                                 "Enable Health",
                                 systemImage: "heart.text.square",
@@ -910,29 +968,56 @@ struct SettingsView: View {
                     }
 
                     SettingsSectionPanel("Privacy") {
-                        HStack(spacing: 16) {
-                            Text("Public leaderboard")
-                                .foregroundStyle(Brand.ink)
-                                .fontWeight(.semibold)
-                            Spacer()
-                            Toggle(
-                                "Public leaderboard",
-                                isOn: Binding(
-                                    get: { store.publicLeaderboardPreference },
-                                    set: { value in
-                                        Task { await store.setPublicLeaderboardPreference(value) }
-                                    },
-                                ),
-                            )
-                            .labelsHidden()
-                            .tint(Brand.orange)
-                            .accessibilityIdentifier("settings-public-leaderboard-toggle")
-                            .disabled(store.busy)
-                        }
-                        .padding(.vertical, 12)
-                        .borderedRow()
+                        StatusRow(
+                            label: "Public profile",
+                            value: store.publicLeaderboardPreference ? "Exact totals public" : "Private"
+                        )
 
-                        Text("Running distance summaries are synced by day. Raw workouts and routes are not uploaded.")
+                        PublicHealthPublicationDisclosure(includesHistory: $includesPublicActivityHistory)
+
+                        if store.publicLeaderboardPreference {
+                            SettingsActionButton(
+                                "Update public sharing",
+                                systemImage: "checkmark.shield",
+                                tone: .primary,
+                                isDisabled: store.busy,
+                            ) {
+                                Task {
+                                    await store.setPublicHealthDataPublication(
+                                        isPublic: true,
+                                        includeHistory: includesPublicActivityHistory
+                                    )
+                                }
+                            }
+                            .accessibilityIdentifier("settings-update-public-sharing-button")
+
+                            SettingsActionButton(
+                                "Make profile private",
+                                systemImage: "eye.slash",
+                                tone: .danger,
+                                isDisabled: store.busy,
+                            ) {
+                                Task { await store.setPublicHealthDataPublication(isPublic: false) }
+                            }
+                            .accessibilityIdentifier("settings-make-profile-private-button")
+                        } else {
+                            SettingsActionButton(
+                                "Publish exact totals",
+                                systemImage: "eye.square",
+                                tone: .primary,
+                                isDisabled: store.busy || store.firstSyncAt == nil,
+                            ) {
+                                Task {
+                                    await store.setPublicHealthDataPublication(
+                                        isPublic: true,
+                                        includeHistory: includesPublicActivityHistory
+                                    )
+                                }
+                            }
+                            .accessibilityIdentifier("settings-publish-health-totals-button")
+                        }
+
+                        Text("Daily running-distance aggregates sync to your private account. Raw workouts and routes are not uploaded.")
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(Brand.muted)
                             .padding(.top, 2)
@@ -966,6 +1051,12 @@ struct SettingsView: View {
                             }
                             .accessibilityIdentifier("settings-delete-account-button")
                         }
+                    }
+                    .onAppear {
+                        includesPublicActivityHistory = store.publicActivityHistoryPreference
+                    }
+                    .onChange(of: store.publicActivityHistoryPreference) { _, value in
+                        includesPublicActivityHistory = value
                     }
 
                     if store.showsServerSettings {
@@ -1847,7 +1938,7 @@ protocol PacePushClienting {
     func fetchMe(period: String) async throws -> MeResponse
     func fetchProfile(period: String) async throws -> PublicProfileResponse
     func fetchPublicProfile(login: String, period: String) async throws -> PublicProfileResponse
-    func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse
+    func updateSettings(publicLeaderboard: Bool?, publicHealthDataConsent: PublicHealthDataConsentRequest?, units: String?) async throws -> AccountSettingsResponse
     func uploadDistanceDays(_ days: [HealthKitDistanceDay]) async throws -> DistanceDaysResponse
     func recordSyncRun(_ run: SyncRunRequest) async throws
 }
@@ -2086,6 +2177,8 @@ final class PacePushStore: ObservableObject {
     private let activePeriodKey = "activeScorePeriod"
     private let publicLeaderboardPreferenceKey = "publicLeaderboardPreference"
     private let publicLeaderboardPreferenceChosenKey = "publicLeaderboardPreferenceChosen"
+    private let publicActivityHistoryPreferenceKey = "publicActivityHistoryPreference"
+    private let publicationDecisionVersionKey = "publicationDecisionVersion"
     private let historicalDistanceSyncVersionKey = "historicalDistanceSyncVersion"
     private let keychain: KeychainStoring
     private let healthSync: HealthDistanceSyncing
@@ -2099,6 +2192,7 @@ final class PacePushStore: ObservableObject {
     private var periodRefreshRequestID: UUID?
     private static let distanceUploadBatchSize = 45
     private static let historicalDistanceSyncVersion = "current-utc-year-v1"
+    nonisolated static let publicHealthDataConsentVersion = "public-health-v1"
 
     @Published var leaderboard = LeaderboardResponse.seed
     @Published var me = MeResponse.seed
@@ -2110,6 +2204,7 @@ final class PacePushStore: ObservableObject {
     @Published var firstSyncAt: String?
     @Published var publicLeaderboardPreference: Bool
     @Published var publicLeaderboardPreferenceChosen: Bool
+    @Published var publicActivityHistoryPreference: Bool
     @Published var activePeriod: ScorePeriod {
         didSet {
             preferences.set(activePeriod.rawValue, forKey: activePeriodKey)
@@ -2145,7 +2240,11 @@ final class PacePushStore: ObservableObject {
     }
 
     var shareProfileURL: URL? {
-        guard isGitHubConnected, hasLoadedAccountSnapshot, firstSyncAt != nil else { return nil }
+        guard isGitHubConnected,
+              hasLoadedAccountSnapshot,
+              firstSyncAt != nil,
+              publicLeaderboardPreference
+        else { return nil }
         return SupportLinks.publicProfileURL(login: me.login)
     }
 
@@ -2154,7 +2253,12 @@ final class PacePushStore: ObservableObject {
     }
 
     var onboardingComplete: Bool {
-        isDemoMode || (publicLeaderboardPreferenceChosen && isGitHubConnected && healthAuthorized)
+        isDemoMode || (
+            publicLeaderboardPreferenceChosen &&
+            isGitHubConnected &&
+            healthAuthorized &&
+            firstSyncAt != nil
+        )
     }
 
     var canRetryFirstSync: Bool {
@@ -2238,8 +2342,17 @@ final class PacePushStore: ObservableObject {
             ?? .system
         healthAuthorized = preferences.bool(forKey: healthKey)
         firstSyncAt = preferences.string(forKey: firstSyncKey)
-        publicLeaderboardPreference = preferences.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? false
-        publicLeaderboardPreferenceChosen = preferences.bool(forKey: publicLeaderboardPreferenceChosenKey)
+        let hasCurrentPublicationDecision =
+            preferences.bool(forKey: publicLeaderboardPreferenceChosenKey) &&
+            preferences.string(forKey: publicationDecisionVersionKey) == Self.publicHealthDataConsentVersion
+        let initialPublicPreference = hasCurrentPublicationDecision
+            ? (preferences.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? false)
+            : false
+        publicLeaderboardPreferenceChosen = hasCurrentPublicationDecision
+        publicLeaderboardPreference = initialPublicPreference
+        publicActivityHistoryPreference = hasCurrentPublicationDecision && initialPublicPreference
+            ? (preferences.object(forKey: publicActivityHistoryPreferenceKey) as? Bool ?? false)
+            : false
         isDemoMode = preferences.bool(forKey: demoModeKey)
         activePeriod = preferences.string(forKey: activePeriodKey)
             .flatMap { ScorePeriod($0) }
@@ -2393,18 +2506,20 @@ final class PacePushStore: ObservableObject {
         }
     }
 
-    func setPublicLeaderboardPreference(_ isPublic: Bool) async {
-        publicLeaderboardPreference = isPublic
-        publicLeaderboardPreferenceChosen = true
-        preferences.set(isPublic, forKey: publicLeaderboardPreferenceKey)
-        preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
-
+    func setPublicHealthDataPublication(isPublic: Bool, includeHistory: Bool = false) async {
         guard !isDemoMode else {
+            publicLeaderboardPreference = isPublic
+            publicActivityHistoryPreference = isPublic && includeHistory
+            publicLeaderboardPreferenceChosen = true
             applyDemoSnapshot()
             return
         }
 
-        guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else { return }
+        guard let token = deviceToken, let baseURL = URL(string: apiBaseURL) else {
+            lastError = "Connect GitHub before choosing whether to publish your totals."
+            lastSuccess = nil
+            return
+        }
 
         busy = true
         lastError = nil
@@ -2412,21 +2527,49 @@ final class PacePushStore: ObservableObject {
         defer { busy = false }
 
         do {
-            try await savePublicLeaderboardPreference(isPublic, baseURL: baseURL, token: token)
+            let consent = isPublic
+                ? PublicHealthDataConsentRequest(
+                    version: Self.publicHealthDataConsentVersion,
+                    publishExactPeriodKilometers: true,
+                    publicActivityHistory: includeHistory
+                )
+                : nil
+            let client = apiClientFactory(baseURL, token)
+            let settings = try await client.updateSettings(
+                publicLeaderboard: isPublic,
+                publicHealthDataConsent: consent,
+                units: nil
+            )
+            try applyConfirmedPublicationSettings(
+                settings,
+                expectedPublic: isPublic,
+                expectedHistory: isPublic && includeHistory
+            )
+            lastSuccess = isPublic
+                ? "Your exact totals are now public. You can withdraw this permission at any time."
+                : "Your profile and health-derived totals are private."
             await refresh()
         } catch PacePushAPIError.unauthorized {
             signOut()
             lastError = "This device was revoked. Connect GitHub again."
         } catch {
-            publicLeaderboardPreference = me.publicLeaderboard
-            preferences.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
             lastError = error.localizedDescription
             lastSuccess = nil
         }
     }
 
+    func setPublicLeaderboardPreference(_ isPublic: Bool) async {
+        await setPublicHealthDataPublication(
+            isPublic: isPublic,
+            includeHistory: isPublic && publicActivityHistoryPreference
+        )
+    }
+
     func confirmPublicLeaderboardPreference() async {
-        await setPublicLeaderboardPreference(publicLeaderboardPreference)
+        await setPublicHealthDataPublication(
+            isPublic: publicLeaderboardPreference,
+            includeHistory: publicLeaderboardPreference && publicActivityHistoryPreference
+        )
     }
 
     func disconnectGitHub() async {
@@ -2669,10 +2812,7 @@ final class PacePushStore: ObservableObject {
 
                 leaderboard = refreshedLeaderboard
                 me = refreshedMe
-                publicLeaderboardPreference = me.publicLeaderboard
-                publicLeaderboardPreferenceChosen = true
-                preferences.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
-                preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
+                applyAuthoritativePublicationState(from: me)
                 profile = refreshedProfile
                 hasLoadedAccountSnapshot = true
             } else {
@@ -2786,6 +2926,13 @@ final class PacePushStore: ObservableObject {
         firstSyncAt = nil
         preferences.removeObject(forKey: firstSyncKey)
         preferences.removeObject(forKey: historicalDistanceSyncVersionKey)
+        publicLeaderboardPreference = false
+        publicActivityHistoryPreference = false
+        publicLeaderboardPreferenceChosen = false
+        preferences.removeObject(forKey: publicLeaderboardPreferenceKey)
+        preferences.removeObject(forKey: publicActivityHistoryPreferenceKey)
+        preferences.removeObject(forKey: publicLeaderboardPreferenceChosenKey)
+        preferences.removeObject(forKey: publicationDecisionVersionKey)
         me = .seed
         profile = .seed
         lastSuccess = nil
@@ -2796,6 +2943,9 @@ final class PacePushStore: ObservableObject {
         me = DemoData.me(period: activePeriod)
         profile = DemoData.profile(login: DemoData.primaryLogin, period: activePeriod)
         hasLoadedAccountSnapshot = true
+        publicLeaderboardPreference = true
+        publicActivityHistoryPreference = true
+        publicLeaderboardPreferenceChosen = true
         lastError = nil
     }
 
@@ -2809,13 +2959,54 @@ final class PacePushStore: ObservableObject {
         profile = .seed
     }
 
-    private func savePublicLeaderboardPreference(_ isPublic: Bool, baseURL: URL, token: String) async throws {
-        let client = apiClientFactory(baseURL, token)
-        let settings = try await client.updateSettings(publicLeaderboard: isPublic, units: nil)
-        publicLeaderboardPreference = settings.publicLeaderboard
+    private func applyConfirmedPublicationSettings(
+        _ settings: AccountSettingsResponse,
+        expectedPublic: Bool,
+        expectedHistory: Bool
+    ) throws {
+        let hasCurrentConsent = settings.publicLeaderboard &&
+            settings.publicHealthDataConsentVersion == Self.publicHealthDataConsentVersion &&
+            settings.publicHealthDataConsentedAt != nil
+        let confirmedPublic = settings.publicLeaderboard && hasCurrentConsent
+        let confirmedHistory = confirmedPublic && settings.publicActivityHistory
+        guard confirmedPublic == expectedPublic, confirmedHistory == expectedHistory else {
+            throw PacePushAPIError.server(
+                "Pace & Push could not confirm your publication choice. Your previous setting is still shown; please try again."
+            )
+        }
+        savePublicationDecision(isPublic: confirmedPublic, includesHistory: confirmedHistory)
+    }
+
+    private func applyAuthoritativePublicationState(from response: MeResponse) {
+        let isCurrentlyPublic = response.publicLeaderboard &&
+            response.publicHealthDataConsentVersion == Self.publicHealthDataConsentVersion &&
+            response.publicHealthDataConsentedAt != nil
+        let hasCurrentPrivateDecision =
+            preferences.bool(forKey: publicLeaderboardPreferenceChosenKey) &&
+            preferences.string(forKey: publicationDecisionVersionKey) == Self.publicHealthDataConsentVersion &&
+            !(preferences.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? false)
+
+        publicLeaderboardPreference = isCurrentlyPublic
+        publicActivityHistoryPreference = isCurrentlyPublic && response.publicActivityHistory
+        publicLeaderboardPreferenceChosen = isCurrentlyPublic || hasCurrentPrivateDecision
+        preferences.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
+        preferences.set(publicActivityHistoryPreference, forKey: publicActivityHistoryPreferenceKey)
+        preferences.set(publicLeaderboardPreferenceChosen, forKey: publicLeaderboardPreferenceChosenKey)
+        if isCurrentlyPublic {
+            preferences.set(Self.publicHealthDataConsentVersion, forKey: publicationDecisionVersionKey)
+        } else if !hasCurrentPrivateDecision {
+            preferences.removeObject(forKey: publicationDecisionVersionKey)
+        }
+    }
+
+    private func savePublicationDecision(isPublic: Bool, includesHistory: Bool) {
+        publicLeaderboardPreference = isPublic
+        publicActivityHistoryPreference = isPublic && includesHistory
         publicLeaderboardPreferenceChosen = true
-        preferences.set(settings.publicLeaderboard, forKey: publicLeaderboardPreferenceKey)
+        preferences.set(publicLeaderboardPreference, forKey: publicLeaderboardPreferenceKey)
+        preferences.set(publicActivityHistoryPreference, forKey: publicActivityHistoryPreferenceKey)
         preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
+        preferences.set(Self.publicHealthDataConsentVersion, forKey: publicationDecisionVersionKey)
     }
 
     func formatDistance(_ kilometers: Double, includeUnit: Bool = false) -> String {
@@ -2840,18 +3031,14 @@ final class PacePushStore: ObservableObject {
         }
 
         accountLoadPhase = .securingDevice
-        let preferredPublicLeaderboard = publicLeaderboardPreference
         let client = apiClientFactory(baseURL, nil)
         let exchange = try await client.exchangeMobileAuthCode(
             code,
             codeVerifier: codeVerifier,
-            publicLeaderboard: preferredPublicLeaderboard
+            publicLeaderboard: false
         )
         pendingMobileAuthCodeVerifier = nil
-        try confirmExchangePrivacyChoice(
-            exchange.publicLeaderboard,
-            expected: preferredPublicLeaderboard
-        )
+        try confirmPrivateExchange(exchange)
         try keychain.saveString(exchange.token, account: tokenKey)
         hasLoadedAccountSnapshot = false
         deviceToken = exchange.token
@@ -2894,19 +3081,15 @@ final class PacePushStore: ObservableObject {
     }
 
     private func finishPairing(_ pairing: PairingPayload, baseURL: URL) async throws {
-        let preferredPublicLeaderboard = publicLeaderboardPreference
         let client = apiClientFactory(baseURL, nil)
         accountLoadPhase = .securingDevice
         let exchange = try await client.exchangeDevicePairing(
             code: pairing.code,
             platform: "ios",
             label: deviceLabel(),
-            publicLeaderboard: preferredPublicLeaderboard
+            publicLeaderboard: false
         )
-        try confirmExchangePrivacyChoice(
-            exchange.publicLeaderboard,
-            expected: preferredPublicLeaderboard
-        )
+        try confirmPrivateExchange(exchange)
         try keychain.saveString(exchange.token, account: tokenKey)
         hasLoadedAccountSnapshot = false
         deviceToken = exchange.token
@@ -2921,19 +3104,19 @@ final class PacePushStore: ObservableObject {
         accountLoadPhase = .idle
     }
 
-    private func confirmExchangePrivacyChoice(
-        _ confirmed: Bool,
-        expected: Bool
-    ) throws {
-        guard confirmed == expected else {
+    private func confirmPrivateExchange(_ exchange: DeviceExchangeResponse) throws {
+        guard !exchange.publicLeaderboard, !exchange.publicActivityHistory else {
             throw PacePushAPIError.server(
-                "Pace & Push could not confirm your privacy setting. No device credential was saved. Please connect again."
+                "Pace & Push could not confirm private setup. No device credential was saved. Please connect again."
             )
         }
-        publicLeaderboardPreference = confirmed
-        publicLeaderboardPreferenceChosen = true
-        preferences.set(confirmed, forKey: publicLeaderboardPreferenceKey)
-        preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
+        publicLeaderboardPreference = false
+        publicActivityHistoryPreference = false
+        publicLeaderboardPreferenceChosen = false
+        preferences.set(false, forKey: publicLeaderboardPreferenceKey)
+        preferences.set(false, forKey: publicActivityHistoryPreferenceKey)
+        preferences.set(false, forKey: publicLeaderboardPreferenceChosenKey)
+        preferences.removeObject(forKey: publicationDecisionVersionKey)
     }
 
     private var setupReadyForFirstSync: Bool {
@@ -2968,7 +3151,7 @@ final class PacePushStore: ObservableObject {
 
     private func syncFirstRunIfReady() async {
         guard bootstrapSyncEnabled, setupReadyForFirstSync else { return }
-        await syncRunningDistance(successMessage: "Setup complete. Running data synced.")
+        await syncRunningDistance(successMessage: "Private sync complete. Review whether to publish your exact totals.")
     }
 }
 
@@ -2992,10 +3175,12 @@ extension PacePushStore {
         var preferences: [String: Any] = hasConnectedSeed ? [
             "healthAuthorized": true,
             "publicLeaderboardPreference": !isPrivateLeaderboard,
+            "publicActivityHistoryPreference": !isPrivateLeaderboard,
             "publicLeaderboardPreferenceChosen": true,
+            "publicationDecisionVersion": PacePushStore.publicHealthDataConsentVersion,
             "distanceUnits": "metric",
         ] : [:]
-        if isSeeded || isAppStoreScreenshots {
+        if isSeeded || isAppStoreScreenshots || isPrivateLeaderboard {
             preferences["firstSyncAt"] = "2026-07-06T12:00:00.000Z"
         }
 
@@ -3151,6 +3336,10 @@ private final class UITestingPacePushClient: PacePushClienting {
             login: testLogin,
             displayName: testDisplayName,
             publicLeaderboard: publicLeaderboard,
+            publicActivityHistory: publicLeaderboard,
+            publicHealthDataConsentVersion: publicLeaderboard ? PacePushStore.publicHealthDataConsentVersion : nil,
+            publicHealthDataConsentedAt: publicLeaderboard ? "2026-07-06T12:00:00.000Z" : nil,
+            streakDays: 11,
             units: "metric",
             score: scoreSummary(for: period),
             devices: [deviceExchangeResponse.device]
@@ -3164,7 +3353,8 @@ private final class UITestingPacePushClient: PacePushClienting {
             displayName: testDisplayName,
             bio: sampleProfileBio,
             score: scoreSummary(for: period),
-            history: history(for: period)
+            history: history(for: period),
+            historyVisibility: "owner"
         )
     }
 
@@ -3175,15 +3365,21 @@ private final class UITestingPacePushClient: PacePushClienting {
             displayName: login.localizedCaseInsensitiveCompare(testLogin) == .orderedSame ? testDisplayName : login,
             bio: sampleProfileBio,
             score: scoreSummary(for: period),
-            history: history(for: period)
+            history: history(for: period),
+            historyVisibility: publicLeaderboard ? "public" : "private"
         )
     }
 
-    func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse {
-        AccountSettingsResponse(
+    func updateSettings(publicLeaderboard: Bool?, publicHealthDataConsent: PublicHealthDataConsentRequest?, units: String?) async throws -> AccountSettingsResponse {
+        let isPublic = publicLeaderboard ?? self.publicLeaderboard
+        let includesHistory = isPublic && (publicHealthDataConsent?.publicActivityHistory ?? self.publicLeaderboard)
+        return AccountSettingsResponse(
             login: testLogin,
             displayName: testDisplayName,
-            publicLeaderboard: publicLeaderboard ?? self.publicLeaderboard,
+            publicLeaderboard: isPublic,
+            publicActivityHistory: includesHistory,
+            publicHealthDataConsentVersion: isPublic ? PacePushStore.publicHealthDataConsentVersion : nil,
+            publicHealthDataConsentedAt: isPublic ? "2026-07-06T12:00:00.000Z" : nil,
             units: units ?? "metric"
         )
     }
@@ -3254,6 +3450,9 @@ private final class UITestingPacePushClient: PacePushClienting {
                 revoked: false
             ),
             publicLeaderboard: publicLeaderboard,
+            publicActivityHistory: publicLeaderboard,
+            publicHealthDataConsentVersion: publicLeaderboard ? PacePushStore.publicHealthDataConsentVersion : nil,
+            publicHealthDataConsentedAt: publicLeaderboard ? "2026-07-06T12:00:00.000Z" : nil,
             token: "ui-testing-token"
         )
     }
@@ -3411,10 +3610,14 @@ final class PacePushAPIClient: PacePushClienting {
         )
     }
 
-    func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse {
+    func updateSettings(publicLeaderboard: Bool?, publicHealthDataConsent: PublicHealthDataConsentRequest?, units: String?) async throws -> AccountSettingsResponse {
         try await patch(
             "/api/mobile/me/settings",
-            body: AccountSettingsRequest(publicLeaderboard: publicLeaderboard, units: units),
+            body: AccountSettingsRequest(
+                publicLeaderboard: publicLeaderboard,
+                publicHealthDataConsent: publicHealthDataConsent,
+                units: units
+            ),
             authenticated: true,
         )
     }
@@ -4265,6 +4468,9 @@ struct DevicePairingExchangeRequest: Encodable {
 struct DeviceExchangeResponse: Decodable {
     let device: MobileDeviceSummary
     let publicLeaderboard: Bool
+    let publicActivityHistory: Bool
+    let publicHealthDataConsentVersion: String?
+    let publicHealthDataConsentedAt: String?
     let token: String
 }
 
@@ -4310,8 +4516,15 @@ struct SyncRunResponse: Decodable {
     let status: String
 }
 
+struct PublicHealthDataConsentRequest: Encodable {
+    let version: String
+    let publishExactPeriodKilometers: Bool
+    let publicActivityHistory: Bool
+}
+
 struct AccountSettingsRequest: Encodable {
     let publicLeaderboard: Bool?
+    let publicHealthDataConsent: PublicHealthDataConsentRequest?
     let units: String?
 }
 
@@ -4319,6 +4532,9 @@ struct AccountSettingsResponse: Decodable {
     let login: String
     let displayName: String
     let publicLeaderboard: Bool
+    let publicActivityHistory: Bool
+    let publicHealthDataConsentVersion: String?
+    let publicHealthDataConsentedAt: String?
     let units: String
 }
 
@@ -4350,6 +4566,10 @@ struct MeResponse: Decodable {
     let login: String
     let displayName: String
     let publicLeaderboard: Bool
+    let publicActivityHistory: Bool
+    let publicHealthDataConsentVersion: String?
+    let publicHealthDataConsentedAt: String?
+    let streakDays: Int
     let units: String
     let score: ScoreSummary
     let devices: [MobileDeviceSummary]
@@ -4358,6 +4578,10 @@ struct MeResponse: Decodable {
         login: "guest",
         displayName: "Guest",
         publicLeaderboard: false,
+        publicActivityHistory: false,
+        publicHealthDataConsentVersion: nil,
+        publicHealthDataConsentedAt: nil,
+        streakDays: 0,
         units: "metric",
         score: ScoreSummary(period: "2026-07", score: 0, rank: nil, commits: 0, kilometers: 0, lastSyncAt: nil),
         devices: []
@@ -4370,13 +4594,15 @@ struct PublicProfileResponse: Decodable {
     let bio: String?
     let score: ScoreSummary
     let history: [ProfileHistoryPoint]
+    let historyVisibility: String
 
     static let seed = PublicProfileResponse(
         login: "guest",
         displayName: "Guest",
         bio: nil,
         score: MeResponse.seed.score,
-        history: []
+        history: [],
+        historyVisibility: "private"
     )
 }
 
@@ -4401,6 +4627,10 @@ enum DemoData {
             login: row.login,
             displayName: row.displayName,
             publicLeaderboard: true,
+            publicActivityHistory: true,
+            publicHealthDataConsentVersion: PacePushStore.publicHealthDataConsentVersion,
+            publicHealthDataConsentedAt: "2026-07-10T09:30:00.000Z",
+            streakDays: row.streakDays,
             units: "metric",
             score: score(for: row, period: period),
             devices: []
@@ -4415,7 +4645,8 @@ enum DemoData {
             displayName: row.displayName,
             bio: "Sample App Review profile.",
             score: score(for: row, period: period),
-            history: history(for: row, period: period)
+            history: history(for: row, period: period),
+            historyVisibility: "public"
         )
     }
 

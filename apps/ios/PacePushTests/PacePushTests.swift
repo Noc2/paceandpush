@@ -297,7 +297,8 @@ final class PacePushTests: XCTestCase {
             "kilometers": 25.5,
             "lastSyncAt": null
           },
-          "history": []
+          "history": [],
+          "historyVisibility": "owner"
         }
         """)
         let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: "token-123", dataLoader: loader)
@@ -327,7 +328,8 @@ final class PacePushTests: XCTestCase {
             "kilometers": 12.3,
             "lastSyncAt": null
           },
-          "history": []
+          "history": [],
+          "historyVisibility": "private"
         }
         """)
         let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: "token-123", dataLoader: loader)
@@ -419,6 +421,9 @@ final class PacePushTests: XCTestCase {
             "revoked": false
           },
           "publicLeaderboard": false,
+          "publicActivityHistory": false,
+          "publicHealthDataConsentVersion": null,
+          "publicHealthDataConsentedAt": null,
           "token": "device-token"
         }
         """)
@@ -450,12 +455,13 @@ final class PacePushTests: XCTestCase {
             "healthAuthorized": true,
             "publicLeaderboardPreference": true,
             "publicLeaderboardPreferenceChosen": true,
+            "publicationDecisionVersion": PacePushStore.publicHealthDataConsentVersion,
         ])
         let client = FakePacePushClient()
         client.distanceDaysResponse = DistanceDaysResponse(accepted: 1, flagged: 0)
         client.deviceExchangeResponse = Self.deviceExchangeResponse(token: "device-token")
         client.leaderboardResponse = LeaderboardResponse(period: "2026-07", board: .balanced, rows: [])
-        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.meResponse = Self.meResponse(publicLeaderboard: false)
         client.profileResponse = Self.profileResponse()
 
         let store = PacePushStore(
@@ -483,26 +489,29 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(try keychain.readString(account: "mobileDeviceToken"), "device-token")
         XCTAssertEqual(client.exchangedPairingCodes, ["pp_pair.test"])
         XCTAssertEqual(client.exchangedPairingLabels, ["Test iPhone"])
-        XCTAssertEqual(client.exchangedPairingPrivacyChoices, [true])
+        XCTAssertEqual(client.exchangedPairingPrivacyChoices, [false])
         XCTAssertEqual(client.uploadedDistanceDays.first?.map(\.date), ["2026-07-02"])
         XCTAssertEqual(client.recordedSyncRuns.first?.status, "success")
         XCTAssertNotNil(store.firstSyncAt)
         XCTAssertNil(store.lastError)
-        XCTAssertEqual(store.lastSuccess, "Setup complete. Running data synced.")
+        XCTAssertEqual(store.lastSuccess, "Private sync complete. Review whether to publish your exact totals.")
+        XCTAssertFalse(store.onboardingComplete)
+        XCTAssertFalse(store.publicLeaderboardPreferenceChosen)
     }
 
     @MainActor
-    func testStoreRejectsUnconfirmedPrivacyChoiceBeforeSavingTokenOrSyncingHealth() async throws {
+    func testStoreRejectsNonPrivateExchangeBeforeSavingTokenOrSyncingHealth() async throws {
         let keychain = InMemoryKeychain()
         let preferences = InMemoryPreferences(values: [
             "healthAuthorized": true,
             "publicLeaderboardPreference": true,
             "publicLeaderboardPreferenceChosen": true,
+            "publicationDecisionVersion": PacePushStore.publicHealthDataConsentVersion,
         ])
         let client = FakePacePushClient()
         client.deviceExchangeResponse = Self.deviceExchangeResponse(
             token: "must-not-be-saved",
-            publicLeaderboard: false
+            publicLeaderboard: true
         )
 
         let store = PacePushStore(
@@ -525,12 +534,12 @@ final class PacePushTests: XCTestCase {
 
         await store.connectGitHub()
 
-        XCTAssertEqual(client.exchangedMobileAuthPrivacyChoices, [true])
+        XCTAssertEqual(client.exchangedMobileAuthPrivacyChoices, [false])
         XCTAssertNil(store.deviceToken)
         XCTAssertNil(try keychain.readString(account: "mobileDeviceToken"))
         XCTAssertTrue(client.uploadedDistanceDays.isEmpty)
         XCTAssertTrue(client.recordedSyncRuns.isEmpty)
-        XCTAssertTrue(store.lastError?.contains("privacy setting") == true)
+        XCTAssertTrue(store.lastError?.contains("private setup") == true)
     }
 
     @MainActor
@@ -540,6 +549,7 @@ final class PacePushTests: XCTestCase {
             "healthAuthorized": true,
             "publicLeaderboardPreference": true,
             "publicLeaderboardPreferenceChosen": true,
+            "publicationDecisionVersion": PacePushStore.publicHealthDataConsentVersion,
         ])
         let healthSync = FakeHealthSync(days: [
             HealthKitDistanceDay(
@@ -555,7 +565,7 @@ final class PacePushTests: XCTestCase {
         client.deviceExchangeResponse = Self.deviceExchangeResponse(token: "device-token")
         client.distanceDaysResponse = DistanceDaysResponse(accepted: 1, flagged: 0)
         client.leaderboardResponse = LeaderboardResponse(period: "2026-07", board: .balanced, rows: [])
-        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.meResponse = Self.meResponse(publicLeaderboard: false)
         client.profileResponse = Self.profileResponse()
 
         let store = PacePushStore(
@@ -589,11 +599,11 @@ final class PacePushTests: XCTestCase {
         XCTAssertFalse(store.shouldShowAccountLoading)
         XCTAssertEqual(store.accountLoadPhase, .idle)
         XCTAssertNotNil(store.firstSyncAt)
-        XCTAssertEqual(store.lastSuccess, "Setup complete. Running data synced.")
+        XCTAssertEqual(store.lastSuccess, "Private sync complete. Review whether to publish your exact totals.")
     }
 
     @MainActor
-    func testOnboardingCompletesWhenGitHubAndHealthAreReadyBeforeFirstSync() throws {
+    func testOnboardingWaitsForFirstSyncAndCurrentPublicationDecision() throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")
 
@@ -604,15 +614,134 @@ final class PacePushTests: XCTestCase {
             preferences: InMemoryPreferences(values: [
                 "healthAuthorized": true,
                 "publicLeaderboardPreferenceChosen": true,
+                "publicationDecisionVersion": PacePushStore.publicHealthDataConsentVersion,
             ]),
             apiClientFactory: { _, _ in FakePacePushClient() },
             now: { date("2026-07-06T12:00:00.000Z") },
             bootstrapSyncEnabled: false
         )
 
-        XCTAssertTrue(store.onboardingComplete)
+        XCTAssertFalse(store.onboardingComplete)
         XCTAssertTrue(store.canRetryFirstSync)
         XCTAssertNil(store.firstSyncAt)
+    }
+
+    @MainActor
+    func testPublishingExactTotalsSendsCurrentVersionedConsent() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let client = FakePacePushClient()
+        client.settingsResponse = AccountSettingsResponse(
+            login: "noc2",
+            displayName: "David",
+            publicLeaderboard: true,
+            publicActivityHistory: true,
+            publicHealthDataConsentVersion: PacePushStore.publicHealthDataConsentVersion,
+            publicHealthDataConsentedAt: "2026-07-07T12:00:00.000Z",
+            units: "metric"
+        )
+        client.meResponse = Self.meResponse(publicLeaderboard: true)
+        client.profileResponse = Self.profileResponse()
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [
+                "healthAuthorized": true,
+                "firstSyncAt": "2026-07-07T11:00:00.000Z",
+            ]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-07T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.setPublicHealthDataPublication(isPublic: true, includeHistory: true)
+
+        XCTAssertEqual(client.settingsPublicationChoices, [true])
+        let consent = try XCTUnwrap(client.settingsConsentRequests.first ?? nil)
+        XCTAssertEqual(consent.version, PacePushStore.publicHealthDataConsentVersion)
+        XCTAssertTrue(consent.publishExactPeriodKilometers)
+        XCTAssertTrue(consent.publicActivityHistory)
+        XCTAssertTrue(store.publicLeaderboardPreference)
+        XCTAssertTrue(store.publicActivityHistoryPreference)
+        XCTAssertTrue(store.publicLeaderboardPreferenceChosen)
+        XCTAssertTrue(store.onboardingComplete)
+    }
+
+    @MainActor
+    func testKeepingTotalsPrivateCompletesOnboardingWithoutConsentPayload() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let client = FakePacePushClient()
+        client.settingsResponse = AccountSettingsResponse(
+            login: "noc2",
+            displayName: "David",
+            publicLeaderboard: false,
+            publicActivityHistory: false,
+            publicHealthDataConsentVersion: nil,
+            publicHealthDataConsentedAt: nil,
+            units: "metric"
+        )
+        client.meResponse = Self.meResponse(publicLeaderboard: false)
+        client.profileResponse = Self.profileResponse()
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [
+                "healthAuthorized": true,
+                "firstSyncAt": "2026-07-07T11:00:00.000Z",
+            ]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-07T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.setPublicHealthDataPublication(isPublic: false)
+
+        XCTAssertEqual(client.settingsPublicationChoices, [false])
+        XCTAssertNil(client.settingsConsentRequests.first ?? nil)
+        XCTAssertFalse(store.publicLeaderboardPreference)
+        XCTAssertTrue(store.publicLeaderboardPreferenceChosen)
+        XCTAssertTrue(store.onboardingComplete)
+    }
+
+    @MainActor
+    func testPublicationConfirmationMismatchPreservesPriorState() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let client = FakePacePushClient()
+        client.settingsResponse = AccountSettingsResponse(
+            login: "noc2",
+            displayName: "David",
+            publicLeaderboard: false,
+            publicActivityHistory: false,
+            publicHealthDataConsentVersion: nil,
+            publicHealthDataConsentedAt: nil,
+            units: "metric"
+        )
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [
+                "healthAuthorized": true,
+                "firstSyncAt": "2026-07-07T11:00:00.000Z",
+                "publicLeaderboardPreference": true,
+                "publicActivityHistoryPreference": true,
+                "publicLeaderboardPreferenceChosen": true,
+                "publicationDecisionVersion": PacePushStore.publicHealthDataConsentVersion,
+            ]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-07T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.setPublicHealthDataPublication(isPublic: true, includeHistory: true)
+
+        XCTAssertTrue(store.publicLeaderboardPreference)
+        XCTAssertTrue(store.publicActivityHistoryPreference)
+        XCTAssertTrue(store.lastError?.contains("could not confirm") == true)
     }
 
     @MainActor
@@ -977,7 +1106,8 @@ final class PacePushTests: XCTestCase {
             displayName: "Octo Cat",
             bio: nil,
             score: ScoreSummary(period: "2026-07", score: 51.2, rank: 2, commits: 88, kilometers: 12.3, lastSyncAt: nil),
-            history: []
+            history: [],
+            historyVisibility: "private"
         )
         let store = PacePushStore(
             healthSync: FakeHealthSync(days: []),
@@ -1181,6 +1311,10 @@ final class PacePushTests: XCTestCase {
       "login": "noc2",
       "displayName": "David",
       "publicLeaderboard": true,
+      "publicActivityHistory": true,
+      "publicHealthDataConsentVersion": "public-health-v1",
+      "publicHealthDataConsentedAt": "2026-07-07T12:00:00.000Z",
+      "streakDays": 7,
       "units": "metric",
       "score": {
         "period": "2026-07",
@@ -1215,6 +1349,10 @@ final class PacePushTests: XCTestCase {
             login: "noc2",
             displayName: "David",
             publicLeaderboard: publicLeaderboard,
+            publicActivityHistory: publicLeaderboard,
+            publicHealthDataConsentVersion: publicLeaderboard ? PacePushStore.publicHealthDataConsentVersion : nil,
+            publicHealthDataConsentedAt: publicLeaderboard ? "2026-07-07T12:00:00.000Z" : nil,
+            streakDays: 7,
             units: "metric",
             score: ScoreSummary(period: period, score: score, rank: 1, commits: commits, kilometers: kilometers, lastSyncAt: nil),
             devices: []
@@ -1241,13 +1379,14 @@ final class PacePushTests: XCTestCase {
             displayName: "David",
             bio: nil,
             score: ScoreSummary(period: period, score: score, rank: 1, commits: commits, kilometers: kilometers, lastSyncAt: nil),
-            history: []
+            history: [],
+            historyVisibility: "owner"
         )
     }
 
     fileprivate static func deviceExchangeResponse(
         token: String,
-        publicLeaderboard: Bool = true
+        publicLeaderboard: Bool = false
     ) -> DeviceExchangeResponse {
         DeviceExchangeResponse(
             device: MobileDeviceSummary(
@@ -1258,6 +1397,9 @@ final class PacePushTests: XCTestCase {
                 revoked: false
             ),
             publicLeaderboard: publicLeaderboard,
+            publicActivityHistory: publicLeaderboard,
+            publicHealthDataConsentVersion: publicLeaderboard ? PacePushStore.publicHealthDataConsentVersion : nil,
+            publicHealthDataConsentedAt: publicLeaderboard ? "2026-07-07T12:00:00.000Z" : nil,
             token: token
         )
     }
@@ -1371,12 +1513,23 @@ private final class FakePacePushClient: PacePushClienting {
     var meResponsesByPeriod: [String: MeResponse] = [:]
     var profileResponsesByPeriod: [String: PublicProfileResponse] = [:]
     var responseDelayNanosecondsByPeriod: [String: UInt64] = [:]
-    var settingsResponse = AccountSettingsResponse(login: "noc2", displayName: "David", publicLeaderboard: true, units: "metric")
+    var settingsResponse = AccountSettingsResponse(
+        login: "noc2",
+        displayName: "David",
+        publicLeaderboard: true,
+        publicActivityHistory: false,
+        publicHealthDataConsentVersion: PacePushStore.publicHealthDataConsentVersion,
+        publicHealthDataConsentedAt: "2026-07-07T12:00:00.000Z",
+        units: "metric"
+    )
     var distanceDaysResponse: DistanceDaysResponse?
     var exchangedPairingCodes: [String] = []
     var exchangedPairingLabels: [String] = []
     var exchangedPairingPrivacyChoices: [Bool] = []
     var exchangedMobileAuthPrivacyChoices: [Bool] = []
+    var settingsPublicationChoices: [Bool?] = []
+    var settingsConsentRequests: [PublicHealthDataConsentRequest?] = []
+    var settingsError: Error?
     var uploadedDistanceDays: [[HealthKitDistanceDay]] = []
     var recordedSyncRuns: [SyncRunRequest] = []
     var leaderboardPeriods: [String] = []
@@ -1452,8 +1605,13 @@ private final class FakePacePushClient: PacePushClienting {
         return publicProfileResponse
     }
 
-    func updateSettings(publicLeaderboard: Bool?, units: String?) async throws -> AccountSettingsResponse {
-        settingsResponse
+    func updateSettings(publicLeaderboard: Bool?, publicHealthDataConsent: PublicHealthDataConsentRequest?, units: String?) async throws -> AccountSettingsResponse {
+        settingsPublicationChoices.append(publicLeaderboard)
+        settingsConsentRequests.append(publicHealthDataConsent)
+        if let settingsError {
+            throw settingsError
+        }
+        return settingsResponse
     }
 
     func uploadDistanceDays(_ days: [HealthKitDistanceDay]) async throws -> DistanceDaysResponse {

@@ -63,6 +63,7 @@ export const seedMe: MeResponse = {
   publicActivityHistory: true,
   publicHealthDataConsentVersion: "public-health-v1",
   publicHealthDataConsentedAt: "2026-07-03T13:40:00.000Z",
+  streakDays: 11,
   units: "metric",
   score: {
     period: "2026-07",

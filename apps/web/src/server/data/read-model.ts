@@ -283,6 +283,7 @@ export async function getMe(
       publicActivityHistory: false,
       publicHealthDataConsentVersion: null,
       publicHealthDataConsentedAt: null,
+      streakDays: 0,
       units: "metric",
       score: emptyScore(period),
       github: emptyGitHubConnection(),
@@ -300,6 +301,7 @@ export async function getMe(
       publicActivityHistory: false,
       publicHealthDataConsentVersion: null,
       publicHealthDataConsentedAt: null,
+      streakDays: 0,
       units: "metric",
       score: emptyScore(period),
       github: emptyGitHubConnection(),
@@ -317,6 +319,7 @@ export async function getMe(
     publicHealthDataConsentVersion: account.publicHealthDataConsentVersion,
     publicHealthDataConsentedAt:
       account.publicHealthDataConsentedAt?.toISOString() ?? null,
+    streakDays: (await getStreakDaysByUserId([account.id], period)).get(account.id) ?? 0,
     units: account.units,
     score,
     github: await getGitHubConnectionSummary(account.id),

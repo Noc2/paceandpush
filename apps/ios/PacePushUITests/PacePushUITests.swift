@@ -13,16 +13,19 @@ final class PacePushUITests: XCTestCase {
 
         XCTAssertTrue(app.descendants(matching: .any)["onboarding-view"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Set up Pace & Push"].exists)
-        XCTAssertTrue(app.switches["public-leaderboard-toggle"].exists)
-        XCTAssertTrue(app.buttons["confirm-public-leaderboard-button"].exists)
         XCTAssertTrue(app.buttons["connect-github-button"].exists)
         XCTAssertTrue(app.buttons["enable-health-button"].exists)
-        let healthDisclosure = app.staticTexts["onboarding-step-3-detail"]
+        XCTAssertTrue(app.buttons["publish-health-totals-button"].exists)
+        XCTAssertTrue(app.buttons["keep-health-totals-private-button"].exists)
+        XCTAssertTrue(app.switches["public-activity-history-toggle"].exists)
+        let healthDisclosure = app.staticTexts["onboarding-step-2-detail"]
         XCTAssertTrue(healthDisclosure.exists)
         XCTAssertEqual(
             healthDisclosure.label,
-            "Pace & Push reads running workouts and uploads daily distance totals. Raw workouts and routes stay in Apple Health. Public scores use these totals on your profile and leaderboard."
+            "Pace & Push reads running workouts and uploads daily distance aggregates to calculate your totals and score. Your initial sync stays private; raw workouts and routes are never uploaded."
         )
+        XCTAssertTrue(app.staticTexts["Optional public sharing"].exists)
+        XCTAssertTrue(app.staticTexts["If you publish, anyone on the internet can see these fields without an account:"].exists)
         XCTAssertFalse(app.staticTexts["Sample data"].exists)
     }
 
@@ -115,7 +118,10 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["sync-now-button"].exists)
         XCTAssertTrue(app.buttons["settings-sign-out-button"].exists)
-        XCTAssertTrue(app.switches["settings-public-leaderboard-toggle"].exists)
+        XCTAssertTrue(app.switches["public-activity-history-toggle"].exists)
+        XCTAssertTrue(app.buttons["settings-update-public-sharing-button"].exists)
+        XCTAssertTrue(app.buttons["settings-make-profile-private-button"].exists)
+        XCTAssertFalse(app.switches["settings-public-leaderboard-toggle"].exists)
         XCTAssertFalse(app.staticTexts["Account"].exists)
         XCTAssertFalse(app.staticTexts["Developer"].exists)
         XCTAssertTrue(app.buttons["settings-privacy-policy-link"].exists)
@@ -141,13 +147,14 @@ final class PacePushUITests: XCTestCase {
         XCTAssertFalse(app.textFields["api-base-url-field"].isHittable)
     }
 
-    func testReadyLaunchShowsProfileBeforeFirstSyncCompletes() {
+    func testReadyLaunchStaysInPrivateSetupUntilFirstSyncCompletes() {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTestingReadyNoSync"]
         app.launch()
 
-        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.descendants(matching: .any)["onboarding-view"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding-view"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["profile-screen"].exists)
+        XCTAssertTrue(app.buttons["publish-health-totals-button"].exists)
     }
 
     func testSeededProfileShowsPeriodSelectorAndChart() {
@@ -217,7 +224,7 @@ final class PacePushUITests: XCTestCase {
         let notice = app.descendants(matching: .any)["private-leaderboard-notice"]
         XCTAssertTrue(notice.waitForExistence(timeout: 5))
         XCTAssertTrue(
-            app.staticTexts["Your score is private. Select Public leaderboard in Settings to appear on this leaderboard."].exists
+            app.staticTexts["Your score is private. Choose Publish exact totals in Settings to appear on this leaderboard."].exists
         )
     }
 

@@ -66,6 +66,7 @@ export interface MeResponse {
   publicActivityHistory: boolean;
   publicHealthDataConsentVersion: string | null;
   publicHealthDataConsentedAt: string | null;
+  streakDays: number;
   units: "metric" | "imperial";
   score: ScoreSummary;
   github: GitHubConnectionSummary;
