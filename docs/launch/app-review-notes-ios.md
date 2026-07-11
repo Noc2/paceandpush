@@ -63,6 +63,16 @@ contribute to the user's public profile and leaderboard when public scoring is
 enabled. Totals are bucketed by UTC calendar day; raw workouts and routes remain
 in Apple Health and are not uploaded.
 
+Leaderboard visibility is private by default. During setup, the user must
+explicitly choose whether to keep the score private or opt into public profile
+and leaderboard discovery before GitHub connection is enabled. The iOS app
+sends that choice in the one-time, PKCE-protected device exchange. The server
+applies the choice and returns the authoritative setting; the app verifies the
+response before saving the device credential, loading account data, or starting
+the first Apple Health sync. If the setting cannot be confirmed, setup stops,
+no device credential is saved, no Health data is uploaded, and the user sees an
+error with a retry path.
+
 ## Guideline Rationale
 
 Apple's review preparation guidance asks developers to provide full app access

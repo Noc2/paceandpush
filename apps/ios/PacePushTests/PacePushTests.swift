@@ -418,22 +418,29 @@ final class PacePushTests: XCTestCase {
             "lastSeenAt": null,
             "revoked": false
           },
+          "publicLeaderboard": false,
           "token": "device-token"
         }
         """)
         let client = PacePushAPIClient(baseURL: try XCTUnwrap(URL(string: "https://example.test")), token: nil, dataLoader: loader)
 
-        let response = try await client.exchangeMobileAuthCode("pp_mob_exchange_test", codeVerifier: "verifier-123")
+        let response = try await client.exchangeMobileAuthCode(
+            "pp_mob_exchange_test",
+            codeVerifier: "verifier-123",
+            publicLeaderboard: false
+        )
         let body = try XCTUnwrap(loader.requests.first?.httpBody)
         let json = try XCTUnwrap(
-            JSONSerialization.jsonObject(with: body) as? [String: String]
+            JSONSerialization.jsonObject(with: body) as? [String: Any]
         )
 
         XCTAssertEqual(response.token, "device-token")
+        XCTAssertFalse(response.publicLeaderboard)
         XCTAssertEqual(loader.requests.first?.httpMethod, "POST")
         XCTAssertEqual(loader.requests.first?.url?.path, "/api/mobile/auth/exchange")
-        XCTAssertEqual(json["code"], "pp_mob_exchange_test")
-        XCTAssertEqual(json["codeVerifier"], "verifier-123")
+        XCTAssertEqual(json["code"] as? String, "pp_mob_exchange_test")
+        XCTAssertEqual(json["codeVerifier"] as? String, "verifier-123")
+        XCTAssertEqual(json["publicLeaderboard"] as? Bool, false)
     }
 
     @MainActor
@@ -476,11 +483,54 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(try keychain.readString(account: "mobileDeviceToken"), "device-token")
         XCTAssertEqual(client.exchangedPairingCodes, ["pp_pair.test"])
         XCTAssertEqual(client.exchangedPairingLabels, ["Test iPhone"])
+        XCTAssertEqual(client.exchangedPairingPrivacyChoices, [true])
         XCTAssertEqual(client.uploadedDistanceDays.first?.map(\.date), ["2026-07-02"])
         XCTAssertEqual(client.recordedSyncRuns.first?.status, "success")
         XCTAssertNotNil(store.firstSyncAt)
         XCTAssertNil(store.lastError)
         XCTAssertEqual(store.lastSuccess, "Setup complete. Running data synced.")
+    }
+
+    @MainActor
+    func testStoreRejectsUnconfirmedPrivacyChoiceBeforeSavingTokenOrSyncingHealth() async throws {
+        let keychain = InMemoryKeychain()
+        let preferences = InMemoryPreferences(values: [
+            "healthAuthorized": true,
+            "publicLeaderboardPreference": true,
+            "publicLeaderboardPreferenceChosen": true,
+        ])
+        let client = FakePacePushClient()
+        client.deviceExchangeResponse = Self.deviceExchangeResponse(
+            token: "must-not-be-saved",
+            publicLeaderboard: false
+        )
+
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: [
+                HealthKitDistanceDay(
+                    id: "2026-07-02",
+                    date: "2026-07-02",
+                    meters: 1000,
+                    sourcePlatform: "ios",
+                    sourceHash: "healthkit-ios-running-2026-07-02-1000"
+                ),
+            ]),
+            authSession: FakeGitHubAuthSession(),
+            preferences: preferences,
+            apiClientFactory: { _, _ in client },
+            deviceLabel: { "Test iPhone" },
+            now: { date("2026-07-06T12:00:00.000Z") }
+        )
+
+        await store.connectGitHub()
+
+        XCTAssertEqual(client.exchangedMobileAuthPrivacyChoices, [true])
+        XCTAssertNil(store.deviceToken)
+        XCTAssertNil(try keychain.readString(account: "mobileDeviceToken"))
+        XCTAssertTrue(client.uploadedDistanceDays.isEmpty)
+        XCTAssertTrue(client.recordedSyncRuns.isEmpty)
+        XCTAssertTrue(store.lastError?.contains("privacy setting") == true)
     }
 
     @MainActor
@@ -1195,7 +1245,10 @@ final class PacePushTests: XCTestCase {
         )
     }
 
-    fileprivate static func deviceExchangeResponse(token: String) -> DeviceExchangeResponse {
+    fileprivate static func deviceExchangeResponse(
+        token: String,
+        publicLeaderboard: Bool = true
+    ) -> DeviceExchangeResponse {
         DeviceExchangeResponse(
             device: MobileDeviceSummary(
                 id: "device-1",
@@ -1204,6 +1257,7 @@ final class PacePushTests: XCTestCase {
                 lastSeenAt: nil,
                 revoked: false
             ),
+            publicLeaderboard: publicLeaderboard,
             token: token
         )
     }
@@ -1321,6 +1375,8 @@ private final class FakePacePushClient: PacePushClienting {
     var distanceDaysResponse: DistanceDaysResponse?
     var exchangedPairingCodes: [String] = []
     var exchangedPairingLabels: [String] = []
+    var exchangedPairingPrivacyChoices: [Bool] = []
+    var exchangedMobileAuthPrivacyChoices: [Bool] = []
     var uploadedDistanceDays: [[HealthKitDistanceDay]] = []
     var recordedSyncRuns: [SyncRunRequest] = []
     var leaderboardPeriods: [String] = []
@@ -1339,13 +1395,15 @@ private final class FakePacePushClient: PacePushClienting {
         URL(string: "https://example.test/start?platform=\(platform)&callbackScheme=\(callbackScheme)&codeChallenge=\(codeChallenge)")!
     }
 
-    func exchangeMobileAuthCode(_ code: String, codeVerifier: String) async throws -> DeviceExchangeResponse {
-        deviceExchangeResponse
+    func exchangeMobileAuthCode(_ code: String, codeVerifier: String, publicLeaderboard: Bool) async throws -> DeviceExchangeResponse {
+        exchangedMobileAuthPrivacyChoices.append(publicLeaderboard)
+        return deviceExchangeResponse
     }
 
-    func exchangeDevicePairing(code: String, platform: String, label: String) async throws -> DeviceExchangeResponse {
+    func exchangeDevicePairing(code: String, platform: String, label: String, publicLeaderboard: Bool) async throws -> DeviceExchangeResponse {
         exchangedPairingCodes.append(code)
         exchangedPairingLabels.append(label)
+        exchangedPairingPrivacyChoices.append(publicLeaderboard)
         return deviceExchangeResponse
     }
 

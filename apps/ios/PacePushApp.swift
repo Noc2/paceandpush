@@ -1838,8 +1838,8 @@ struct LeaderboardRowView: View {
 
 protocol PacePushClienting {
     func mobileGitHubStartURL(platform: String, label: String, callbackScheme: String, codeChallenge: String) throws -> URL
-    func exchangeMobileAuthCode(_ code: String, codeVerifier: String) async throws -> DeviceExchangeResponse
-    func exchangeDevicePairing(code: String, platform: String, label: String) async throws -> DeviceExchangeResponse
+    func exchangeMobileAuthCode(_ code: String, codeVerifier: String, publicLeaderboard: Bool) async throws -> DeviceExchangeResponse
+    func exchangeDevicePairing(code: String, platform: String, label: String, publicLeaderboard: Bool) async throws -> DeviceExchangeResponse
     func disconnectGitHub() async throws -> GitHubDisconnectResponse
     func exportAccountData() async throws -> String
     func deleteAccount() async throws -> AccountDeletionResponse
@@ -2238,7 +2238,7 @@ final class PacePushStore: ObservableObject {
             ?? .system
         healthAuthorized = preferences.bool(forKey: healthKey)
         firstSyncAt = preferences.string(forKey: firstSyncKey)
-        publicLeaderboardPreference = preferences.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? true
+        publicLeaderboardPreference = preferences.object(forKey: publicLeaderboardPreferenceKey) as? Bool ?? false
         publicLeaderboardPreferenceChosen = preferences.bool(forKey: publicLeaderboardPreferenceChosenKey)
         isDemoMode = preferences.bool(forKey: demoModeKey)
         activePeriod = preferences.string(forKey: activePeriodKey)
@@ -2841,21 +2841,21 @@ final class PacePushStore: ObservableObject {
 
         accountLoadPhase = .securingDevice
         let preferredPublicLeaderboard = publicLeaderboardPreference
-        let shouldSyncPublicLeaderboardPreference = publicLeaderboardPreferenceChosen
         let client = apiClientFactory(baseURL, nil)
-        let exchange = try await client.exchangeMobileAuthCode(code, codeVerifier: codeVerifier)
+        let exchange = try await client.exchangeMobileAuthCode(
+            code,
+            codeVerifier: codeVerifier,
+            publicLeaderboard: preferredPublicLeaderboard
+        )
         pendingMobileAuthCodeVerifier = nil
+        try confirmExchangePrivacyChoice(
+            exchange.publicLeaderboard,
+            expected: preferredPublicLeaderboard
+        )
         try keychain.saveString(exchange.token, account: tokenKey)
         hasLoadedAccountSnapshot = false
         deviceToken = exchange.token
         accountLoadPhase = .loadingAccount
-        if shouldSyncPublicLeaderboardPreference {
-            try? await savePublicLeaderboardPreference(
-                preferredPublicLeaderboard,
-                baseURL: baseURL,
-                token: exchange.token,
-            )
-        }
         await refresh()
         if lastError == nil {
             if healthAuthorized {
@@ -2895,13 +2895,17 @@ final class PacePushStore: ObservableObject {
 
     private func finishPairing(_ pairing: PairingPayload, baseURL: URL) async throws {
         let preferredPublicLeaderboard = publicLeaderboardPreference
-        let shouldSyncPublicLeaderboardPreference = publicLeaderboardPreferenceChosen
         let client = apiClientFactory(baseURL, nil)
         accountLoadPhase = .securingDevice
         let exchange = try await client.exchangeDevicePairing(
             code: pairing.code,
             platform: "ios",
             label: deviceLabel(),
+            publicLeaderboard: preferredPublicLeaderboard
+        )
+        try confirmExchangePrivacyChoice(
+            exchange.publicLeaderboard,
+            expected: preferredPublicLeaderboard
         )
         try keychain.saveString(exchange.token, account: tokenKey)
         hasLoadedAccountSnapshot = false
@@ -2912,16 +2916,24 @@ final class PacePushStore: ObservableObject {
             apiBaseURL = baseURL.absoluteString.trimmedTrailingSlash
         }
 
-        if shouldSyncPublicLeaderboardPreference {
-            try? await savePublicLeaderboardPreference(
-                preferredPublicLeaderboard,
-                baseURL: baseURL,
-                token: exchange.token,
-            )
-        }
         await refresh()
         await syncFirstRunIfReady()
         accountLoadPhase = .idle
+    }
+
+    private func confirmExchangePrivacyChoice(
+        _ confirmed: Bool,
+        expected: Bool
+    ) throws {
+        guard confirmed == expected else {
+            throw PacePushAPIError.server(
+                "Pace & Push could not confirm your privacy setting. No device credential was saved. Please connect again."
+            )
+        }
+        publicLeaderboardPreference = confirmed
+        publicLeaderboardPreferenceChosen = true
+        preferences.set(confirmed, forKey: publicLeaderboardPreferenceKey)
+        preferences.set(true, forKey: publicLeaderboardPreferenceChosenKey)
     }
 
     private var setupReadyForFirstSync: Bool {
@@ -3093,11 +3105,11 @@ private final class UITestingPacePushClient: PacePushClienting {
         URL(string: "https://paceandpush.com/api/mobile/auth/github/start?platform=\(platform)&callbackScheme=\(callbackScheme)&codeChallenge=\(codeChallenge)")!
     }
 
-    func exchangeMobileAuthCode(_ code: String, codeVerifier: String) async throws -> DeviceExchangeResponse {
+    func exchangeMobileAuthCode(_ code: String, codeVerifier: String, publicLeaderboard: Bool) async throws -> DeviceExchangeResponse {
         deviceExchangeResponse
     }
 
-    func exchangeDevicePairing(code: String, platform: String, label: String) async throws -> DeviceExchangeResponse {
+    func exchangeDevicePairing(code: String, platform: String, label: String, publicLeaderboard: Bool) async throws -> DeviceExchangeResponse {
         deviceExchangeResponse
     }
 
@@ -3241,6 +3253,7 @@ private final class UITestingPacePushClient: PacePushClienting {
                 lastSeenAt: "2026-07-06T12:00:00.000Z",
                 revoked: false
             ),
+            publicLeaderboard: publicLeaderboard,
             token: "ui-testing-token"
         )
     }
@@ -3270,18 +3283,27 @@ final class PacePushAPIClient: PacePushClienting {
         return url
     }
 
-    func exchangeDevicePairing(code: String, platform: String, label: String) async throws -> DeviceExchangeResponse {
+    func exchangeDevicePairing(code: String, platform: String, label: String, publicLeaderboard: Bool) async throws -> DeviceExchangeResponse {
         try await post(
             "/api/mobile/devices",
-            body: DevicePairingExchangeRequest(code: code, platform: platform, label: label),
+            body: DevicePairingExchangeRequest(
+                code: code,
+                platform: platform,
+                label: label,
+                publicLeaderboard: publicLeaderboard
+            ),
             authenticated: false,
         )
     }
 
-    func exchangeMobileAuthCode(_ code: String, codeVerifier: String) async throws -> DeviceExchangeResponse {
+    func exchangeMobileAuthCode(_ code: String, codeVerifier: String, publicLeaderboard: Bool) async throws -> DeviceExchangeResponse {
         try await post(
             "/api/mobile/auth/exchange",
-            body: MobileAuthExchangeRequest(code: code, codeVerifier: codeVerifier),
+            body: MobileAuthExchangeRequest(
+                code: code,
+                codeVerifier: codeVerifier,
+                publicLeaderboard: publicLeaderboard
+            ),
             authenticated: false,
         )
     }
@@ -4230,16 +4252,19 @@ struct APIErrorResponse: Decodable {
 struct MobileAuthExchangeRequest: Encodable {
     let code: String
     let codeVerifier: String
+    let publicLeaderboard: Bool
 }
 
 struct DevicePairingExchangeRequest: Encodable {
     let code: String
     let platform: String
     let label: String
+    let publicLeaderboard: Bool
 }
 
 struct DeviceExchangeResponse: Decodable {
     let device: MobileDeviceSummary
+    let publicLeaderboard: Bool
     let token: String
 }
 
