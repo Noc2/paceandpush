@@ -1688,7 +1688,7 @@ class MainActivity : ComponentActivity() {
             login = json.optString("login").ifBlank { "you" },
             displayName = json.optString("displayName").ifBlank { json.optString("login").ifBlank { "Pace & Push" } },
             score = parseScore(json.optJSONObject("score") ?: JSONObject()),
-            publicLeaderboard = json.optBoolean("publicLeaderboard", true),
+            publicLeaderboard = json.optBoolean("publicLeaderboard", false),
         )
     }
 
@@ -2204,6 +2204,6 @@ private fun emptyMeSummary(): MeSummary {
             kilometers = 0.0,
             lastSyncAt = null,
         ),
-        publicLeaderboard = true,
+        publicLeaderboard = false,
     )
 }

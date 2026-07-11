@@ -1516,6 +1516,11 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidSource, /Configuration\.UI_MODE_NIGHT_MASK/);
   assert.match(androidSource, /themeSelector\(\)/);
   assert.match(androidSource, /applyBrandSystemBars\(\)/);
+  assert.match(androidSource, /optBoolean\("publicLeaderboard", false\)/);
+  assert.match(
+    androidSource,
+    /private fun emptyMeSummary\(\): MeSummary \{[\s\S]*publicLeaderboard = false/,
+  );
 
   assert.match(androidManifest, /android:icon="@mipmap\/ic_launcher"/);
   assert.match(androidManifest, /android:roundIcon="@mipmap\/ic_launcher_round"/);
