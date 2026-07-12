@@ -33,6 +33,29 @@ final class PacePushUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Sample data"].exists)
     }
 
+    func testReadyToPublishCanKeepProfilePrivate() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTestingReadyToPublish"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding-view"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Profile visibility"].exists)
+        let historyToggle = app.switches["public-activity-history-toggle"]
+        XCTAssertTrue(historyToggle.exists)
+        XCTAssertEqual(historyToggle.value as? String, "0")
+
+        let keepPrivateButton = app.buttons["keep-health-totals-private-button"]
+        XCTAssertTrue(keepPrivateButton.exists)
+        for _ in 0..<4 where !keepPrivateButton.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(keepPrivateButton.isEnabled)
+        XCTAssertTrue(keepPrivateButton.isHittable)
+        keepPrivateButton.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile-screen"].waitForExistence(timeout: 5))
+    }
+
     func testTryDemoOpensSampleAppAndCanExit() {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting"]

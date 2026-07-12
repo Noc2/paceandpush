@@ -75,8 +75,8 @@ The real-account setup is private first:
    user's GitHub identity, exact period distance, commit total, combined score,
    rank, and streak. It also names the profile bio and last-sync time and warns
    that viewers may copy or share published information.
-4. The user chooses either **Publish These Exact Totals** or **Keep My Profile
-   Private**. Dated activity history is an independent option that defaults off
+4. The user chooses either **Publish exact totals** or **Keep private**. Dated
+   activity history is an independent option that defaults off
    because daily changes can reveal when the user was active.
 
 Publication uses consent version `public-health-v1`, an exact-distance

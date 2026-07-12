@@ -3209,6 +3209,7 @@ extension PacePushStore {
             arguments.contains("-uiTestingSeeded") ||
             arguments.contains("-uiTestingAppStoreScreenshots") ||
             arguments.contains("-uiTestingReadyNoSync") ||
+            arguments.contains("-uiTestingReadyToPublish") ||
             arguments.contains("-uiTestingPrivateLeaderboard") ||
             arguments.contains("-uiTestingSlowPeriodRefresh")
         guard isUITesting else { return PacePushStore() }
@@ -3216,19 +3217,25 @@ extension PacePushStore {
         let isSeeded = arguments.contains("-uiTestingSeeded")
         let isAppStoreScreenshots = arguments.contains("-uiTestingAppStoreScreenshots")
         let isReadyWithoutSync = arguments.contains("-uiTestingReadyNoSync")
+        let isReadyToPublish = arguments.contains("-uiTestingReadyToPublish")
         let isPrivateLeaderboard = arguments.contains("-uiTestingPrivateLeaderboard")
         let isSlowPeriodRefresh = arguments.contains("-uiTestingSlowPeriodRefresh")
-        let hasConnectedSeed = isSeeded || isAppStoreScreenshots || isReadyWithoutSync || isPrivateLeaderboard
+        let startsPrivate = isPrivateLeaderboard || isReadyToPublish
+        let hasConnectedSeed = isSeeded || isAppStoreScreenshots || isReadyWithoutSync || startsPrivate
         var preferences: [String: Any] = hasConnectedSeed ? [
             "healthAuthorized": true,
-            "publicLeaderboardPreference": !isPrivateLeaderboard,
-            "publicActivityHistoryPreference": !isPrivateLeaderboard,
+            "publicLeaderboardPreference": !startsPrivate,
+            "publicActivityHistoryPreference": !startsPrivate,
             "publicLeaderboardPreferenceChosen": true,
             "publicationDecisionVersion": PacePushStore.publicHealthDataConsentVersion,
             "distanceUnits": "metric",
         ] : [:]
-        if isSeeded || isAppStoreScreenshots || isPrivateLeaderboard {
+        if isSeeded || isAppStoreScreenshots || startsPrivate {
             preferences["firstSyncAt"] = "2026-07-06T12:00:00.000Z"
+        }
+        if isReadyToPublish {
+            preferences.removeValue(forKey: "publicLeaderboardPreferenceChosen")
+            preferences.removeValue(forKey: "publicationDecisionVersion")
         }
 
         return PacePushStore(
@@ -3238,7 +3245,7 @@ extension PacePushStore {
             preferences: UITestingPreferences(values: preferences),
             apiClientFactory: { _, _ in
                 UITestingPacePushClient(
-                    publicLeaderboard: !isPrivateLeaderboard,
+                    publicLeaderboard: !startsPrivate,
                     periodRefreshDelayNanoseconds: isSlowPeriodRefresh ? 900_000_000 : 0,
                     usesSampleIdentity: isAppStoreScreenshots
                 )

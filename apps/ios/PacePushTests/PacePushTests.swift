@@ -669,6 +669,46 @@ final class PacePushTests: XCTestCase {
     }
 
     @MainActor
+    func testPublishingExactTotalsKeepsDatedHistoryPrivateByDefault() async throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveString("device-token", account: "mobileDeviceToken")
+        let client = FakePacePushClient()
+        client.settingsResponse = AccountSettingsResponse(
+            login: "noc2",
+            displayName: "David",
+            publicLeaderboard: true,
+            publicActivityHistory: false,
+            publicHealthDataConsentVersion: PacePushStore.publicHealthDataConsentVersion,
+            publicHealthDataConsentedAt: "2026-07-07T12:00:00.000Z",
+            units: "metric"
+        )
+        client.meResponse = Self.meResponse(publicLeaderboard: true, publicActivityHistory: false)
+        client.profileResponse = Self.profileResponse()
+        let store = PacePushStore(
+            keychain: keychain,
+            healthSync: FakeHealthSync(days: []),
+            authSession: FakeGitHubAuthSession(),
+            preferences: InMemoryPreferences(values: [
+                "healthAuthorized": true,
+                "firstSyncAt": "2026-07-07T11:00:00.000Z",
+            ]),
+            apiClientFactory: { _, _ in client },
+            now: { date("2026-07-07T12:00:00.000Z") },
+            bootstrapSyncEnabled: false
+        )
+
+        await store.setPublicHealthDataPublication(isPublic: true, includeHistory: false)
+
+        XCTAssertEqual(client.settingsPublicationChoices, [true])
+        let consent = try XCTUnwrap(client.settingsConsentRequests.first ?? nil)
+        XCTAssertTrue(consent.publishExactPeriodKilometers)
+        XCTAssertFalse(consent.publicActivityHistory)
+        XCTAssertTrue(store.publicLeaderboardPreference)
+        XCTAssertFalse(store.publicActivityHistoryPreference)
+        XCTAssertTrue(store.onboardingComplete)
+    }
+
+    @MainActor
     func testKeepingTotalsPrivateCompletesOnboardingWithoutConsentPayload() async throws {
         let keychain = InMemoryKeychain()
         try keychain.saveString("device-token", account: "mobileDeviceToken")
@@ -1328,9 +1368,13 @@ final class PacePushTests: XCTestCase {
     }
     """
 
-    fileprivate static func meResponse(publicLeaderboard: Bool) -> MeResponse {
+    fileprivate static func meResponse(
+        publicLeaderboard: Bool,
+        publicActivityHistory: Bool? = nil
+    ) -> MeResponse {
         meResponse(
             publicLeaderboard: publicLeaderboard,
+            publicActivityHistory: publicActivityHistory,
             period: "2026-07",
             score: 42.5,
             commits: 100,
@@ -1340,6 +1384,7 @@ final class PacePushTests: XCTestCase {
 
     fileprivate static func meResponse(
         publicLeaderboard: Bool,
+        publicActivityHistory: Bool? = nil,
         period: String,
         score: Double,
         commits: Int,
@@ -1349,7 +1394,7 @@ final class PacePushTests: XCTestCase {
             login: "noc2",
             displayName: "David",
             publicLeaderboard: publicLeaderboard,
-            publicActivityHistory: publicLeaderboard,
+            publicActivityHistory: publicActivityHistory ?? publicLeaderboard,
             publicHealthDataConsentVersion: publicLeaderboard ? PacePushStore.publicHealthDataConsentVersion : nil,
             publicHealthDataConsentedAt: publicLeaderboard ? "2026-07-07T12:00:00.000Z" : nil,
             streakDays: 7,
