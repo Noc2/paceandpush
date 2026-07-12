@@ -157,8 +157,8 @@ Pause mobile sync:
 2. For a single account, revoke the affected device through the web Settings UI
    or `DELETE /api/mobile/devices/:id/revoke`.
 3. For a widespread mobile-auth issue, disable new native distribution links by
-   clearing `NEXT_PUBLIC_IOS_APP_URL` and `NEXT_PUBLIC_ANDROID_APP_URL`, then
-   deploy a server-side fix.
+   setting `NEXT_PUBLIC_IOS_APP_URL=disabled` and clearing
+   `NEXT_PUBLIC_ANDROID_APP_URL`, then deploy a server-side fix.
 4. Keep `/api/health`, account deletion, and privacy export available whenever
    possible.
 

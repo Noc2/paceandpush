@@ -1414,6 +1414,10 @@ test("homepage has accessible heading cells and app download actions", async () 
   assert.doesNotMatch(pageSource, /Mobile apps/);
   assert.match(downloadActionsSource, /NEXT_PUBLIC_IOS_APP_URL/);
   assert.match(downloadActionsSource, /NEXT_PUBLIC_ANDROID_APP_URL/);
+  assert.match(downloadActionsSource, /https:\/\/testflight\.apple\.com\/join\/Pvzcf61w/);
+  assert.match(downloadActionsSource, /buttonLabel: "TestFlight"/);
+  assert.match(downloadActionsSource, /openLabel: "Open TestFlight"/);
+  assert.match(downloadActionsSource, /configuredIOSAppUrl === "disabled"/);
   assert.match(downloadActionsSource, /id: "android",[\s\S]*disabled: true/);
   assert.match(downloadActionsSource, /disabled=\{target\.disabled\}/);
   assert.match(downloadActionsSource, /QRCode\.toDataURL/);

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const iosStoreUrl = "https://example.com/pace-push-ios-beta";
+const iosStoreUrl = "https://testflight.apple.com/join/Pvzcf61w";
 
 test.describe("mobile public web app", () => {
   test("opens the leaderboard-first mobile surface", async ({ page }) => {
@@ -9,7 +9,7 @@ test.describe("mobile public web app", () => {
     await expect(page.getByRole("link", { name: "Pace & Push" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Pace & Push leaderboard" })).toBeAttached();
     await expect(page.getByRole("navigation", { name: "Download apps" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "iPhone" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "TestFlight" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Android" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Period type" }).first()).toBeVisible();
     await expect(page.getByRole("table", { name: "Leaderboard" })).toBeVisible();
@@ -30,17 +30,20 @@ test.describe("mobile public web app", () => {
     await expect(page.getByRole("table", { name: "Search results" })).toBeVisible();
   });
 
-  test("opens the iPhone download modal with QR code and store link", async ({ page }) => {
+  test("opens the TestFlight modal with QR code and public beta link", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "iPhone" }).click();
+    await page.getByRole("button", { name: "TestFlight" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "iPhone app" });
+    const dialog = page.getByRole("dialog", { name: "Join Pace & Push" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("App Store")).toBeVisible();
+    await expect(dialog.getByText("Public iPhone beta")).toBeVisible();
     await expect(dialog.getByText(iosStoreUrl)).toBeVisible();
-    await expect(dialog.getByRole("link", { name: "Open" })).toHaveAttribute("href", iosStoreUrl);
-    await expect(dialog.getByAltText("iPhone app download QR code")).toBeVisible();
+    await expect(dialog.getByRole("link", { name: "Open TestFlight" })).toHaveAttribute(
+      "href",
+      iosStoreUrl,
+    );
+    await expect(dialog.getByAltText("Public iPhone beta download QR code")).toBeVisible();
 
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();

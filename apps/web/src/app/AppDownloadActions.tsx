@@ -7,23 +7,38 @@ import { useThemeSignature } from "./useThemeSignature";
 
 type DownloadTarget = {
   id: "ios" | "android";
-  label: string;
+  buttonLabel: string;
+  description: string;
+  openLabel: string;
   storeLabel: string;
+  title: string;
   url: string;
   disabled?: boolean;
 };
 
+const publicTestFlightUrl = "https://testflight.apple.com/join/Pvzcf61w";
+const configuredIOSAppUrl = process.env.NEXT_PUBLIC_IOS_APP_URL?.trim();
+const iosAppUrl = configuredIOSAppUrl === "disabled"
+  ? ""
+  : configuredIOSAppUrl || publicTestFlightUrl;
+
 const downloadTargets: DownloadTarget[] = [
   {
     id: "ios",
-    label: "iPhone",
-    storeLabel: "App Store",
-    url: process.env.NEXT_PUBLIC_IOS_APP_URL?.trim() ?? "",
+    buttonLabel: "TestFlight",
+    description: "Scan with your iPhone or open the link to join the public beta in TestFlight.",
+    openLabel: "Open TestFlight",
+    storeLabel: "Public iPhone beta",
+    title: "Join Pace & Push",
+    url: iosAppUrl,
   },
   {
     id: "android",
-    label: "Android",
+    buttonLabel: "Android",
+    description: "Open the link on your Android device.",
+    openLabel: "Open Google Play",
     storeLabel: "Google Play",
+    title: "Android app",
     url: process.env.NEXT_PUBLIC_ANDROID_APP_URL?.trim() ?? "",
     disabled: true,
   },
@@ -115,7 +130,7 @@ export function AppDownloadActions() {
             disabled={target.disabled}
             onClick={() => openModal(target)}
           >
-            {target.label}
+            {target.buttonLabel}
           </button>
         ))}
       </nav>
@@ -137,7 +152,7 @@ export function AppDownloadActions() {
             <div className="download-modal-header">
               <div>
                 <p className="section-label">{activeTarget.storeLabel}</p>
-                <h2 id={titleId}>{activeTarget.label} app</h2>
+                <h2 id={titleId}>{activeTarget.title}</h2>
               </div>
               <button
                 className="download-modal-close"
@@ -153,17 +168,21 @@ export function AppDownloadActions() {
               <div className="download-modal-body">
                 <div className="download-qr">
                   {qrImageUrl ? (
-                    <img src={qrImageUrl} alt={`${activeTarget.label} app download QR code`} />
+                    <img
+                      src={qrImageUrl}
+                      alt={`${activeTarget.storeLabel} download QR code`}
+                    />
                   ) : (
                     <span>QR</span>
                   )}
                 </div>
                 <div className="download-link-panel">
-                  <span>Download link</span>
+                  <strong>{activeTarget.description}</strong>
+                  <span>Join link</span>
                   <code>{activeTarget.url}</code>
                   <div className="download-link-actions">
                     <a className="button button-primary" href={activeTarget.url} target="_blank" rel="noreferrer">
-                      Open
+                      {activeTarget.openLabel}
                     </a>
                     <button className="button" type="button" onClick={copyLink}>
                       {copied ? "Copied" : "Copy"}

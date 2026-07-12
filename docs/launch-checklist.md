@@ -16,7 +16,7 @@ Owner-only production setup is tracked in
 - Add `paceandpush.com` and `www.paceandpush.com` to the production deployment.
 - Configure production environment variables:
   - `NEXT_PUBLIC_APP_URL=https://paceandpush.com`
-  - `NEXT_PUBLIC_IOS_APP_URL`
+  - `NEXT_PUBLIC_IOS_APP_URL=https://testflight.apple.com/join/Pvzcf61w`
   - `NEXT_PUBLIC_ANDROID_APP_URL`
   - `DATABASE_URL`
   - `GITHUB_CLIENT_ID`
