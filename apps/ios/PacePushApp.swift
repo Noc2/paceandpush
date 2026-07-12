@@ -119,14 +119,19 @@ struct OnboardingView: View {
 
                     OnboardingStep(
                         index: 3,
-                        title: "Choose whether to publish",
+                        title: "Profile visibility",
                         detail: store.publicLeaderboardPreferenceChosen
                             ? (store.publicLeaderboardPreference ? "Your exact totals are public." : "Your profile and totals are private.")
-                            : "Review the exact public fields after your private first sync.",
+                            : "Optional. Your first sync stays private.",
                         complete: store.publicLeaderboardPreferenceChosen,
                         showsActionsWhenComplete: true,
                     ) {
-                        PublicHealthPublicationDisclosure(includesHistory: $includesPublicActivityHistory)
+                        PublicProfileFieldSummary()
+                        PublicActivityHistoryOption(includesHistory: $includesPublicActivityHistory)
+
+                        Text("Others can copy or share public information. You can make your profile private anytime in Settings.")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Brand.muted)
 
                         Button {
                             Task {
@@ -136,7 +141,7 @@ struct OnboardingView: View {
                                 )
                             }
                         } label: {
-                            Label("Publish These Exact Totals", systemImage: "eye.square")
+                            Label("Publish exact totals", systemImage: "eye.square")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(PrimaryButtonStyle())
@@ -146,10 +151,10 @@ struct OnboardingView: View {
                         Button {
                             Task { await store.setPublicHealthDataPublication(isPublic: false) }
                         } label: {
-                            Label("Keep My Profile Private", systemImage: "eye.slash")
+                            Label("Keep private", systemImage: "eye.slash")
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(SecondaryButtonStyle())
                         .accessibilityIdentifier("keep-health-totals-private-button")
                         .disabled(store.busy || store.firstSyncAt == nil)
                     }
@@ -186,6 +191,90 @@ struct OnboardingView: View {
             }
             .accessibilityIdentifier("onboarding-view")
             .background(Brand.paper)
+        }
+    }
+}
+
+struct PublicProfileFieldSummary: View {
+    @EnvironmentObject private var store: PacePushStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Publishing makes these details visible to anyone, even without an account.")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(Brand.muted)
+
+            summaryRow("Identity", value: identityValue, identifier: "public-profile-summary-identity")
+            summaryRow("This period", value: periodValue, identifier: "public-profile-summary-period")
+            summaryRow("Results", value: resultsValue, identifier: "public-profile-summary-results")
+            summaryRow("Also public", value: "Bio · last sync time", identifier: "public-profile-summary-additional")
+        }
+        .accessibilityIdentifier("public-profile-field-summary")
+    }
+
+    private var identityValue: String {
+        let displayName = store.me.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return displayName.isEmpty ? "@\(store.me.login)" : "@\(store.me.login) · \(displayName)"
+    }
+
+    private var periodValue: String {
+        "\(store.formatDistance(store.me.score.kilometers, includeUnit: true)) · \(store.me.score.commits.formatted()) commits"
+    }
+
+    private var resultsValue: String {
+        let score = store.me.score.score.formatted(.number.precision(.fractionLength(1)))
+        let rank = store.me.score.rank.map { "#\($0)" } ?? "Not ranked"
+        let streakUnit = store.me.streakDays == 1 ? "day" : "days"
+        return "\(score) score · \(rank) · \(store.me.streakDays) \(streakUnit)"
+    }
+
+    private func summaryRow(_ label: String, value: String, identifier: String) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                summaryLabel(label)
+                Spacer(minLength: 12)
+                summaryValue(value, alignment: .trailing)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                summaryLabel(label)
+                summaryValue(value, alignment: .leading)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(value)
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func summaryLabel(_ value: String) -> some View {
+        Text(value)
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(Brand.muted)
+    }
+
+    private func summaryValue(_ value: String, alignment: TextAlignment) -> some View {
+        Text(value)
+            .font(.callout.monospacedDigit().weight(.semibold))
+            .multilineTextAlignment(alignment)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+struct PublicActivityHistoryOption: View {
+    @Binding var includesHistory: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle("Include dated history", isOn: $includesHistory)
+                .font(.callout.weight(.semibold))
+                .tint(Brand.orange)
+                .accessibilityIdentifier("public-activity-history-toggle")
+                .accessibilityHint("Dated progress can reveal when you were active.")
+
+            Text("Dated progress can reveal when you were active. Off by default.")
+                .font(.footnote)
+                .foregroundStyle(Brand.muted)
         }
     }
 }
@@ -4904,6 +4993,27 @@ struct PrimaryButtonStyle: ButtonStyle {
         }
 
         return isPressed ? Brand.orange.opacity(0.72) : Brand.orange
+    }
+}
+
+struct SecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline.weight(.bold))
+            .foregroundStyle(isEnabled ? Brand.ink : Brand.muted)
+            .padding(14)
+            .roundedBackground(buttonBackground(isPressed: configuration.isPressed))
+            .roundedBorder()
+    }
+
+    private func buttonBackground(isPressed: Bool) -> Color {
+        if !isEnabled {
+            return Brand.muted.opacity(0.10)
+        }
+
+        return isPressed ? Brand.surfacePanelHigh.opacity(0.72) : Brand.surfacePanelHigh
     }
 }
 

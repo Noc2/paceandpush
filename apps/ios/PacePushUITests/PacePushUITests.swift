@@ -17,15 +17,19 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.buttons["enable-health-button"].exists)
         XCTAssertTrue(app.buttons["publish-health-totals-button"].exists)
         XCTAssertTrue(app.buttons["keep-health-totals-private-button"].exists)
-        XCTAssertTrue(app.switches["public-activity-history-toggle"].exists)
+        let historyToggle = app.switches["public-activity-history-toggle"]
+        XCTAssertTrue(historyToggle.exists)
+        XCTAssertEqual(historyToggle.value as? String, "0")
         let healthDisclosure = app.staticTexts["onboarding-step-2-detail"]
         XCTAssertTrue(healthDisclosure.exists)
         XCTAssertEqual(
             healthDisclosure.label,
             "Pace & Push reads running workouts and uploads daily distance aggregates to calculate your totals and score. Your initial sync stays private; raw workouts and routes are never uploaded."
         )
-        XCTAssertTrue(app.staticTexts["Optional public sharing"].exists)
-        XCTAssertTrue(app.staticTexts["If you publish, anyone on the internet can see these fields without an account:"].exists)
+        XCTAssertTrue(app.staticTexts["Profile visibility"].exists)
+        XCTAssertTrue(app.staticTexts["Publishing makes these details visible to anyone, even without an account."].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["public-profile-field-summary"].exists)
+        XCTAssertFalse(app.staticTexts["Optional public sharing"].exists)
         XCTAssertFalse(app.staticTexts["Sample data"].exists)
     }
 
