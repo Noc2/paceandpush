@@ -122,7 +122,12 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["sync-now-button"].exists)
         XCTAssertTrue(app.buttons["settings-sign-out-button"].exists)
-        XCTAssertTrue(app.switches["public-activity-history-toggle"].exists)
+        XCTAssertTrue(app.staticTexts["Exact totals public"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["public-profile-field-summary"].exists)
+        XCTAssertFalse(app.staticTexts["Optional public sharing"].exists)
+        let historyToggle = app.switches["public-activity-history-toggle"]
+        XCTAssertTrue(historyToggle.exists)
+        XCTAssertEqual(historyToggle.value as? String, "1")
         XCTAssertTrue(app.buttons["settings-update-public-sharing-button"].exists)
         XCTAssertTrue(app.buttons["settings-make-profile-private-button"].exists)
         XCTAssertFalse(app.switches["settings-public-leaderboard-toggle"].exists)
@@ -230,6 +235,15 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(
             app.staticTexts["Your score is private. Choose Publish exact totals in Settings to appear on this leaderboard."].exists
         )
+
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Private"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["public-profile-field-summary"].exists)
+        let historyToggle = app.switches["public-activity-history-toggle"]
+        XCTAssertTrue(historyToggle.exists)
+        XCTAssertEqual(historyToggle.value as? String, "0")
+        XCTAssertTrue(app.buttons["settings-publish-health-totals-button"].exists)
     }
 
     func testCaptureAppStoreScreenshots() {

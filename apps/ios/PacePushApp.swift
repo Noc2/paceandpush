@@ -129,9 +129,7 @@ struct OnboardingView: View {
                         PublicProfileFieldSummary()
                         PublicActivityHistoryOption(includesHistory: $includesPublicActivityHistory)
 
-                        Text("Others can copy or share public information. You can make your profile private anytime in Settings.")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Brand.muted)
+                        PublicProfileSharingWarning()
 
                         Button {
                             Task {
@@ -279,51 +277,11 @@ struct PublicActivityHistoryOption: View {
     }
 }
 
-struct PublicHealthPublicationDisclosure: View {
-    @EnvironmentObject private var store: PacePushStore
-    @Binding var includesHistory: Bool
-
+struct PublicProfileSharingWarning: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Optional public sharing")
-                .font(.headline.weight(.bold))
-            Text("If you publish, anyone on the internet can see these fields without an account:")
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(Brand.muted)
-
-            disclosureRow("GitHub login and display name", value: "@\(store.me.login)")
-            disclosureRow("Exact distance this period", value: store.formatDistance(store.me.score.kilometers, includeUnit: true))
-            disclosureRow("GitHub commits", value: "\(store.me.score.commits)")
-            disclosureRow("Pace & Push score", value: store.me.score.score.formatted(.number.precision(.fractionLength(1))))
-            disclosureRow("Leaderboard rank", value: store.me.score.rank.map { "#\($0)" } ?? "Not ranked")
-            disclosureRow("Running streak", value: "\(store.me.streakDays) days")
-
-            Text("Your profile bio and last-sync time are also public. Other people may copy or share this information. Publishing is optional and can be withdrawn in Settings.")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Brand.muted)
-
-            Toggle("Also publish dated progress history", isOn: $includesHistory)
-                .tint(Brand.orange)
-                .accessibilityIdentifier("public-activity-history-toggle")
-
-            Text("Dated history is separate because changes between days can reveal when you were active. It is off unless you enable it.")
-                .font(.footnote)
-                .foregroundStyle(Brand.muted)
-        }
-        .padding(14)
-        .roundedBackground(Brand.surfacePanelHigh)
-        .roundedBorder(lineWidth: 1)
-    }
-
-    private func disclosureRow(_ label: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(label)
-                .font(.footnote.weight(.semibold))
-            Spacer()
-            Text(value)
-                .font(.footnote.monospacedDigit().weight(.bold))
-                .multilineTextAlignment(.trailing)
-        }
+        Text("Others can copy or share public information. You can make your profile private at any time.")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Brand.muted)
     }
 }
 
@@ -1056,13 +1014,13 @@ struct SettingsView: View {
                         SettingsUnitSelector(units: $store.units)
                     }
 
-                    SettingsSectionPanel("Privacy") {
-                        StatusRow(
-                            label: "Public profile",
-                            value: store.publicLeaderboardPreference ? "Exact totals public" : "Private"
-                        )
-
-                        PublicHealthPublicationDisclosure(includesHistory: $includesPublicActivityHistory)
+                    SettingsSectionPanel(
+                        "Privacy",
+                        detail: store.publicLeaderboardPreference ? "Exact totals public" : "Private"
+                    ) {
+                        PublicProfileFieldSummary()
+                        PublicActivityHistoryOption(includesHistory: $includesPublicActivityHistory)
+                        PublicProfileSharingWarning()
 
                         if store.publicLeaderboardPreference {
                             SettingsActionButton(
