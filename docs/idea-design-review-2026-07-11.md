@@ -113,7 +113,12 @@ rank as hero does not have one. (The steelman notes low-thousands of engaged
 users is a *successful* outcome for a solo indie project — but only if the
 product's core loop works at that scale, which the current design does not.)
 
-### 2. Cohort-max normalization breaks the score
+### 2. Cohort-max normalization breaks the score — resolved
+
+Resolved on 2026-07-12: scoring now uses published weekly plateaus of 25
+commits and 50 km, scaled to the complete selected period with a saturating
+curve. Numeric scores depend only on the user's own activity. The analysis
+below documents the removed PoC formula.
 
 `normalizeMetric(value, max) = min(value/max, 1)` over the visible cohort
 means: one 160 km/week ultramarathoner or one 800-commit bot silently

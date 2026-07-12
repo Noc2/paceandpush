@@ -97,6 +97,22 @@ final class PacePushTests: XCTestCase {
         XCTAssertEqual(DistanceUnits.imperial.abbreviation, "mi")
     }
 
+    func testFixedPlateauScoreUsesPublishedTargetsAndFullPeriods() throws {
+        let week = try XCTUnwrap(ScorePeriod("2026-W28"))
+        XCTAssertEqual(
+            FixedPlateauScore.score(commits: 25, kilometers: 50, period: week),
+            96,
+            accuracy: 0.000001
+        )
+
+        let fourWeekMonth = try XCTUnwrap(ScorePeriod("2026-02"))
+        XCTAssertEqual(
+            FixedPlateauScore.score(commits: 50, kilometers: 100, period: fourWeekMonth),
+            80,
+            accuracy: 0.000001
+        )
+    }
+
     func testLeaderboardMetricFollowsSelectedBoard() {
         let row = LeaderboardRow(
             rank: 1,

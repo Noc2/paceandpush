@@ -16,6 +16,7 @@ import { profileTimelineTicks } from "./timeline-ticks";
 
 const chartWidth = 720;
 const chartHeight = 360;
+const scoreMaximum = 100;
 const cornerRadius = brandRadius.github;
 const homepageUrl = "https://paceandpush.com";
 const homepageLabel = "paceandpush.com";
@@ -43,7 +44,6 @@ export function renderProfileChartSvg(
 ): string {
   const colors = getBrandTheme(theme);
   const history = profile.history.length > 0 ? profile.history : [emptyPoint()];
-  const maxScore = Math.max(...history.map((point) => point.score), 1);
   const dailyCommits = toDailyValues(history.map((point) => point.commits));
   const dailyDistances = toDailyValues(history.map((point) => point.kilometers));
   const maxDailyCommits = Math.max(...dailyCommits, 1);
@@ -72,7 +72,7 @@ export function renderProfileChartSvg(
 
   <g>
     ${gridLines(colors)}
-    <path d="${buildAreaPath(history, maxScore)}" fill="${colors.secondaryOrange}" fill-opacity="0.22"/>
+    <path d="${buildAreaPath(history, scoreMaximum)}" fill="${colors.secondaryOrange}" fill-opacity="0.22"/>
     ${buildMetricBars({
       values: dailyCommits,
       maxValue: maxDailyCommits,
@@ -87,9 +87,9 @@ export function renderProfileChartSvg(
       offset: 1,
       title: (value, index) => `${history[index]?.date ?? ""}: ${formatDistance(value, units)} ${distanceUnitAbbreviation(units)}`,
     })}
-    <path d="${buildLinePath(history, maxScore)}" fill="none" stroke="${colors.secondaryOrange}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
-    <path d="${buildLinePath(history, maxScore)}" fill="none" stroke="${colors.ink}" stroke-width="1.2" stroke-opacity="0.35" stroke-linejoin="round" stroke-linecap="round"/>
-    ${scoreHoverPoints(history, maxScore)}
+    <path d="${buildLinePath(history, scoreMaximum)}" fill="none" stroke="${colors.secondaryOrange}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="${buildLinePath(history, scoreMaximum)}" fill="none" stroke="${colors.ink}" stroke-width="1.2" stroke-opacity="0.35" stroke-linejoin="round" stroke-linecap="round"/>
+    ${scoreHoverPoints(history, scoreMaximum)}
   </g>
 
   <g transform="translate(${plot.x} 302)" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="800">

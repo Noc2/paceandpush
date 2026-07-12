@@ -690,7 +690,7 @@ test("embed svg keeps long running-distance values inside the canvas", async () 
   assert.match(source, /buildMetricBars\(\{[\s\S]*values: dailyCommits[\s\S]*color: colors\.commitGreen/);
   assert.match(source, /buildMetricBars\(\{[\s\S]*values: dailyDistances[\s\S]*color: colors\.rankBlue/);
   assert.match(source, /<title>\$\{escapeXml\(title\(value, index\)\)\}<\/title>/);
-  assert.match(source, /scoreHoverPoints\(history, maxScore\)/);
+  assert.match(source, /scoreHoverPoints\(history, scoreMaximum\)/);
   assert.match(source, /pointer-events="all"/);
   assert.match(source, /profileTimelineTicks\(history\)/);
   assert.match(source, /font-weight="500"/);
@@ -733,6 +733,47 @@ test("profile chart timeline labels use calendar anchors for longer ranges", () 
       { label: "07-08", anchor: "end" },
     ],
   );
+});
+
+test("score charts keep a fixed 0-100 score axis", async () => {
+  const [webChart, iosSource, androidSource] = await Promise.all([
+    readFile(new URL("../src/server/charts/profile-chart.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../ios/PacePushApp.swift", import.meta.url), "utf8"),
+    readFile(
+      new URL("../../android/app/src/main/java/com/paceandpush/MainActivity.kt", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(webChart, /const scoreMaximum = 100/);
+  assert.doesNotMatch(webChart, /Math\.max\(\.\.\.history\.map\(\(point\) => point\.score\)/);
+  assert.match(iosSource, /let maxValue = series == \.score \? 100/);
+  assert.match(androidSource, /val scoreMax = 100\.0/);
+});
+
+test("score explanations publish fixed plateaus and cohort independence", async () => {
+  const [webSource, iosSource, androidSource] = await Promise.all([
+    readFile(new URL("../src/app/ScoreExplainer.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../ios/PacePushApp.swift", import.meta.url), "utf8"),
+    readFile(
+      new URL("../../android/app/src/main/java/com/paceandpush/MainActivity.kt", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  for (const source of [webSource, iosSource, androidSource]) {
+    assert.match(source, /fixed plateaus equivalent to/);
+    assert.match(source, /other users cannot change\s+your score/i);
+    assert.match(source, /diminishing returns/i);
+    assert.doesNotMatch(source, /strongest totals/);
+  }
+
+  assert.match(webSource, /weeklyCommitPlateau/);
+  assert.match(webSource, /weeklyKilometerPlateau/);
+  for (const source of [iosSource, androidSource]) {
+    assert.match(source, /25 commits/);
+    assert.match(source, /50 km per week/);
+  }
 });
 
 test("public snapshot refreshes are limited to current and previous periods", () => {

@@ -8,6 +8,7 @@ import {
   weeklyCommitPlateau,
   weeklyKilometerPlateau,
 } from "../src/score.ts";
+import { seedLeaderboard, seedProfile } from "../src/fixtures.ts";
 
 const epsilon = 1e-10;
 
@@ -88,4 +89,25 @@ test("invalid activity stays finite and invalid period lengths are rejected", ()
   });
   assert.throws(() => scorePlateaus(0), /positive integer/);
   assert.throws(() => scorePlateaus(7.5), /positive integer/);
+});
+
+test("published fixtures use fixed-plateau scores and deterministic ranks", () => {
+  for (const row of seedLeaderboard.rows) {
+    const expected = scoreActivity({
+      commits: row.commits,
+      kilometers: row.kilometers,
+      periodDays: 31,
+    });
+    closeTo(row.score, expected.score, 1e-6);
+  }
+
+  assert.deepEqual(seedLeaderboard.rows.map((row) => row.rank), [1, 2, 3, 4, 5]);
+  assert.deepEqual(
+    seedLeaderboard.rows.map((row) => row.score),
+    [...seedLeaderboard.rows.map((row) => row.score)].sort((left, right) => right - left),
+  );
+
+  const finalHistoryPoint = seedProfile.history.at(-1);
+  assert.ok(finalHistoryPoint);
+  closeTo(finalHistoryPoint.score, seedProfile.score.score, 1e-6);
 });

@@ -28,8 +28,9 @@ The chart includes:
 - current period score
 - commit total
 - kilometer total
-- period score trend
+- period score trend on a fixed 0-100 axis
 - daily commit bars
 
-The public endpoint uses short CDN cache headers so profile READMEs stay quick
-while still refreshing throughout the day.
+The score uses fixed published activity plateaus, so another user joining or
+posting an outlier cannot change the number in an existing README. The public
+endpoint bypasses shared caches so privacy withdrawal takes effect immediately.

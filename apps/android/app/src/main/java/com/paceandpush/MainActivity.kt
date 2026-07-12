@@ -68,11 +68,12 @@ class MainActivity : ComponentActivity() {
         const val PREF_DISTANCE_UNITS = "distance_units"
         const val PREF_THEME = "theme_preference"
         const val SUPPORT_EMAIL = "hawigxyz@proton.me"
-        const val SCORE_FORMULA = "score = sqrt(commit ratio x running ratio) x 100"
+        const val SCORE_FORMULA =
+            "component = 1 - 25^(-activity / period plateau)\nscore = 100 x sqrt(commit component x run component)"
         const val SCORE_EXPLANATION =
-            "Balanced score compares your commits and running distance with the strongest totals in the selected period. Each side becomes a 0-1 ratio, then the two ratios are combined with a geometric mean."
+            "Your score depends only on your activity. Each selected period uses fixed plateaus equivalent to 25 commits and 50 km per week."
         const val SCORE_NOTE =
-            "A zero on either side makes the score 0, so the balanced board rewards people who ship code and run."
+            "Half a plateau earns 80 on that component; reaching it earns 96. Extra activity has diminishing returns, other users cannot change your score, and zero on either side makes the balanced score zero."
         const val SYNC_LOOKBACK_DAYS = 44L
         const val CORNER_RADIUS_DP = 6
     }
@@ -1838,7 +1839,7 @@ class MainActivity : ComponentActivity() {
             chartHeight: Float,
             baseline: Float,
         ) {
-            val scoreMax = maxValue(points.map { it.score })
+            val scoreMax = 100.0
             val scorePath = Path()
             val denominator = (points.size - 1).coerceAtLeast(1)
 

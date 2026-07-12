@@ -1,4 +1,10 @@
-const scoreFormula = "score = sqrt(commit ratio x running ratio) x 100";
+import {
+  weeklyCommitPlateau,
+  weeklyKilometerPlateau,
+} from "@paceandpush/api-contracts";
+
+const componentFormula = "component = 1 - 25^(-activity / period plateau)";
+const scoreFormula = "score = 100 x sqrt(commit component x run component)";
 
 export function ScoreExplainer() {
   return (
@@ -8,14 +14,16 @@ export function ScoreExplainer() {
       </summary>
       <div className="score-explainer-body">
         <p>
-          Balanced score compares your commits and running distance with the
-          strongest totals in the selected period. Each side becomes a 0-1
-          ratio, then the two ratios are combined with a geometric mean.
+          Your score depends only on your activity. Each selected period uses
+          fixed plateaus equivalent to {weeklyCommitPlateau} commits and{" "}
+          {weeklyKilometerPlateau} km per week.
         </p>
+        <code>{componentFormula}</code>
         <code>{scoreFormula}</code>
         <p>
-          A zero on either side makes the score 0, so the balanced board rewards
-          people who ship code and run.
+          Half a plateau earns 80 on that component; reaching it earns 96.
+          Extra activity has diminishing returns, other users cannot change
+          your score, and zero on either side makes the balanced score zero.
         </p>
       </div>
     </details>

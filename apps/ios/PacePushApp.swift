@@ -1514,9 +1514,30 @@ struct MetricTile: View {
 }
 
 enum ScoreExplanation {
-    static let formula = "score = sqrt(commit ratio x running ratio) x 100"
-    static let body = "Balanced score compares your commits and running distance with the strongest totals in the selected period. Each side becomes a 0-1 ratio, then the two ratios are combined with a geometric mean."
-    static let note = "A zero on either side makes the score 0, so the balanced board rewards people who ship code and run."
+    static let formula = "component = 1 - 25^(-activity / period plateau)\nscore = 100 x sqrt(commit component x run component)"
+    static let body = "Your score depends only on your activity. Each selected period uses fixed plateaus equivalent to 25 commits and 50 km per week."
+    static let note = "Half a plateau earns 80 on that component; reaching it earns 96. Extra activity has diminishing returns, other users cannot change your score, and zero on either side makes the balanced score zero."
+}
+
+enum FixedPlateauScore {
+    static let weeklyCommitPlateau = 25.0
+    static let weeklyKilometerPlateau = 50.0
+
+    static func score(commits: Int, kilometers: Double, period: ScorePeriod) -> Double {
+        let periodDays = Double(
+            (ScorePeriod.gregorian.dateComponents([.day], from: period.startDate, to: period.endDate).day ?? 0) + 1
+        )
+        let commitPlateau = weeklyCommitPlateau * periodDays / 7
+        let kilometerPlateau = weeklyKilometerPlateau * periodDays / 7
+        let commitComponent = component(value: Double(commits), plateau: commitPlateau)
+        let distanceComponent = component(value: kilometers, plateau: kilometerPlateau)
+        return sqrt(commitComponent * distanceComponent) * 100
+    }
+
+    private static func component(value: Double, plateau: Double) -> Double {
+        guard value.isFinite, value > 0, plateau.isFinite, plateau > 0 else { return 0 }
+        return min(max(1 - pow(25, -value / plateau), 0), 1)
+    }
 }
 
 enum SupportLinks {
@@ -1807,7 +1828,8 @@ struct ProfileChartView: View {
 
     private func linePath(for series: ProfileChartSeries, in size: CGSize) -> Path {
         let values = history.map { series.value(from: $0) }
-        guard let maxValue = values.max(), maxValue > 0 else { return Path() }
+        let maxValue = series == .score ? 100 : values.max() ?? 0
+        guard maxValue > 0 else { return Path() }
 
         var path = Path()
         let usableWidth = max(size.width, 1)
@@ -1816,7 +1838,8 @@ struct ProfileChartView: View {
 
         for (index, value) in values.enumerated() {
             let x = values.count == 1 ? usableWidth : usableWidth * CGFloat(index) / CGFloat(count)
-            let y = usableHeight - (usableHeight * CGFloat(value / maxValue))
+            let plottedValue = min(max(value, 0), maxValue)
+            let y = usableHeight - (usableHeight * CGFloat(plottedValue / maxValue))
             let point = CGPoint(x: x, y: y)
 
             if index == 0 {
@@ -3462,36 +3485,73 @@ private final class UITestingPacePushClient: PacePushClienting {
     }
 
     private func scoreSummary(for period: String) -> ScoreSummary {
+        let commits: Int
+        let kilometers: Double
+        let rank: Int
+
         switch period {
         case "2026":
-            return ScoreSummary(period: period, score: 87.6, rank: 1, commits: 684, kilometers: 214.8, lastSyncAt: "2026-07-06T12:00:00.000Z")
+            commits = 684
+            kilometers = 214.8
+            rank = 1
         case "2025":
-            return ScoreSummary(period: period, score: 76.3, rank: 2, commits: 438, kilometers: 166.2, lastSyncAt: "2026-07-06T12:00:00.000Z")
+            commits = 438
+            kilometers = 166.2
+            rank = 2
         case "2024":
-            return ScoreSummary(period: period, score: 69.8, rank: 3, commits: 287, kilometers: 93.5, lastSyncAt: "2026-07-06T12:00:00.000Z")
+            commits = 287
+            kilometers = 93.5
+            rank = 3
         default:
-            return ScoreSummary(period: period, score: 94.2, rank: 1, commits: 312, kilometers: 86.4, lastSyncAt: "2026-07-06T12:00:00.000Z")
+            commits = 312
+            kilometers = 86.4
+            rank = 1
         }
+
+        let scorePeriod = ScorePeriod(period) ?? ScorePeriod("2026-07")!
+        return ScoreSummary(
+            period: period,
+            score: FixedPlateauScore.score(commits: commits, kilometers: kilometers, period: scorePeriod),
+            rank: rank,
+            commits: commits,
+            kilometers: kilometers,
+            lastSyncAt: "2026-07-06T12:00:00.000Z"
+        )
     }
 
     private func history(for period: String) -> [ProfileHistoryPoint] {
         let score = scoreSummary(for: period)
+        let scorePeriod = ScorePeriod(period) ?? ScorePeriod("2026-07")!
         if period.count == 4 {
             return [
-                ProfileHistoryPoint(date: "\(period)-01-31", commits: max(1, score.commits / 4), kilometers: score.kilometers * 0.22, score: score.score * 0.45),
-                ProfileHistoryPoint(date: "\(period)-04-30", commits: max(1, score.commits / 2), kilometers: score.kilometers * 0.52, score: score.score * 0.70),
-                ProfileHistoryPoint(date: "\(period)-07-06", commits: score.commits, kilometers: score.kilometers, score: score.score),
-            ]
+                ("\(period)-01-31", max(1, score.commits / 4), score.kilometers * 0.22),
+                ("\(period)-04-30", max(1, score.commits / 2), score.kilometers * 0.52),
+                ("\(period)-07-06", score.commits, score.kilometers),
+            ].map { date, commits, kilometers in
+                ProfileHistoryPoint(
+                    date: date,
+                    commits: commits,
+                    kilometers: kilometers,
+                    score: FixedPlateauScore.score(commits: commits, kilometers: kilometers, period: scorePeriod)
+                )
+            }
         }
 
         return [
-            ProfileHistoryPoint(date: "2026-07-01", commits: 41, kilometers: 8.1, score: 42.8),
-            ProfileHistoryPoint(date: "2026-07-02", commits: 93, kilometers: 23.5, score: 68.4),
-            ProfileHistoryPoint(date: "2026-07-03", commits: 128, kilometers: 31.2, score: 75.6),
-            ProfileHistoryPoint(date: "2026-07-04", commits: 176, kilometers: 43.8, score: 80.9),
-            ProfileHistoryPoint(date: "2026-07-05", commits: 219, kilometers: 58.7, score: 86.3),
-            ProfileHistoryPoint(date: "2026-07-06", commits: score.commits, kilometers: score.kilometers, score: score.score),
-        ]
+            ("2026-07-01", 41, 8.1),
+            ("2026-07-02", 93, 23.5),
+            ("2026-07-03", 128, 31.2),
+            ("2026-07-04", 176, 43.8),
+            ("2026-07-05", 219, 58.7),
+            ("2026-07-06", score.commits, score.kilometers),
+        ].map { date, commits, kilometers in
+            ProfileHistoryPoint(
+                date: date,
+                commits: commits,
+                kilometers: kilometers,
+                score: FixedPlateauScore.score(commits: commits, kilometers: kilometers, period: scorePeriod)
+            )
+        }
     }
 
     private var deviceExchangeResponse: DeviceExchangeResponse {
@@ -4735,11 +4795,13 @@ enum DemoData {
         let fractions = progressFractions(count: dates.count)
 
         return zip(dates, fractions).map { date, fraction in
-            ProfileHistoryPoint(
+            let commits = max(1, Int((Double(row.commits) * fraction).rounded()))
+            let kilometers = rounded(row.kilometers * fraction)
+            return ProfileHistoryPoint(
                 date: date,
-                commits: max(1, Int((Double(row.commits) * fraction).rounded())),
-                kilometers: rounded(row.kilometers * fraction),
-                score: rounded(row.score * fraction)
+                commits: commits,
+                kilometers: kilometers,
+                score: rounded(FixedPlateauScore.score(commits: commits, kilometers: kilometers, period: period))
             )
         }
     }
@@ -4750,21 +4812,18 @@ enum DemoData {
 
         let commitScale: Double
         let distanceScale: Double
-        let scoreScale: Double
         let streakScale: Double
 
         switch period.kind {
         case .week:
             commitScale = 0.16 + seed * 0.15
             distanceScale = 0.12 + (1 - seed) * 0.13
-            scoreScale = 0.68 + seed * 0.22
             streakScale = 0.45 + seed * 0.2
         case .month:
             let month = Double(components.month ?? 1)
             let seasonality = Double(Int(month) % 4) * 0.045
             commitScale = 0.72 + seasonality + seed * 0.12
             distanceScale = 0.68 + (0.135 - seasonality) + (1 - seed) * 0.1
-            scoreScale = 0.84 + seed * 0.13
             streakScale = 0.85 + seed * 0.15
         case .year:
             let year = components.year ?? 2026
@@ -4772,17 +4831,19 @@ enum DemoData {
             let recency = 1 - age * 0.08
             commitScale = (3.15 + seed * 0.7) * recency
             distanceScale = (3.6 + (1 - seed) * 0.85) * recency
-            scoreScale = 0.88 + seed * 0.1 - age * 0.015
             streakScale = 1.35 + max(0, 4 - age) * 0.14
         }
+
+        let commits = max(1, Int((Double(row.commits) * commitScale).rounded()))
+        let kilometers = rounded(row.kilometers * distanceScale)
 
         return LeaderboardRow(
             rank: row.rank,
             login: row.login,
             displayName: row.displayName,
-            score: rounded(clamped(row.score * scoreScale, lower: 10, upper: 99.4)),
-            commits: max(1, Int((Double(row.commits) * commitScale).rounded())),
-            kilometers: rounded(row.kilometers * distanceScale),
+            score: rounded(FixedPlateauScore.score(commits: commits, kilometers: kilometers, period: period)),
+            commits: commits,
+            kilometers: kilometers,
             streakDays: max(1, Int((Double(row.streakDays) * streakScale).rounded()))
         )
     }
@@ -4849,9 +4910,6 @@ enum DemoData {
         (value * 10).rounded() / 10
     }
 
-    private static func clamped(_ value: Double, lower: Double, upper: Double) -> Double {
-        min(max(value, lower), upper)
-    }
 }
 
 struct ScoreSummary: Decodable {

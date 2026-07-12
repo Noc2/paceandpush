@@ -81,28 +81,35 @@ Initial tables:
 - `mobile_devices`: user ID, platform, device label, token hash, revoked state.
 - `commit_days`: user ID, date, commit count, source metadata.
 - `distance_days`: user ID, date, running meters, source platform, source hash.
-- `score_snapshots`: user ID, period, commit total, distance total, normalized
-  metrics, balanced score, rank metadata.
+- `score_snapshots`: user ID, period, commit total, distance total, fixed-reference
+  components, balanced score, rank metadata.
 - `sync_runs`: source, status, timestamps, counters, error summary.
 
 ## Scoring
 
-For the PoC, score each selected period by normalizing commits and kilometers
-inside the visible cohort, then combining them with a geometric mean:
+Each selected period uses fixed, published activity plateaus scaled by the
+complete number of calendar days in that period:
 
 ```txt
-score = sqrt(normalized_commits * normalized_kilometers)
+commit_plateau = 25 * period_days / 7
+kilometer_plateau = 50 * period_days / 7
+component(value, plateau) = 1 - 25^(-value / plateau)
+score = 100 * sqrt(commit_component * kilometer_component)
 ```
 
-This keeps the product identity balanced: commits without movement and movement
-without commits both underperform on the balanced board, while still allowing
-separate commits-only and kilometers-only boards.
+Half a plateau produces an 80 component and the full plateau produces 96, so
+additional volume still helps with sharply diminishing returns. The numeric
+score depends only on that user's activity; leaderboard membership and outliers
+cannot change it. Commits without movement and movement without commits still
+produce a zero balanced score, while separate commits-only and kilometers-only
+boards remain available.
 
 Guardrails:
 
 - Count GitHub commit totals through authenticated GraphQL contribution summaries,
   with restricted/private contribution aggregates stored in source metadata.
 - Count running distance only for the balanced score.
+- Rank with the unrounded fixed-reference score and round only for display.
 - Flag implausible daily running distance for review rather than silently
   removing it.
 - Keep public leaderboard participation user-controllable and private by
