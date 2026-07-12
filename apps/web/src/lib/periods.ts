@@ -41,6 +41,13 @@ export function periodBounds(period: string): { start: string; end: string } {
   throw new Error("period must use YYYY, YYYY-MM, or YYYY-Www format.");
 }
 
+export function periodDayCount(period: string): number {
+  const { start, end } = periodBounds(period);
+  const startDate = new Date(`${start}T00:00:00.000Z`);
+  const endDate = new Date(`${end}T00:00:00.000Z`);
+  return Math.floor((endDate.getTime() - startDate.getTime()) / dayMs) + 1;
+}
+
 export function isSupportedPeriod(period: string): boolean {
   try {
     periodBounds(period);

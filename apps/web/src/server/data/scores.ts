@@ -1,4 +1,4 @@
-import { scoreCohort, type Board } from "@paceandpush/api-contracts";
+import { scoreActivity, type Board } from "@paceandpush/api-contracts";
 import {
   getGitHubAccessToken,
   listGitHubAccountsForScoreRefresh,
@@ -6,7 +6,7 @@ import {
 import { getDb } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, users } from "@/server/db/schema";
 import { fetchGitHubContributionDays } from "@/server/github/contributions";
-import { currentPeriod, periodBounds } from "@/lib/periods";
+import { currentPeriod, periodBounds, periodDayCount } from "@/lib/periods";
 import { hasCurrentPublicHealthDataConsent } from "@/server/privacy/public-health-data-consent";
 import { and, eq, gte, lte, notInArray, sql } from "drizzle-orm";
 
@@ -159,12 +159,15 @@ async function recomputeScoreSnapshotsUnlocked(period: string): Promise<{
   snapshots: number;
 }> {
   const totals = await getScoreTotals(period);
-  const publicTotals = totals.filter((row) => row.publicLeaderboard);
-  const privateTotals = totals.filter((row) => !row.publicLeaderboard);
-  const scoredRows = [
-    ...scoreCohort(publicTotals),
-    ...privateTotals.map((row) => scoreCohort([...publicTotals, row]).at(-1)!),
-  ];
+  const periodDays = periodDayCount(period);
+  const scoredRows = totals.map((row) => ({
+    ...row,
+    ...scoreActivity({
+      commits: row.commits,
+      kilometers: row.kilometers,
+      periodDays,
+    }),
+  }));
   const boards: Board[] = ["balanced", "commits", "distance"];
   let snapshots = 0;
 
@@ -186,9 +189,9 @@ async function recomputeScoreSnapshotsUnlocked(period: string): Promise<{
             board,
             commitTotal: row.commits,
             distanceMetersTotal: Math.round(row.kilometers * 1000),
-            normalizedCommits: row.normalizedCommits.toFixed(6),
-            normalizedKilometers: row.normalizedKilometers.toFixed(6),
-            balancedScore: row.score.toFixed(2),
+            commitComponent: row.commitComponent.toFixed(6),
+            distanceComponent: row.distanceComponent.toFixed(6),
+            score: row.score.toFixed(6),
             rank: rankByUserId.get(row.userId) ?? null,
           })
           .onConflictDoUpdate({
@@ -196,9 +199,9 @@ async function recomputeScoreSnapshotsUnlocked(period: string): Promise<{
             set: {
               commitTotal: row.commits,
               distanceMetersTotal: Math.round(row.kilometers * 1000),
-              normalizedCommits: row.normalizedCommits.toFixed(6),
-              normalizedKilometers: row.normalizedKilometers.toFixed(6),
-              balancedScore: row.score.toFixed(2),
+              commitComponent: row.commitComponent.toFixed(6),
+              distanceComponent: row.distanceComponent.toFixed(6),
+              score: row.score.toFixed(6),
               rank: rankByUserId.get(row.userId) ?? null,
               createdAt: new Date(),
             },
@@ -319,9 +322,20 @@ function compareBoardRows(
   left: ScoreTotals & { score: number },
   right: ScoreTotals & { score: number },
 ): number {
-  if (board === "commits") return right.commits - left.commits;
-  if (board === "distance") return right.kilometers - left.kilometers;
-  return right.score - left.score;
+  const primaryDifference = board === "commits"
+    ? right.commits - left.commits
+    : board === "distance"
+      ? right.kilometers - left.kilometers
+      : right.score - left.score;
+  if (primaryDifference !== 0) return primaryDifference;
+
+  const commitDifference = right.commits - left.commits;
+  if (commitDifference !== 0) return commitDifference;
+
+  const distanceDifference = right.kilometers - left.kilometers;
+  if (distanceDifference !== 0) return distanceDifference;
+
+  return left.userId.localeCompare(right.userId);
 }
 
 function uniqueSortedPeriods(periods: Iterable<string>): string[] {

@@ -8,6 +8,7 @@ import type {
   ScoreSummary,
   UserSearchResponse,
 } from "@paceandpush/api-contracts";
+import { scoreActivity } from "@paceandpush/api-contracts";
 import type { SessionUser } from "@/server/auth/session";
 import { getAccountUser, getGitHubConnectionSummary } from "@/server/data/accounts";
 import { listMobileDevices } from "@/server/data/mobile";
@@ -19,7 +20,7 @@ import {
 } from "@/server/data/scores";
 import { getDb, isDatabaseConfigured } from "@/server/db/client";
 import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/server/db/schema";
-import { isCurrentOrPreviousPeriod } from "@/lib/periods";
+import { isCurrentOrPreviousPeriod, periodDayCount } from "@/lib/periods";
 import { calculateStreakDays } from "@/lib/streaks";
 import { currentPublicHealthDataConsentCondition } from "@/server/privacy/public-health-data-consent";
 import { and, desc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm";
@@ -120,7 +121,7 @@ async function getLeaderboardSnapshotRows(
       rank: scoreSnapshots.rank,
       login: users.login,
       displayName: users.displayName,
-      score: scoreSnapshots.balancedScore,
+      score: scoreSnapshots.score,
       commits: scoreSnapshots.commitTotal,
       distanceMeters: scoreSnapshots.distanceMetersTotal,
       userId: users.id,
@@ -154,7 +155,7 @@ async function getPublicUserSearchRows(
       rank: scoreSnapshots.rank,
       login: users.login,
       displayName: users.displayName,
-      score: scoreSnapshots.balancedScore,
+      score: scoreSnapshots.score,
       commits: scoreSnapshots.commitTotal,
       distanceMeters: scoreSnapshots.distanceMetersTotal,
       userId: users.id,
@@ -240,7 +241,7 @@ export async function getPublicProfile(
     bio: user.bio,
     score,
     history: user.publicActivityHistory
-      ? await getProfileHistory(user.id, period, score.score)
+      ? await getProfileHistory(user.id, period)
       : [],
     historyVisibility: user.publicActivityHistory ? "public" : "private",
   };
@@ -266,7 +267,7 @@ export async function getAccountProfile({
     displayName,
     bio,
     score,
-    history: await getProfileHistory(userId, period, score.score),
+    history: await getProfileHistory(userId, period),
     historyVisibility: "owner",
   };
 }
@@ -355,7 +356,7 @@ async function getScoreSnapshot(
 ): Promise<ScoreSnapshotSummary | null> {
   const [snapshot] = await getDb()
     .select({
-      score: scoreSnapshots.balancedScore,
+      score: scoreSnapshots.score,
       rank: scoreSnapshots.rank,
       commits: scoreSnapshots.commitTotal,
       distanceMeters: scoreSnapshots.distanceMetersTotal,
@@ -487,7 +488,6 @@ async function hasScoreSnapshot(userId: string, period: string): Promise<boolean
 async function getProfileHistory(
   userId: string,
   period: string,
-  latestScore: number,
 ): Promise<ProfileHistoryPoint[]> {
   const { start, end } = periodBounds(period);
   const [commits, distances] = await Promise.all([
@@ -523,23 +523,26 @@ async function getProfileHistory(
   const commitByDay = new Map(commits.map((row) => [row.day, row.count]));
   const metersByDay = new Map(distances.map((row) => [row.day, row.meters]));
   const days = [...new Set([...commitByDay.keys(), ...metersByDay.keys()])].sort();
-  const totalCommits = [...commitByDay.values()].reduce((sum, value) => sum + value, 0);
-  const totalMeters = [...metersByDay.values()].reduce((sum, value) => sum + value, 0);
   let runningCommits = 0;
   let runningMeters = 0;
+  const periodDays = periodDayCount(period);
 
   return days.map((day) => {
     runningCommits += commitByDay.get(day) ?? 0;
     runningMeters += metersByDay.get(day) ?? 0;
 
-    const commitRatio = totalCommits > 0 ? runningCommits / totalCommits : 0;
-    const distanceRatio = totalMeters > 0 ? runningMeters / totalMeters : 0;
+    const kilometers = runningMeters / 1000;
+    const activityScore = scoreActivity({
+      commits: runningCommits,
+      kilometers,
+      periodDays,
+    });
 
     return {
       date: day,
       commits: runningCommits,
-      kilometers: Math.round((runningMeters / 1000) * 10) / 10,
-      score: Math.round(latestScore * Math.sqrt(commitRatio * distanceRatio) * 10) / 10,
+      kilometers: Math.round(kilometers * 10) / 10,
+      score: Number(activityScore.score.toFixed(6)),
     };
   });
 }

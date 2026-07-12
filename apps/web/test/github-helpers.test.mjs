@@ -749,6 +749,15 @@ test("public snapshot refreshes are limited to current and previous periods", ()
   assert.equal(periods.isCurrentOrPreviousPeriod("2026-W26", now), false);
 });
 
+test("score periods use complete inclusive calendar lengths", () => {
+  assert.equal(periods.periodDayCount("2026-W28"), 7);
+  assert.equal(periods.periodDayCount("2026-02"), 28);
+  assert.equal(periods.periodDayCount("2024-02"), 29);
+  assert.equal(periods.periodDayCount("2026-07"), 31);
+  assert.equal(periods.periodDayCount("2025"), 365);
+  assert.equal(periods.periodDayCount("2024"), 366);
+});
+
 test("streak calculation counts unique consecutive active days", () => {
   assert.equal(streaks.calculateStreakDays([]), 0);
   assert.equal(
@@ -840,9 +849,41 @@ test("anonymous health-derived surfaces require current consent and gate dated h
     readModel,
     /historyVisibility: user\.publicActivityHistory \? "public" : "private"/,
   );
-  assert.match(scoreSource, /const publicTotals = totals\.filter\(\(row\) => row\.publicLeaderboard\)/);
   assert.match(scoreSource, /hasCurrentPublicHealthDataConsent\(user\)/);
-  assert.match(scoreSource, /scoreCohort\(\[\.\.\.publicTotals, row\]\)/);
+  assert.match(scoreSource, /const scoredRows = totals\.map\(\(row\) =>/);
+  assert.match(scoreSource, /scoreActivity\(\{/);
+  assert.match(scoreSource, /periodDays,/);
+  assert.doesNotMatch(scoreSource, /publicTotals|privateTotals|scoreCohort/);
+});
+
+test("fixed score snapshots replace cohort-normalized derived data", async () => {
+  const [schemaSource, migrationSource, scoreSource, readModel] = await Promise.all([
+    readFile(new URL("../src/server/db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0014_fixed_plateau_scores.sql", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/data/scores.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/data/read-model.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(migrationSource, /DROP TABLE IF EXISTS score_snapshots/);
+  assert.match(migrationSource, /commit_component numeric\(8, 6\)/);
+  assert.match(migrationSource, /distance_component numeric\(8, 6\)/);
+  assert.match(migrationSource, /score numeric\(9, 6\)/);
+  assert.doesNotMatch(migrationSource, /normalized_|balanced_score/);
+  assert.match(schemaSource, /commitComponent: numeric\("commit_component"/);
+  assert.match(schemaSource, /distanceComponent: numeric\("distance_component"/);
+  assert.match(schemaSource, /score: numeric\("score", \{ precision: 9, scale: 6 \}\)/);
+
+  assert.match(scoreSource, /scoreActivity\(\{/);
+  assert.match(scoreSource, /score: row\.score\.toFixed\(6\)/);
+  assert.match(scoreSource, /return left\.userId\.localeCompare\(right\.userId\)/);
+
+  const historyBlock = readModel.slice(
+    readModel.indexOf("async function getProfileHistory"),
+    readModel.indexOf("async function getStreakDaysByUserId"),
+  );
+  assert.match(historyBlock, /const periodDays = periodDayCount\(period\)/);
+  assert.match(historyBlock, /scoreActivity\(\{/);
+  assert.doesNotMatch(historyBlock, /latestScore|commitRatio|distanceRatio/);
 });
 
 test("leaderboard visibility defaults and existing accounts reset to private", async () => {
