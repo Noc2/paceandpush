@@ -1,46 +1,59 @@
+export const scoreModel = "fixed-plateau-v1" as const;
+export const weeklyCommitPlateau = 25;
+export const weeklyKilometerPlateau = 50;
+
+const plateauBase = 25;
+const daysPerWeek = 7;
+
 export interface ScoreInput {
   commits: number;
   kilometers: number;
 }
 
-export interface NormalizedScoreInput extends ScoreInput {
-  normalizedCommits: number;
-  normalizedKilometers: number;
+export interface ActivityScore extends ScoreInput {
+  commitComponent: number;
+  distanceComponent: number;
+  score: number;
 }
 
-export function normalizeMetric(value: number, maxValue: number): number {
+export interface ScorePlateaus {
+  commits: number;
+  kilometers: number;
+}
+
+export function scorePlateaus(periodDays: number): ScorePlateaus {
+  if (!Number.isInteger(periodDays) || periodDays <= 0) {
+    throw new RangeError("periodDays must be a positive integer.");
+  }
+
+  return {
+    commits: weeklyCommitPlateau * periodDays / daysPerWeek,
+    kilometers: weeklyKilometerPlateau * periodDays / daysPerWeek,
+  };
+}
+
+export function scoreActivity({
+  commits,
+  kilometers,
+  periodDays,
+}: ScoreInput & { periodDays: number }): ActivityScore {
+  const plateaus = scorePlateaus(periodDays);
+  const commitComponent = scoreComponent(commits, plateaus.commits);
+  const distanceComponent = scoreComponent(kilometers, plateaus.kilometers);
+
+  return {
+    commits,
+    kilometers,
+    commitComponent,
+    distanceComponent,
+    score: Math.sqrt(commitComponent * distanceComponent) * 100,
+  };
+}
+
+export function scoreComponent(value: number, plateau: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0;
-  if (!Number.isFinite(maxValue) || maxValue <= 0) return 0;
-  return Math.min(value / maxValue, 1);
-}
+  if (!Number.isFinite(plateau) || plateau <= 0) return 0;
 
-export function balancedScore({
-  normalizedCommits,
-  normalizedKilometers,
-}: Pick<NormalizedScoreInput, "normalizedCommits" | "normalizedKilometers">): number {
-  const commitPart = Math.max(normalizedCommits, 0);
-  const distancePart = Math.max(normalizedKilometers, 0);
-  return roundScore(Math.sqrt(commitPart * distancePart) * 100);
-}
-
-export function scoreCohort<T extends ScoreInput>(
-  rows: T[],
-): Array<T & NormalizedScoreInput & { score: number }> {
-  const maxCommits = Math.max(...rows.map((row) => row.commits), 0);
-  const maxKilometers = Math.max(...rows.map((row) => row.kilometers), 0);
-
-  return rows.map((row) => {
-    const normalizedCommits = normalizeMetric(row.commits, maxCommits);
-    const normalizedKilometers = normalizeMetric(row.kilometers, maxKilometers);
-    return {
-      ...row,
-      normalizedCommits,
-      normalizedKilometers,
-      score: balancedScore({ normalizedCommits, normalizedKilometers }),
-    };
-  });
-}
-
-export function roundScore(value: number): number {
-  return Math.round(value * 10) / 10;
+  const component = -Math.expm1(-Math.log(plateauBase) * value / plateau);
+  return Math.min(Math.max(component, 0), 1);
 }
