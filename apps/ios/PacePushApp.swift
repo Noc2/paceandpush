@@ -1014,10 +1014,7 @@ struct SettingsView: View {
                         SettingsUnitSelector(units: $store.units)
                     }
 
-                    SettingsSectionPanel(
-                        "Privacy",
-                        detail: store.publicLeaderboardPreference ? "Exact totals public" : "Private"
-                    ) {
+                    SettingsSectionPanel("Privacy") {
                         PublicProfileFieldSummary()
                         PublicActivityHistoryOption(includesHistory: $includesPublicActivityHistory)
                         PublicProfileSharingWarning()

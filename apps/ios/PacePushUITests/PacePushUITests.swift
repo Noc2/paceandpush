@@ -145,7 +145,7 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["settings-screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["sync-now-button"].exists)
         XCTAssertTrue(app.buttons["settings-sign-out-button"].exists)
-        XCTAssertTrue(app.staticTexts["Exact totals public"].exists)
+        XCTAssertFalse(app.staticTexts["Exact totals public"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["public-profile-field-summary"].exists)
         XCTAssertFalse(app.staticTexts["Optional public sharing"].exists)
         let historyToggle = app.switches["public-activity-history-toggle"]
