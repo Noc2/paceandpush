@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { contractVersion, jsonSchemas } from "../src/schemas.ts";
+import { seedProfile } from "../src/fixtures.ts";
 import { publicHealthDataConsentVersion } from "../src/types.ts";
 
 const api = JSON.parse(
@@ -41,6 +42,14 @@ test("OpenAPI lists the production route surface", () => {
 
 test("OpenAPI version tracks the shared contract version", () => {
   assert.equal(api.info.version, contractVersion);
+});
+
+test("public profile scores omit private sync timestamps", () => {
+  assert.ok(jsonSchemas.scoreSummary.required.includes("lastSyncAt"));
+  assert.equal(jsonSchemas.publicScoreSummary.additionalProperties, false);
+  assert.ok(!jsonSchemas.publicScoreSummary.required.includes("lastSyncAt"));
+  assert.ok(!("lastSyncAt" in jsonSchemas.publicScoreSummary.properties));
+  assert.ok(!("lastSyncAt" in seedProfile.score));
 });
 
 test("OpenAPI documents period selection for mobile profile history", () => {

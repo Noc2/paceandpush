@@ -381,7 +381,7 @@ leverage:
 5. **Privacy is now opt-in and partially granular; make it the brand.**
    Onboarding connects and syncs privately, then presents an exact-field
    publication preview. Public identity, exact period kilometers, commits,
-   score, rank, streak, bio, and last-sync time form one understandable
+   score, rank, streak, and bio form one understandable
    summary consent because splitting them would break the core leaderboard.
    Dated cumulative history is a separate default-off consent because it can
    reveal day-to-day activity. "Nothing is public until you say so" should be

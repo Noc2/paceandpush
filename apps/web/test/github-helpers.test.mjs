@@ -17,6 +17,7 @@ const periods = await loadTypeScriptModule("../src/lib/periods.ts");
 const timelineTicks = await loadTypeScriptModule("../src/server/charts/timeline-ticks.ts");
 const streaks = await loadTypeScriptModule("../src/lib/streaks.ts");
 const tokenCrypto = await loadTypeScriptModule("../src/server/github/token-crypto.ts");
+const publicProfiles = await loadTypeScriptModule("../src/server/privacy/public-profile.ts");
 
 test("GitHub contribution windows cover each UTC date inclusively", () => {
   assert.deepEqual(
@@ -890,11 +891,37 @@ test("anonymous health-derived surfaces require current consent and gate dated h
     readModel,
     /historyVisibility: user\.publicActivityHistory \? "public" : "private"/,
   );
+  assert.ok(
+    readModel.match(/score: toPublicScoreSummary\(score\)/g)?.length >= 2,
+    "public and mobile profile responses both remove private sync timestamps",
+  );
   assert.match(scoreSource, /hasCurrentPublicHealthDataConsent\(user\)/);
   assert.match(scoreSource, /const scoredRows = totals\.map\(\(row\) =>/);
   assert.match(scoreSource, /scoreActivity\(\{/);
   assert.match(scoreSource, /periodDays,/);
   assert.doesNotMatch(scoreSource, /publicTotals|privateTotals|scoreCohort/);
+});
+
+test("public profile score serialization removes the private sync timestamp", () => {
+  assert.deepEqual(
+    plain(
+      publicProfiles.toPublicScoreSummary({
+        period: "2026-07",
+        score: 82.4,
+        rank: 3,
+        commits: 144,
+        kilometers: 61.2,
+        lastSyncAt: "2026-07-13T12:00:00.000Z",
+      }),
+    ),
+    {
+      period: "2026-07",
+      score: 82.4,
+      rank: 3,
+      commits: 144,
+      kilometers: 61.2,
+    },
+  );
 });
 
 test("fixed score snapshots replace cohort-normalized derived data", async () => {
@@ -1325,7 +1352,8 @@ test("web public health sharing requires explicit versioned consent", async () =
   );
   assert.match(controlSource, /anyone on the internet/);
   assert.match(controlSource, /without a Pace &amp;[\s\S]*Push account/);
-  assert.match(controlSource, /GitHub login, display name, bio, and last sync time/);
+  assert.match(controlSource, /GitHub login, display name, and bio/);
+  assert.doesNotMatch(controlSource, /last sync time/);
   assert.match(controlSource, /exact running distance in kilometers/);
   assert.match(controlSource, /commit total, combined score, leaderboard rank, and streak/);
   assert.match(controlSource, /copy,[\s\S]*save, or share/);
@@ -1726,6 +1754,7 @@ test("Android client is wired to real mobile APIs and Health Connect sync", asyn
   assert.match(androidSource, /themeSelector\(\)/);
   assert.match(androidSource, /applyBrandSystemBars\(\)/);
   assert.match(androidSource, /optBoolean\("publicLeaderboard", false\)/);
+  assert.doesNotMatch(androidSource, /last-sync time/);
   assert.match(
     androidSource,
     /private fun emptyMeSummary\(\): MeSummary \{[\s\S]*publicLeaderboard = false/,

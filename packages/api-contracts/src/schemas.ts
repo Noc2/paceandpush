@@ -1,4 +1,4 @@
-export const contractVersion = "2026-07-11-public-health-consent-v1";
+export const contractVersion = "2026-07-13-private-sync-timestamps";
 
 export const jsonSchemas = {
   scoreSummary: {
@@ -11,6 +11,18 @@ export const jsonSchemas = {
       commits: { type: "number" },
       kilometers: { type: "number" },
       lastSyncAt: { type: ["string", "null"], format: "date-time" },
+    },
+  },
+  publicScoreSummary: {
+    type: "object",
+    additionalProperties: false,
+    required: ["period", "score", "rank", "commits", "kilometers"],
+    properties: {
+      period: { type: "string", pattern: "^(?:\\d{4}|\\d{4}-(?:0[1-9]|1[0-2])|\\d{4}-W(?:0[1-9]|[1-4]\\d|5[0-3]))$" },
+      score: { type: "number" },
+      rank: { type: ["number", "null"] },
+      commits: { type: "number" },
+      kilometers: { type: "number" },
     },
   },
   leaderboardRow: {

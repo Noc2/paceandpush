@@ -21,6 +21,11 @@ export interface ScoreSummary {
   lastSyncAt: string | null;
 }
 
+export type PublicScoreSummary = Pick<
+  ScoreSummary,
+  "period" | "score" | "rank" | "commits" | "kilometers"
+>;
+
 export interface LeaderboardRow {
   rank: number;
   login: string;
@@ -54,7 +59,7 @@ export interface PublicProfileResponse {
   login: string;
   displayName: string;
   bio: string | null;
-  score: ScoreSummary;
+  score: PublicScoreSummary;
   history: ProfileHistoryPoint[];
   historyVisibility: "owner" | "public" | "private";
 }

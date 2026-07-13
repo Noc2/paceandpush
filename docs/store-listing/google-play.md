@@ -23,8 +23,9 @@ workouts, GPS routes, maps, heart-rate samples, or step-by-step Health Connect
 records.
 
 The initial aggregate sync is private. Publishing exact period kilometers,
-identity, commit total, derived score, rank, streak, bio, and last-sync time is
-a separate optional action with a clear no-account public audience disclosure.
+identity, commit total, derived score, rank, streak, and bio is a separate
+optional action with a clear no-account public audience disclosure. Sync
+timestamps remain private.
 Dated activity history is a separate default-off option, and public sharing can
 be withdrawn from Settings.
 

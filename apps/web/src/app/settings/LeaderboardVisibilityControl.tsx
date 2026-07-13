@@ -160,7 +160,7 @@ export function LeaderboardVisibilityControl({
         Push account:
       </p>
       <ul>
-        <li>Your GitHub login, display name, bio, and last sync time.</li>
+        <li>Your GitHub login, display name, and bio.</li>
         <li>Your exact running distance in kilometers for the selected period.</li>
         <li>Your commit total, combined score, leaderboard rank, and streak.</li>
       </ul>

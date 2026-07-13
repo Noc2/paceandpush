@@ -23,6 +23,7 @@ import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/ser
 import { isCurrentOrPreviousPeriod, periodDayCount } from "@/lib/periods";
 import { calculateStreakDays } from "@/lib/streaks";
 import { currentPublicHealthDataConsentCondition } from "@/server/privacy/public-health-data-consent";
+import { toPublicScoreSummary } from "@/server/privacy/public-profile";
 import { and, desc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm";
 
 type LeaderboardSnapshotRow = {
@@ -239,7 +240,7 @@ export async function getPublicProfile(
     login: user.login,
     displayName: user.displayName,
     bio: user.bio,
-    score,
+    score: toPublicScoreSummary(score),
     history: user.publicActivityHistory
       ? await getProfileHistory(user.id, period)
       : [],
@@ -266,7 +267,7 @@ export async function getAccountProfile({
     login,
     displayName,
     bio,
-    score,
+    score: toPublicScoreSummary(score),
     history: await getProfileHistory(userId, period),
     historyVisibility: "owner",
   };

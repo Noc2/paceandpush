@@ -119,7 +119,7 @@ Guardrails:
 
 Both native apps should ship these screens in the PoC:
 
-- Today: current period score, commits, kilometers, rank, and last sync time.
+- Today: current period score, commits, kilometers, and rank.
 - Leaderboard: tabs for Balanced, Commits, and Run kilometers.
 - Profile: own profile chart plus public profile view for other users.
 - Sync: health permission state, synced date range, sync now button, recent sync

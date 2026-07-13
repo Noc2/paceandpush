@@ -858,7 +858,7 @@ class MainActivity : ComponentActivity() {
             }
 
             addView(bodyText(
-                "Optional. If you publish, anyone on the internet can view your profile without an account. It shows your GitHub login and display name, bio, exact kilometers for the active period, commit total, derived score, rank, streak, and last-sync time. Other people may copy or share these values.",
+                "Optional. If you publish, anyone on the internet can view your profile without an account. It shows your GitHub login and display name, bio, exact kilometers for the active period, commit total, derived score, rank, and streak. Other people may copy or share these values.",
                 15f,
             ).apply { setPadding(0, dp(6), 0, dp(8)) })
             addView(bodyText(

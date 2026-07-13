@@ -157,7 +157,7 @@ export default function PrivacyPage() {
               private. You can then separately choose to publish. Before that
               choice, {brandName} names the audience and fields: anyone on the
               internet can view your GitHub username and display name, profile
-              bio, last-sync time, exact running distance for the selected
+              bio, exact running distance for the selected
               period, GitHub commit total, combined score, rank, and streak
               without an account. Other people may copy or share information
               you publish. Commit totals may include restricted/private

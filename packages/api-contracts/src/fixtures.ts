@@ -85,7 +85,13 @@ export const seedProfile: PublicProfileResponse = {
   login: "Noc2",
   displayName: "David Hawig",
   bio: "Run. Commit. Repeat.",
-  score: seedMe.score,
+  score: {
+    period: seedMe.score.period,
+    score: seedMe.score.score,
+    rank: seedMe.score.rank,
+    commits: seedMe.score.commits,
+    kilometers: seedMe.score.kilometers,
+  },
   history: [
     { date: "2026-07-01", commits: 41, kilometers: 8.1, score: 27.812892 },
     { date: "2026-07-02", commits: 93, kilometers: 23.5, score: 51.962108 },

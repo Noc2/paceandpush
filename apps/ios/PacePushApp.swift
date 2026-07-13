@@ -205,7 +205,6 @@ struct PublicProfileFieldSummary: View {
             summaryRow("Identity", value: identityValue, identifier: "public-profile-summary-identity")
             summaryRow("This period", value: periodValue, identifier: "public-profile-summary-period")
             summaryRow("Results", value: resultsValue, identifier: "public-profile-summary-results")
-            summaryRow("Also public", value: "Bio · last sync time", identifier: "public-profile-summary-additional")
         }
         .accessibilityIdentifier("public-profile-field-summary")
     }
