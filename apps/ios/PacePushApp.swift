@@ -1017,7 +1017,6 @@ struct SettingsView: View {
                     SettingsSectionPanel("Privacy") {
                         PublicProfileFieldSummary()
                         PublicActivityHistoryOption(includesHistory: $includesPublicActivityHistory)
-                        PublicProfileSharingWarning()
 
                         if store.publicLeaderboardPreference {
                             SettingsActionButton(
@@ -1060,11 +1059,6 @@ struct SettingsView: View {
                             }
                             .accessibilityIdentifier("settings-publish-health-totals-button")
                         }
-
-                        Text("Daily running-distance aggregates sync to your private account. Raw workouts and routes are not uploaded.")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(Brand.muted)
-                            .padding(.top, 2)
 
                         SettingsLinkButton(
                             "Privacy Policy",

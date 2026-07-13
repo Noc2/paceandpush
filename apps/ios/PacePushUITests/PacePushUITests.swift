@@ -146,6 +146,8 @@ final class PacePushUITests: XCTestCase {
         XCTAssertTrue(app.buttons["sync-now-button"].exists)
         XCTAssertTrue(app.buttons["settings-sign-out-button"].exists)
         XCTAssertFalse(app.staticTexts["Exact totals public"].exists)
+        XCTAssertFalse(app.staticTexts["Others can copy or share public information. You can make your profile private at any time."].exists)
+        XCTAssertFalse(app.staticTexts["Daily running-distance aggregates sync to your private account. Raw workouts and routes are not uploaded."].exists)
         XCTAssertTrue(app.descendants(matching: .any)["public-profile-field-summary"].exists)
         XCTAssertFalse(app.staticTexts["Optional public sharing"].exists)
         let historyToggle = app.switches["public-activity-history-toggle"]
