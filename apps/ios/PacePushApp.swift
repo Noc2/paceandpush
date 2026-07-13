@@ -1014,7 +1014,10 @@ struct SettingsView: View {
                         SettingsUnitSelector(units: $store.units)
                     }
 
-                    SettingsSectionPanel("Privacy") {
+                    SettingsSectionPanel(
+                        "Privacy",
+                        detail: store.publicLeaderboardPreference ? nil : "Private"
+                    ) {
                         PublicProfileFieldSummary()
                         PublicActivityHistoryOption(includesHistory: $includesPublicActivityHistory)
 
