@@ -11,8 +11,8 @@ Owner-only production setup is tracked in
 - Create a Vercel project from this repository with the repository root as the
   project root.
 - Keep the build command from `vercel.json`: `npm run vercel:build`. It runs
-  migration checks and production migrations before `npm run build`. Keep the
-  install command as `npm ci`.
+  legal and migration-file checks before `npm run build`, but does not connect
+  to the production database. Keep the install command as `npm ci`.
 - Add `paceandpush.com` and `www.paceandpush.com` to the production deployment.
 - Configure production environment variables:
   - `NEXT_PUBLIC_APP_URL=https://paceandpush.com`
@@ -33,9 +33,12 @@ Owner-only production setup is tracked in
 
 ## Data
 
-- Run `npm run db:migrations:check` before launch. Vercel production builds run
-  `npm run db:migrate` through `npm run vercel:build`; run `npm run db:migrate`
-  manually only for non-Vercel deployment paths or explicit data-operation drills.
+- Run `npm run db:migrations:check` before launch.
+- For releases containing migrations, run the protected `Migrate production
+  database` GitHub workflow against the exact reviewed release SHA before
+  promoting code that requires the schema. Keep migrations backward-compatible.
+- Vercel builds never run live migrations. This keeps recovery deployments
+  available when Neon is unavailable.
 - Confirm leaderboard, profile, settings, privacy export, device revoke, sync
   run, and running distance upload routes read/write production database rows.
 - Confirm the web homepage and public profiles show iPhone and Android download
@@ -89,7 +92,14 @@ Owner-only production setup is tracked in
 ## Observability
 
 - Enable Vercel Cron failure notifications for `/api/jobs/recompute-scores`.
-- Add an external uptime check for `https://paceandpush.com/api/health`.
+- Add an external uptime check for `https://paceandpush.com/api/health`; it is a
+  DB-free web liveness endpoint.
+- Check `https://paceandpush.com/api/ready` with
+  `Authorization: Bearer $CRON_SECRET` during releases and database incidents.
+  It verifies both connectivity and the required migration level. Do not
+  continuously monitor it because each authorized request wakes Neon.
+- Confirm the cron and readiness operation logs include duration, status, and
+  aggregate row counts without SQL, account identifiers, tokens, or health data.
 - Enable Vercel runtime error notifications or add Sentry/error monitoring only
   after `/privacy` and store declarations are updated for the provider.
 - Confirm CI failure notifications reach the release owner before store review.
@@ -99,9 +109,14 @@ Owner-only production setup is tracked in
 - Confirm `/impressum` and `/privacy` are linked from every public page footer.
 - Keep `apps/web/src/lib/legal.ts` current and run `npm run legal:check`.
 - Confirm the current production processor/recipient position in `/privacy`
-  still matches the enabled services: Vercel, Neon, GitHub, Apple, Google, and
-  Simple Analytics for website analytics, with no advertising or
+  still matches the enabled services: Vercel, Neon, Upstash, GitHub, Apple,
+  Google, and Simple Analytics for website analytics, with no advertising or
   error-monitoring provider.
+- Confirm the Upstash public-projection database uses the approved region and
+  data-processing terms, and that its production REST URL/token are configured
+  only as server-side secrets.
+- Verify opt-out and account deletion hide leaderboard, search, profile, and
+  embed data even when projection cleanup or Neon subsequently fails.
 - Re-review the Impressum and privacy policy whenever a new processor,
   monitoring provider, analytics provider, paid plan, background sync, raw
   workout collection, or GPS route collection is added.

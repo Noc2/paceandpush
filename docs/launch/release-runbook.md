@@ -43,7 +43,12 @@ file to the release notes.
 Configure these outside the repo before the app enters store review:
 
 - Vercel Cron failure notifications for `/api/jobs/recompute-scores`.
-- An external uptime check against `https://paceandpush.com/api/health`.
+- An external uptime check against `https://paceandpush.com/api/health`. This is
+  DB-free liveness and can be polled continuously.
+- Use `https://paceandpush.com/api/ready` with
+  `Authorization: Bearer $CRON_SECRET` only for releases and incidents; do not
+  poll it continuously because each authorized request checks Neon and the
+  required migration level.
 - Vercel runtime error notifications or Sentry. If Sentry or another
   error-monitoring provider is enabled, update `/privacy`, App Store privacy
   labels, Google Play Data safety, and `docs/production-owner-actions.md`
@@ -58,11 +63,22 @@ until the privacy policy and store declarations are updated.
 
 1. Confirm `main` is green in GitHub Actions.
 2. Confirm Vercel production variables match `docs/launch-checklist.md`.
-3. Deploy through the connected Vercel project.
-4. Verify `https://paceandpush.com/api/health` returns `ok`.
-5. Verify sign-in, settings, privacy export, account deletion, mobile pairing,
+3. If the release contains migrations, run the protected `Migrate production
+   database` workflow with the exact reviewed release SHA. Apply only
+   backward-compatible migrations before promoting dependent code.
+4. Deploy through the connected Vercel project. Its build validates migration
+   files but never connects to the production database.
+5. Verify `https://paceandpush.com/api/health` returns `ok`, then check
+   `https://paceandpush.com/api/ready` once with
+   `Authorization: Bearer $CRON_SECRET` for database readiness.
+6. On the first public-projection release, or after clearing its Upstash
+   database, warm it from the authoritative database:
+   `curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://paceandpush.com/api/jobs/rebuild-public-projections`.
+   Do not reopen public discovery if this protected rebuild fails.
+7. Verify sign-in, settings, privacy export, account deletion, mobile pairing,
    leaderboard, and one public profile.
-6. Record the Vercel deployment URL, commit SHA, and verification notes in the
+8. Record the Vercel deployment URL, commit SHA, migration workflow run (if any),
+   and verification notes in the
    release note.
 
 Rollback path:
@@ -175,7 +191,8 @@ Compromised token or account:
 Cron or score refresh failure:
 
 1. Check the Vercel Cron event and `/api/jobs/recompute-scores` logs.
-2. Verify `CRON_SECRET` and database connectivity.
+2. Verify `CRON_SECRET` and check `/api/ready` once with its bearer authorization
+   for database connectivity.
 3. Trigger a manual recompute only after confirming the failing condition is
    resolved.
 4. If GitHub API quota is the cause, pause manual refresh messaging and wait for
