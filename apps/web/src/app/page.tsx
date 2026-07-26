@@ -36,9 +36,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const direction = parseSortDirection(params.dir, sort);
   const searchQuery = parseSearchQuery(params.q);
   const sessionUser = await getSessionUser();
-  const leaderboardResult = searchQuery
-    ? await searchPublicUsers({ period, query: searchQuery })
-    : await getLeaderboard("balanced", period);
+  let databaseUnavailable = false;
+  let leaderboardResult: { period: string; rows: LeaderboardRow[] };
+
+  try {
+    leaderboardResult = searchQuery
+      ? await searchPublicUsers({ period, query: searchQuery })
+      : await getLeaderboard("balanced", period);
+  } catch (error) {
+    databaseUnavailable = true;
+    leaderboardResult = { period, rows: [] };
+    console.error("[home] public leaderboard unavailable", error);
+  }
+
   const hiddenParams = [
     { name: "sort", value: sort },
     { name: "dir", value: direction },
@@ -53,27 +63,39 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </SiteHeader>
         <h1 className="sr-only">Pace & Push leaderboard</h1>
 
-        <PeriodSelector
-          activePeriod={leaderboardResult.period}
-          action="/"
-          hiddenParams={hiddenParams}
-        />
-        <SearchForm
-          direction={direction}
-          period={leaderboardResult.period}
-          query={searchQuery}
-          sort={sort}
-        />
-        <ScoreExplainer />
-        <LeaderboardTable
-          rows={leaderboardResult.rows}
-          period={leaderboardResult.period}
-          query={searchQuery}
-          sort={sort}
-          direction={direction}
-          units="metric"
-          signedInLogin={sessionUser?.login ?? null}
-        />
+        {databaseUnavailable ? (
+          <section className="empty-state" role="status" aria-live="polite">
+            <strong>Leaderboard temporarily unavailable</strong>
+            <span>
+              Pace &amp; Push is online, but activity data cannot be loaded right now. Please try
+              again soon.
+            </span>
+          </section>
+        ) : (
+          <>
+            <PeriodSelector
+              activePeriod={leaderboardResult.period}
+              action="/"
+              hiddenParams={hiddenParams}
+            />
+            <SearchForm
+              direction={direction}
+              period={leaderboardResult.period}
+              query={searchQuery}
+              sort={sort}
+            />
+            <ScoreExplainer />
+            <LeaderboardTable
+              rows={leaderboardResult.rows}
+              period={leaderboardResult.period}
+              query={searchQuery}
+              sort={sort}
+              direction={direction}
+              units="metric"
+              signedInLogin={sessionUser?.login ?? null}
+            />
+          </>
+        )}
       </section>
     </main>
   );

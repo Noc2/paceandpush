@@ -825,6 +825,16 @@ test("public pages reject implausible periods before database reads", async () =
   assert.match(profilePage, /if \(!period\) notFound\(\)/);
 });
 
+test("homepage remains available with an honest database outage notice", async () => {
+  const homePage = await readFile(new URL("../src/app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(homePage, /catch \(error\)/);
+  assert.match(homePage, /databaseUnavailable = true/);
+  assert.match(homePage, /Leaderboard temporarily unavailable/);
+  assert.match(homePage, /activity data cannot be loaded right now/);
+  assert.match(homePage, /role="status"/);
+});
+
 test("public API period probes are rejected before data reads", async () => {
   const routeUrls = [
     "../src/app/api/leaderboard/route.ts",
