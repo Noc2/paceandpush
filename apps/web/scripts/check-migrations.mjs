@@ -5,6 +5,7 @@ const migrationsDir = new URL("../drizzle/", import.meta.url);
 const migrationFiles = (await readdir(fileURLToPath(migrationsDir)))
   .filter((fileName) => /^\d{4}_.+\.sql$/.test(fileName))
   .sort((left, right) => left.localeCompare(right));
+const readinessRoute = new URL("../src/app/api/ready/route.ts", import.meta.url);
 
 if (migrationFiles.length === 0) {
   throw new Error("No SQL migration files found.");
@@ -23,6 +24,14 @@ for (const [index, fileName] of migrationFiles.entries()) {
   if (/ADD\s+COLUMN\s+(?!IF\s+NOT\s+EXISTS)/i.test(source)) {
     throw new Error(`${fileName} adds a column without IF NOT EXISTS.`);
   }
+}
+
+const latestMigration = migrationFiles.at(-1);
+const readinessSource = await readFile(readinessRoute, "utf8");
+if (!readinessSource.includes(`const requiredMigration = "${latestMigration}"`)) {
+  throw new Error(
+    `Readiness must require the latest migration ${latestMigration}.`,
+  );
 }
 
 console.log(`Checked ${migrationFiles.length} migration files.`);

@@ -3,6 +3,27 @@ import { expect, test } from "@playwright/test";
 const iosStoreUrl = "https://testflight.apple.com/join/Pvzcf61w";
 
 test.describe("mobile public web app", () => {
+  test("reports liveness without requiring database readiness", async ({ request }) => {
+    const health = await request.get("/api/health");
+    const unauthorizedReadiness = await request.get("/api/ready");
+    const readiness = await request.get("/api/ready", {
+      headers: {
+        authorization: "Bearer playwright-readiness-secret",
+      },
+    });
+
+    expect(health.status()).toBe(200);
+    expect(await health.json()).toMatchObject({ ok: true, service: "web" });
+    expect(health.headers()["cache-control"]).toBe("no-store");
+    expect(unauthorizedReadiness.status()).toBe(401);
+    expect(readiness.status()).toBe(503);
+    expect(await readiness.json()).toMatchObject({
+      ok: false,
+      database: "not_configured",
+    });
+    expect(readiness.headers()["cache-control"]).toBe("no-store");
+  });
+
   test("opens the leaderboard-first mobile surface", async ({ page }) => {
     await page.goto("/");
 

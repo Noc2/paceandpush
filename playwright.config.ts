@@ -33,6 +33,7 @@ export default defineConfig({
           NEXT_PUBLIC_IOS_APP_URL: storeUrls.ios,
           NEXT_TELEMETRY_DISABLED: "1",
           POSTGRES_URL: "",
+          CRON_SECRET: "playwright-readiness-secret",
         },
         gracefulShutdown: {
           signal: "SIGTERM",

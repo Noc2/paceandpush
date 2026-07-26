@@ -18,6 +18,9 @@ const timelineTicks = await loadTypeScriptModule("../src/server/charts/timeline-
 const streaks = await loadTypeScriptModule("../src/lib/streaks.ts");
 const tokenCrypto = await loadTypeScriptModule("../src/server/github/token-crypto.ts");
 const publicProfiles = await loadTypeScriptModule("../src/server/privacy/public-profile.ts");
+const publicProjectionStores = await loadTypeScriptModule(
+  "../src/server/data/public-projection-store.ts",
+);
 
 test("GitHub contribution windows cover each UTC date inclusively", () => {
   assert.deepEqual(
@@ -439,7 +442,8 @@ test("mobile auth applies an authoritative privacy choice before issuing a devic
   const callbackPrivate = callbackRoute.indexOf("publicLeaderboard: false");
   const callbackRefresh = callbackRoute.lastIndexOf("await refreshGitHubCommitsForUser");
   assert.ok(callbackPrivate !== -1 && callbackPrivate < callbackRefresh);
-  assert.match(callbackRoute, /invalidatePublicDiscoveryCache\(\)/);
+  assert.match(callbackRoute, /await hidePublicLogin\(githubUser\.login\)/);
+  assert.match(callbackRoute, /await refreshDirtyScorePeriodsForUser/);
 
   assert.match(exchangeRoute, /publicLeaderboard: body\.publicLeaderboard \?\? false/);
   assert.match(exchangeRoute, /typeof body\.publicLeaderboard !== "boolean"/);
@@ -448,7 +452,7 @@ test("mobile auth applies an authoritative privacy choice before issuing a devic
   const applyPreference = mobileData.indexOf("await applyMobileLeaderboardPreference");
   assert.ok(persistDevice !== -1 && persistDevice < applyPreference);
   assert.match(mobileData, /normalizedPlatform === "ios"\s+\? false/);
-  assert.match(mobileData, /invalidatePublicDiscoveryCache\(\)/);
+  assert.match(mobileData, /updateAccountSettingsWithPublicProjection/);
   assert.match(tokenSource, /publicLeaderboard: user\.publicLeaderboard/);
   assert.match(tokenSource, /publicActivityHistory: user\.publicActivityHistory/);
 });
@@ -529,9 +533,8 @@ test("mobile account data routes use bearer auth", async () => {
   assert.match(exportRoute, /"cache-control": "no-store"/);
   assert.doesNotMatch(exportRoute, /getSessionUser/);
   assert.match(deleteRoute, /verifyDeviceToken\(request\.headers\.get\("authorization"\)\)/);
-  assert.match(deleteRoute, /getScoreSnapshotPeriodsForUser\(auth\.user\.id\)/);
-  assert.match(deleteRoute, /deleteAccountData\(auth\.user\.id\)/);
-  assert.match(deleteRoute, /recomputeScoreSnapshotPeriods\(affectedPeriods\)/);
+  assert.match(deleteRoute, /getAccountUser/);
+  assert.match(deleteRoute, /deleteAccountWithPublicProjection\(account\)/);
   assert.doesNotMatch(deleteRoute, /getSessionUser/);
   assert.match(nativeApp, /settings-privacy-policy-link/);
   assert.match(nativeApp, /settings-export-data-button/);
@@ -874,66 +877,193 @@ test("streak calculation counts unique consecutive active days", () => {
   );
 });
 
-test("leaderboard streaks are loaded in batched queries and ignore zero-count commit coverage rows", async () => {
+test("public projection builds histories in two batched activity queries", async () => {
   const source = await readFile(
     new URL("../src/server/data/read-model.ts", import.meta.url),
     "utf8",
   );
-  const toRowsBlock = source.slice(
-    source.indexOf("async function toLeaderboardRows"),
-    source.indexOf("export async function getPublicProfile"),
+  const projectionBlock = source.slice(
+    source.indexOf("export async function buildPublicPeriodProjectionSource"),
+    source.indexOf("export async function getPublicProjectionPeriods"),
+  );
+  const historyBlock = source.slice(
+    source.indexOf("async function getProfileHistories"),
+    source.indexOf("function emptyMe"),
   );
 
-  assert.match(toRowsBlock, /getStreakDaysByUserId/);
-  assert.doesNotMatch(toRowsBlock, /rows\.map\(async/);
-  assert.match(source, /inArray\(commitDays\.userId, uniqueUserIds\)/);
-  assert.match(source, /gt\(commitDays\.commitCount, 0\)/);
-  assert.match(source, /inArray\(distanceDays\.userId, uniqueUserIds\)/);
+  assert.match(projectionBlock, /getProfileHistories\(/);
+  assert.doesNotMatch(projectionBlock, /rows\.map\(async/);
+  assert.match(historyBlock, /inArray\(commitDays\.userId, uniqueUserIds\)/);
+  assert.match(historyBlock, /inArray\(distanceDays\.userId, uniqueUserIds\)/);
+  assert.match(historyBlock, /Promise\.all\(\[/);
 });
 
-test("public leaderboard rows are capped", async () => {
-  const source = await readFile(
-    new URL("../src/server/data/read-model.ts", import.meta.url),
-    "utf8",
-  );
-  const leaderboardQuery = source.slice(
-    source.indexOf("async function getLeaderboardSnapshotRows"),
-    source.indexOf("async function getPublicUserSearchRows"),
-  );
-
-  assert.match(source, /const leaderboardRowLimit = 100/);
-  assert.match(leaderboardQuery, /\.limit\(leaderboardRowLimit\)/);
-});
-
-test("public discovery responses bypass caches so consent withdrawal is immediate", async () => {
-  const [cacheSource, leaderboardRoute, searchRoute] = await Promise.all([
+test("public leaderboard output is capped without truncating profile membership", async () => {
+  const [readModel, cache] = await Promise.all([
+    readFile(new URL("../src/server/data/read-model.ts", import.meta.url), "utf8"),
     readFile(
       new URL("../src/server/data/public-discovery-cache.ts", import.meta.url),
       "utf8",
     ),
+  ]);
+  const projectionBlock = readModel.slice(
+    readModel.indexOf("export async function buildPublicPeriodProjectionSource"),
+    readModel.indexOf("export async function getPublicProjectionPeriods"),
+  );
+  const leaderboardRead = cache.slice(
+    cache.indexOf("export async function getCachedLeaderboard"),
+    cache.indexOf("export async function searchCachedPublicUsers"),
+  );
+
+  assert.doesNotMatch(projectionBlock, /\.slice\(0, leaderboardRowLimit\)/);
+  assert.match(leaderboardRead, /\.slice\(0, 100\)/);
+});
+
+test("public discovery reads use only the fail-closed projection store", async () => {
+  const [cacheSource, storeSource, leaderboardRoute, searchRoute, profileRoute, embedRoute] =
+    await Promise.all([
+    readFile(
+      new URL("../src/server/data/public-discovery-cache.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../src/server/data/public-projection-store.ts", import.meta.url),
+      "utf8",
+    ),
     readFile(new URL("../src/app/api/leaderboard/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/app/api/search/users/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/api/users/[login]/route.ts", import.meta.url), "utf8"),
+    readFile(
+      new URL("../src/app/api/embed/[login]/chart.svg/route.ts", import.meta.url),
+      "utf8",
+    ),
   ]);
 
   assert.doesNotMatch(cacheSource, /unstable_cache|revalidateTag|revalidate:/);
-  assert.match(cacheSource, /return getLeaderboard\(board, period\)/);
-  assert.match(cacheSource, /return searchPublicUsers\(\{ limit, period, query \}\)/);
+  const anonymousReadBlock = cacheSource.slice(
+    cacheSource.indexOf("export async function getCachedLeaderboard"),
+    cacheSource.indexOf("export async function hidePublicLogin"),
+  );
+  assert.match(anonymousReadBlock, /getPublicProjectionStore\(\)/);
+  assert.match(anonymousReadBlock, /getHiddenLogins\(/);
+  const profileReadBlock = anonymousReadBlock.slice(
+    anonymousReadBlock.indexOf("export async function getCachedPublicProfile"),
+  );
+  assert.match(
+    profileReadBlock,
+    /Promise\.all\(\[[\s\S]*getProfile\([\s\S]*getPeriod\(/,
+  );
+  assert.match(
+    profileReadBlock,
+    /getHiddenLogins\(\[[\s\S]*balancedRows\.map/,
+  );
+  assert.match(
+    anonymousReadBlock,
+    /if \(!row\) return null/,
+    "a stale profile key is not enough without balanced-board membership",
+  );
+  assert.doesNotMatch(
+    anonymousReadBlock,
+    /getLeaderboard\(|getPublicProfile\(|searchPublicUsers\(/,
+  );
+  assert.match(storeSource, /process\.env\.NODE_ENV === "production"/);
+  assert.match(storeSource, /throw new PublicProjectionUnavailableError/);
+  assert.match(storeSource, /readYourWrites: true/);
+  assert.match(storeSource, /smismember\(hiddenLoginsKey, normalizedLogins\)/);
+  assert.doesNotMatch(storeSource, /\.smembers\(/);
+  assert.match(cacheSource, /\)\.slice\(0, 100\)/);
   assert.match(leaderboardRoute, /getCachedLeaderboard\(board, period\)/);
   assert.match(searchRoute, /searchCachedPublicUsers\(\{ limit, period, query \}\)/);
-  for (const route of [leaderboardRoute, searchRoute]) {
+  assert.match(profileRoute, /getCachedPublicProfile/);
+  assert.match(embedRoute, /getCachedPublicProfile/);
+  for (const route of [leaderboardRoute, searchRoute, profileRoute, embedRoute]) {
     assert.match(route, /"cache-control": "no-store"/);
     assert.doesNotMatch(route, /s-maxage|stale-while-revalidate/);
+    assert.match(route, /PublicProjectionUnavailableError/);
   }
 });
 
+test("public visibility tokens prevent an older publisher from clearing a newer tombstone", async () => {
+  const store = publicProjectionStores.createInMemoryPublicProjectionStore();
+  const olderToken = await store.hideLogin("Noc2");
+  const newerToken = await store.hideLogin("noc2");
+
+  assert.equal(await store.showLogin("NOC2", olderToken), false);
+  assert.deepEqual([...await store.getHiddenLogins(["noc2"])], ["noc2"]);
+  assert.equal(await store.showLogin("Noc2", newerToken), true);
+  assert.deepEqual([...await store.getHiddenLogins(["noc2"])], []);
+});
+
+test("production public projection access fails closed when Redis is not configured", () => {
+  const previous = snapshotEnv([
+    "NODE_ENV",
+    "PUBLIC_VISIBILITY_KV_REST_API_URL",
+    "PUBLIC_VISIBILITY_KV_REST_API_TOKEN",
+    "PUBLIC_VISIBILITY_UPSTASH_REDIS_REST_URL",
+    "PUBLIC_VISIBILITY_UPSTASH_REDIS_REST_TOKEN",
+  ]);
+  process.env.NODE_ENV = "production";
+  delete process.env.PUBLIC_VISIBILITY_KV_REST_API_URL;
+  delete process.env.PUBLIC_VISIBILITY_KV_REST_API_TOKEN;
+  delete process.env.PUBLIC_VISIBILITY_UPSTASH_REDIS_REST_URL;
+  delete process.env.PUBLIC_VISIBILITY_UPSTASH_REDIS_REST_TOKEN;
+  publicProjectionStores.setPublicProjectionStoreForTests(null);
+
+  try {
+    assert.throws(
+      () => publicProjectionStores.getPublicProjectionStore(),
+      /public projection store is not configured/i,
+    );
+  } finally {
+    restoreEnvSnapshot(previous);
+  }
+});
+
+test("period and profile projections keep streaks and no private sync timestamp", async () => {
+  const store = publicProjectionStores.createInMemoryPublicProjectionStore();
+  const profile = {
+    login: "Noc2",
+    displayName: "David Hawig",
+    bio: null,
+    score: {
+      period: "2026-07",
+      score: 82.4,
+      rank: 3,
+      commits: 144,
+      kilometers: 61.2,
+    },
+    streakDays: 9,
+    history: [],
+    historyVisibility: "private",
+  };
+  await store.replacePeriod(
+    {
+      version: 1,
+      generatedAt: "2026-07-26T12:00:00.000Z",
+      period: "2026-07",
+      boards: {
+        balanced: [],
+        commits: [],
+        distance: [],
+      },
+      searchRows: [],
+    },
+    [profile],
+  );
+
+  const stored = await store.getProfile("noc2", "2026-07");
+  assert.equal(stored.streakDays, 9);
+  assert.ok(!("lastSyncAt" in stored.score));
+});
+
 test("anonymous health-derived surfaces require current consent and gate dated history", async () => {
-  const [consentSource, readModel, scoreSource] = await Promise.all([
+  const [consentSource, readModel, scoreCore] = await Promise.all([
     readFile(
       new URL("../src/server/privacy/public-health-data-consent.ts", import.meta.url),
       "utf8",
     ),
     readFile(new URL("../src/server/data/read-model.ts", import.meta.url), "utf8"),
-    readFile(new URL("../src/server/data/scores.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/data/incremental-scores.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(consentSource, /currentPublicHealthDataConsentVersion = "public-health-v1"/);
@@ -952,14 +1082,12 @@ test("anonymous health-derived surfaces require current consent and gate dated h
     /historyVisibility: user\.publicActivityHistory \? "public" : "private"/,
   );
   assert.ok(
-    readModel.match(/score: toPublicScoreSummary\(score\)/g)?.length >= 2,
-    "public and mobile profile responses both remove private sync timestamps",
+    readModel.match(/toPublicScoreSummary\(/g)?.length >= 3,
+    "all public and mobile profile responses remove private sync timestamps",
   );
-  assert.match(scoreSource, /hasCurrentPublicHealthDataConsent\(user\)/);
-  assert.match(scoreSource, /const scoredRows = totals\.map\(\(row\) =>/);
-  assert.match(scoreSource, /scoreActivity\(\{/);
-  assert.match(scoreSource, /periodDays,/);
-  assert.doesNotMatch(scoreSource, /publicTotals|privateTotals|scoreCohort/);
+  assert.match(scoreCore, /scoreActivity\(\{/);
+  assert.match(scoreCore, /periodDays: days/);
+  assert.doesNotMatch(scoreCore, /publicTotals|privateTotals|scoreCohort/);
 });
 
 test("public profile score serialization removes the private sync timestamp", () => {
@@ -984,11 +1112,11 @@ test("public profile score serialization removes the private sync timestamp", ()
   );
 });
 
-test("fixed score snapshots replace cohort-normalized derived data", async () => {
-  const [schemaSource, migrationSource, scoreSource, readModel] = await Promise.all([
+test("incremental period scores replace cohort-normalized snapshots", async () => {
+  const [schemaSource, migrationSource, scoreCore, readModel] = await Promise.all([
     readFile(new URL("../src/server/db/schema.ts", import.meta.url), "utf8"),
-    readFile(new URL("../drizzle/0014_fixed_plateau_scores.sql", import.meta.url), "utf8"),
-    readFile(new URL("../src/server/data/scores.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0015_incremental_period_scores.sql", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/data/incremental-scores.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/server/data/read-model.ts", import.meta.url), "utf8"),
   ]);
 
@@ -1001,13 +1129,13 @@ test("fixed score snapshots replace cohort-normalized derived data", async () =>
   assert.match(schemaSource, /distanceComponent: numeric\("distance_component"/);
   assert.match(schemaSource, /score: numeric\("score", \{ precision: 9, scale: 6 \}\)/);
 
-  assert.match(scoreSource, /scoreActivity\(\{/);
-  assert.match(scoreSource, /score: row\.score\.toFixed\(6\)/);
-  assert.match(scoreSource, /return left\.userId\.localeCompare\(right\.userId\)/);
+  assert.match(scoreCore, /scoreActivity\(\{/);
+  assert.match(scoreCore, /score: activity\.score\.toFixed\(6\)/);
+  assert.doesNotMatch(scoreCore, /\.from\(users\)/);
 
   const historyBlock = readModel.slice(
     readModel.indexOf("async function getProfileHistory"),
-    readModel.indexOf("async function getStreakDaysByUserId"),
+    readModel.length,
   );
   assert.match(historyBlock, /const periodDays = periodDayCount\(period\)/);
   assert.match(historyBlock, /scoreActivity\(\{/);
@@ -1074,46 +1202,109 @@ test("public health-data publication requires current versioned consent", async 
   }
 });
 
-test("privacy changes and account deletion purge public discovery data", async () => {
-  const routes = await Promise.all(
-    [
-      "../src/app/api/me/settings/route.ts",
-      "../src/app/api/mobile/me/settings/route.ts",
-      "../src/app/api/me/delete/route.ts",
-      "../src/app/api/mobile/me/delete/route.ts",
-    ].map((route) => readFile(new URL(route, import.meta.url), "utf8")),
+test("privacy changes tombstone before Neon and show only the matching publication", async () => {
+  const [coordinator, store, cache, webSettings, mobileSettings, webDelete, mobileDelete] =
+    await Promise.all([
+      readFile(
+        new URL("../src/server/privacy/public-visibility.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../src/server/data/public-projection-store.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../src/server/data/public-discovery-cache.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../src/app/api/me/settings/route.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../src/app/api/mobile/me/settings/route.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../src/app/api/me/delete/route.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../src/app/api/mobile/me/delete/route.ts", import.meta.url),
+        "utf8",
+      ),
+    ]);
+
+  const updateBlock = coordinator.slice(
+    coordinator.indexOf("export async function updateAccountSettingsWithPublicProjection"),
+    coordinator.indexOf("export async function deleteAccountWithPublicProjection"),
   );
+  assert.ok(
+    updateBlock.indexOf("await hidePublicLogin") <
+      updateBlock.indexOf("await updateAccountSettings"),
+  );
+  assert.ok(
+    updateBlock.indexOf("await updateAccountSettings") <
+      updateBlock.indexOf("await publishAndShowPublicLogin"),
+  );
+  assert.match(updateBlock, /const visibilityToken = await hidePublicLogin/);
+  assert.match(updateBlock, /publishAndShowPublicLogin\([\s\S]*visibilityToken/);
 
-  for (const source of routes) {
-    assert.match(source, /invalidatePublicDiscoveryCache\(\)/);
-  }
+  const deleteBlock = coordinator.slice(
+    coordinator.indexOf("export async function deleteAccountWithPublicProjection"),
+    coordinator.indexOf("async function cleanupHiddenProjection"),
+  );
+  assert.ok(
+    deleteBlock.indexOf("await hidePublicLogin") <
+      deleteBlock.indexOf("await deleteAccountData"),
+  );
+  assert.match(coordinator, /hidden user cleanup failed/);
 
-  for (const source of routes.slice(0, 2)) {
-    assert.ok(
-      source.indexOf("updateAccountSettings") <
-        source.lastIndexOf("invalidatePublicDiscoveryCache()"),
-    );
-    assert.ok(
-      source.lastIndexOf("invalidatePublicDiscoveryCache()") <
-        source.indexOf("after(async () =>"),
-    );
-    assert.ok(
-      source.indexOf("after(async () =>") <
-        source.indexOf("await refreshScoresAfterLeaderboardVisibilityChange"),
-    );
-    assert.match(source, /Post-response score refresh failed/);
-  }
+  assert.match(store, /redis\.call\("INCR"/);
+  assert.match(store, /redis\.call\("SADD"/);
+  assert.match(store, /redis\.call\("GET"/);
+  assert.match(store, /redis\.call\("SREM"/);
+  assert.match(store, /const transaction = this\.redis\.multi\(\)/);
+  assert.match(store, /await transaction\.exec\(\)/);
+  assert.match(cache, /if \(!\(await store\.showLogin\(login, visibilityToken\)\)\)/);
 
-  for (const source of routes.slice(2)) {
-    assert.ok(
-      source.indexOf("await deleteAccountData") <
-        source.lastIndexOf("invalidatePublicDiscoveryCache()"),
-    );
-    assert.ok(
-      source.lastIndexOf("invalidatePublicDiscoveryCache()") <
-        source.indexOf("await recomputeScoreSnapshotPeriods"),
-    );
+  for (const route of [webSettings, mobileSettings]) {
+    assert.match(route, /updateAccountSettingsWithPublicProjection/);
   }
+  for (const route of [webDelete, mobileDelete]) {
+    assert.match(route, /deleteAccountWithPublicProjection/);
+  }
+});
+
+test("public projections have a protected explicit warm path", async () => {
+  const [route, readModel, ownerActions, runbook, envExample] = await Promise.all([
+    readFile(
+      new URL(
+        "../src/app/api/jobs/rebuild-public-projections/route.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(new URL("../src/server/data/read-model.ts", import.meta.url), "utf8"),
+    readFile(
+      new URL("../../../docs/production-owner-actions.md", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../../../docs/launch/release-runbook.md", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../../../.env.example", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(route, /export async function POST/);
+  assert.match(route, /timingSafeEqual/);
+  assert.match(route, /process\.env\.CRON_SECRET/);
+  assert.ok(
+    route.indexOf("isAuthorized(") <
+      route.indexOf("getPublicProjectionPeriods()"),
+  );
+  assert.match(route, /publishPublicPeriods\(periods\)/);
+  assert.match(route, /"cache-control": "no-store"/);
+  assert.match(readModel, /selectDistinct\(\{ period: periodScores\.period \}\)/);
+  assert.match(ownerActions, /rebuild-public-projections/);
+  assert.match(runbook, /rebuild-public-projections/);
+  assert.match(envExample, /PUBLIC_VISIBILITY_KV_REST_API_URL=/);
+  assert.match(envExample, /PUBLIC_VISIBILITY_KV_REST_API_TOKEN=/);
 });
 
 test("GitHub commit refresh upserts covered days before deleting stale days", async () => {
@@ -1123,7 +1314,7 @@ test("GitHub commit refresh upserts covered days before deleting stale days", as
   );
   const refreshBlock = source.slice(
     source.indexOf("export async function refreshGitHubCommitsForUser"),
-    source.indexOf("export async function recomputeScoreSnapshots"),
+    source.indexOf("export async function getScorePeriodsForUser"),
   );
 
   const insertIndex = refreshBlock.indexOf(".insert(commitDays)");
@@ -1136,61 +1327,37 @@ test("GitHub commit refresh upserts covered days before deleting stale days", as
   assert.match(refreshBlock, /commitCount: day\.totalCount/);
   assert.doesNotMatch(refreshBlock, /activeDays\.map/);
   assert.match(refreshBlock, /notInArray\(commitDays\.day/);
-  assert.match(refreshBlock, /updatedDays: dayCounts\.length/);
+  assert.match(refreshBlock, /\.returning\(\{ day: commitDays\.day \}\)/);
+  assert.match(refreshBlock, /updatedDays: uniqueChangedDays\.length/);
 });
 
-test("score rank mutations recompute every affected snapshot period", async () => {
-  const scoresSource = await readFile(
-    new URL("../src/server/data/scores.ts", import.meta.url),
-    "utf8",
-  );
-  const deleteRoute = await readFile(
-    new URL("../src/app/api/me/delete/route.ts", import.meta.url),
-    "utf8",
-  );
-  const disconnectRoute = await readFile(
-    new URL("../src/app/api/me/github/disconnect/route.ts", import.meta.url),
-    "utf8",
-  );
-  const visibilityBlock = scoresSource.slice(
-    scoresSource.indexOf("export async function refreshScoresAfterLeaderboardVisibilityChange"),
-    scoresSource.indexOf("async function getScoreTotals"),
-  );
+test("score-affecting mutations drain only the affected user's dirty periods", async () => {
+  const routes = await Promise.all([
+    readFile(new URL("../src/app/api/mobile/distance-days/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/api/me/github/refresh/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/api/me/github/disconnect/route.ts", import.meta.url), "utf8"),
+    readFile(
+      new URL("../src/app/api/mobile/me/github/disconnect/route.ts", import.meta.url),
+      "utf8",
+    ),
+  ]);
 
-  assert.match(scoresSource, /export async function getScoreSnapshotPeriodsForUser/);
-  assert.match(scoresSource, /export async function recomputeScoreSnapshotPeriods/);
-  assert.match(visibilityBlock, /getScoreSnapshotPeriodsForUser\(userId, \[period\]\)/);
-  assert.match(visibilityBlock, /recomputeScoreSnapshotPeriods\(affectedPeriods\)/);
-
-  assert.ok(
-    deleteRoute.indexOf("getScoreSnapshotPeriodsForUser(user.id)") <
-      deleteRoute.indexOf("deleteAccountData(user.id)"),
-  );
-  assert.ok(
-    deleteRoute.indexOf("deleteAccountData(user.id)") <
-      deleteRoute.indexOf("recomputeScoreSnapshotPeriods(affectedPeriods)"),
-  );
-  assert.ok(
-    disconnectRoute.indexOf("getScoreSnapshotPeriodsForUser(user.id") <
-      disconnectRoute.indexOf("disconnectGitHubAccount(user.id)"),
-  );
-  assert.ok(
-    disconnectRoute.indexOf("disconnectGitHubAccount(user.id)") <
-      disconnectRoute.indexOf("recomputeScoreSnapshotPeriods(affectedPeriods)"),
-  );
+  for (const route of routes) {
+    assert.match(route, /refreshDirtyScorePeriodsForUser/);
+    assert.match(route, /publishPublicPeriods/);
+    assert.doesNotMatch(route, /recomputeScoreSnapshots|scoreSnapshots/);
+  }
 });
 
-test("score recomputes coalesce in-progress period work", async () => {
-  const scoresSource = await readFile(
-    new URL("../src/server/data/scores.ts", import.meta.url),
+test("dirty score claims use revision-safe acknowledgement", async () => {
+  const scoreCore = await readFile(
+    new URL("../src/server/data/incremental-scores.ts", import.meta.url),
     "utf8",
   );
 
-  assert.match(scoresSource, /const recomputeInFlight = new Map/);
-  assert.match(scoresSource, /const existing = recomputeInFlight\.get\(period\)/);
-  assert.match(scoresSource, /if \(existing\) return existing/);
-  assert.match(scoresSource, /recomputeScoreSnapshotsUnlocked/);
-  assert.match(scoresSource, /recomputeInFlight\.delete\(period\)/);
+  assert.match(scoreCore, /eq\(dirtyScorePeriods\.revision, claim\.revision\)/);
+  assert.match(scoreCore, /await deleteClaimedDirtyPeriods\(userClaims\)/);
+  assert.match(scoreCore, /refreshed: PeriodScoreRefreshResult\[\]/);
 });
 
 test("mobile GitHub sign-out revokes social credentials and device access", async () => {
@@ -1206,48 +1373,36 @@ test("mobile GitHub sign-out revokes social credentials and device access", asyn
   assert.match(route, /verifyDeviceToken\(request\.headers\.get\("authorization"\)\)/);
   assert.match(route, /disconnectGitHubAccount\(auth\.user\.id\)/);
   assert.match(route, /revokeMobileDevice\(\{ id: auth\.device\.id, userId: auth\.user\.id \}\)/);
-  assert.match(route, /recomputeScoreSnapshotPeriods\(affectedPeriods\)/);
+  assert.match(route, /refreshDirtyScorePeriodsForUser/);
+  assert.match(route, /publishPublicPeriods/);
   assert.match(nativeApp, /settings-sign-out-button/);
   assert.match(nativeApp, /\/api\/mobile\/me\/github\/disconnect/);
 });
 
-test("authenticated profile reads repair partially covered historical commit snapshots", async () => {
+test("authenticated profile rank uses indexed count queries instead of loading the cohort", async () => {
   const source = await readFile(
     new URL("../src/server/data/read-model.ts", import.meta.url),
     "utf8",
   );
-  const profileBlock = source.slice(
-    source.indexOf("export async function getAccountProfile"),
-    source.indexOf("export async function getMe"),
-  );
-  const refreshBlock = source.slice(
-    source.indexOf("async function getFreshAccountScoreSummary"),
-    source.indexOf("async function hasScoreSnapshot"),
+  const rankBlock = source.slice(
+    source.indexOf("async function getBalancedRank"),
+    source.indexOf("function rankPublicRows"),
   );
 
-  assert.match(profileBlock, /getFreshAccountScoreSummary\(\{ id: userId, login \}, period\)/);
-  assert.match(refreshBlock, /shouldRefreshAccountScoreSnapshot\(account\.id, period\)/);
-  assert.match(refreshBlock, /refreshGitHubCommitsForUser/);
-  assert.match(refreshBlock, /recomputeScoreSnapshots\(period\)/);
-  assert.match(refreshBlock, /hasCompleteCommitCoverage\(userId, period\)/);
-  assert.match(refreshBlock, /expectedCommitCoverageDays\(start, end\)/);
-  assert.match(refreshBlock, /count\(\*\)::int/);
-  assert.doesNotMatch(refreshBlock, /isCurrentOrPreviousPeriod\(period\)/);
-  assert.doesNotMatch(refreshBlock, /snapshot\.commits === 0/);
+  assert.match(rankBlock, /count\(\*\)::int/);
+  assert.match(rankBlock, /gt\(periodScores\.score, target\.score\)/);
+  assert.match(rankBlock, /lt\(periodScores\.userId, userId\)/);
+  assert.doesNotMatch(rankBlock, /getPublicPeriodScoreRows|rankPublicRows/);
 });
 
 test("score totals keep raw kilometer precision before display rounding", async () => {
   const source = await readFile(
-    new URL("../src/server/data/scores.ts", import.meta.url),
+    new URL("../src/server/data/incremental-scores.ts", import.meta.url),
     "utf8",
   );
-  const totalsBlock = source.slice(
-    source.indexOf("async function getScoreTotals"),
-    source.indexOf("function compareBoardRows"),
-  );
 
-  assert.match(totalsBlock, /kilometers: \(metersByUser\.get\(user\.id\) \?\? 0\) \/ 1000/);
-  assert.doesNotMatch(totalsBlock, /Math\.round/);
+  assert.match(source, /kilometers: distanceMetersTotal \/ 1000/);
+  assert.doesNotMatch(source, /Math\.round\(distanceMetersTotal/);
 });
 
 test("score recompute cron reports hard failures to monitoring", async () => {
@@ -1258,20 +1413,95 @@ test("score recompute cron reports hard failures to monitoring", async () => {
 
   assert.match(source, /export const maxDuration = \d+/);
   assert.match(source, /timingSafeEqual/);
-  assert.match(source, /status: totalGitHubFailure \? 502 : 200/);
+  assert.match(
+    source,
+    /status: totalGitHubFailure \|\| scoreRefreshFailure \? 502 : 200/,
+  );
   assert.match(source, /status: 500/);
+  assert.match(source, /measureOperation/);
+  assert.match(source, /cron\.github_refresh/);
+  assert.match(source, /cron\.score_refresh/);
 });
 
-test("health endpoint checks database availability", async () => {
-  const source = await readFile(
-    new URL("../src/app/api/health/route.ts", import.meta.url),
-    "utf8",
+test("health endpoint is DB-free while readiness checks database availability", async () => {
+  const [health, readiness] = await Promise.all([
+    readFile(new URL("../src/app/api/health/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/api/ready/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(health, /service: "web"/);
+  assert.match(health, /cache-control": "no-store"/);
+  assert.doesNotMatch(health, /select 1/);
+  assert.doesNotMatch(health, /getDb|isDatabaseConfigured/);
+  assert.match(readiness, /paceandpush_schema_migrations/);
+  assert.match(readiness, /0015_incremental_period_scores\.sql/);
+  assert.match(readiness, /schema: "outdated"/);
+  assert.match(readiness, /schema: "current"/);
+  assert.match(readiness, /isDatabaseConfigured/);
+  assert.match(readiness, /timingSafeEqual/);
+  assert.match(readiness, /process\.env\.CRON_SECRET/);
+  assert.ok(
+    readiness.indexOf("isAuthorizedReadinessRequest") <
+      readiness.indexOf("isDatabaseConfigured()"),
+  );
+  assert.match(readiness, /measureOperation\("readiness\.database"/);
+  assert.match(readiness, /cache-control": "no-store"/);
+  assert.match(readiness, /503/);
+});
+
+test("operation measurement logs only privacy-safe structured metadata", async () => {
+  const infoLogs = [];
+  const errorLogs = [];
+  const operations = await loadTypeScriptModule(
+    "../src/server/observability/operations.ts",
+    {
+      console: {
+        error(value) {
+          errorLogs.push(value);
+        },
+        info(value) {
+          infoLogs.push(value);
+        },
+      },
+    },
   );
 
-  assert.match(source, /select 1/);
-  assert.match(source, /isDatabaseConfigured/);
-  assert.match(source, /cache-control": "no-store"/);
-  assert.match(source, /503/);
+  const result = await operations.measureOperation(
+    "test.success",
+    async () => "private-result",
+    () => ({ affectedRows: 3, errorCount: 0, itemCount: 2 }),
+  );
+  assert.equal(result, "private-result");
+
+  const success = JSON.parse(infoLogs[0]);
+  assert.deepEqual(Object.keys(success).sort(), [
+    "affectedRows",
+    "durationMs",
+    "errorCount",
+    "event",
+    "itemCount",
+    "operation",
+    "status",
+  ]);
+  assert.equal(success.operation, "test.success");
+  assert.equal(success.status, "ok");
+  assert.doesNotMatch(infoLogs[0], /private-result/);
+
+  await assert.rejects(
+    operations.measureOperation("test.failure", async () => {
+      throw new Error("private-error");
+    }),
+    /private-error/,
+  );
+  const failure = JSON.parse(errorLogs[0]);
+  assert.deepEqual(Object.keys(failure).sort(), [
+    "durationMs",
+    "event",
+    "operation",
+    "status",
+  ]);
+  assert.equal(failure.status, "error");
+  assert.doesNotMatch(errorLogs[0], /private-error/);
 });
 
 test("authenticated mobile profile responses are not cached", async () => {
@@ -1288,17 +1518,16 @@ test("authenticated mobile profile responses are not cached", async () => {
   assert.match(mobileProfileRoute, /"cache-control": "no-store"/);
 });
 
-test("distance uploads recompute week month and year score periods", async () => {
+test("distance uploads drain and publish database-identified dirty periods", async () => {
   const source = await readFile(
     new URL("../src/app/api/mobile/distance-days/route.ts", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /periodForKind\("week"/);
-  assert.match(source, /periodForKind\("month"/);
-  assert.match(source, /periodForKind\("year"/);
-  assert.match(source, /Promise\.allSettled/);
-  assert.match(source, /score_recompute_failed/);
+  assert.match(source, /refreshDirtyScorePeriodsForUser\(auth\.user\.id\)/);
+  assert.match(source, /publishPublicPeriods\(refreshedPeriods\)/);
+  assert.match(source, /score_refresh_failed/);
+  assert.doesNotMatch(source, /recomputeScoreSnapshots|periodForKind/);
 });
 
 test("distance upload validation rejects malformed items and impossible dates", () => {
@@ -1527,11 +1756,19 @@ test("production runtime validates required environment variables", async () => 
   assert.match(envExample, /CRON_SECRET=/);
 });
 
-test("production Vercel builds run database migrations before building", async () => {
+test("production migrations are protected and decoupled from Vercel builds", async () => {
   const packageJson = await readFile(new URL("../../../package.json", import.meta.url), "utf8");
   const vercelJson = await readFile(new URL("../../../vercel.json", import.meta.url), "utf8");
   const buildScript = await readFile(
     new URL("../../../scripts/vercel-build.mjs", import.meta.url),
+    "utf8",
+  );
+  const migrationWorkflow = await readFile(
+    new URL("../../../.github/workflows/migrate-production.yml", import.meta.url),
+    "utf8",
+  );
+  const migrationCheck = await readFile(
+    new URL("../scripts/check-migrations.mjs", import.meta.url),
     "utf8",
   );
 
@@ -1539,11 +1776,20 @@ test("production Vercel builds run database migrations before building", async (
   assert.match(packageJson, /"legal:check": "node scripts\/check-legal\.mjs"/);
   assert.match(packageJson, /"build": "npm run legal:check && npm run build:web"/);
   assert.match(vercelJson, /"buildCommand": "npm run vercel:build"/);
-  assert.match(buildScript, /process\.env\.VERCEL_ENV === "production"/);
   assert.ok(buildScript.indexOf("\"legal:check\"") < buildScript.indexOf("\"db:migrations:check\""));
-  assert.ok(buildScript.indexOf("\"db:migrations:check\"") < buildScript.indexOf("\"db:migrate\""));
-  assert.ok(buildScript.indexOf("\"db:migrate\"") < buildScript.indexOf("\"build:web\""));
+  assert.ok(buildScript.indexOf("\"db:migrations:check\"") < buildScript.indexOf("\"build:web\""));
+  assert.doesNotMatch(buildScript, /db:migrate/);
   assert.doesNotMatch(buildScript, /\["run", "build"\]/);
+  assert.match(migrationWorkflow, /workflow_dispatch:/);
+  assert.match(migrationWorkflow, /environment: production/);
+  assert.match(migrationWorkflow, /group: production-database-migrations/);
+  assert.match(migrationWorkflow, /cancel-in-progress: false/);
+  assert.match(migrationWorkflow, /ref: \$\{\{ inputs\.ref \}\}/);
+  assert.match(migrationWorkflow, /run: test "\$\(git rev-parse HEAD\)" = "\$RELEASE_REF"/);
+  assert.match(migrationWorkflow, /DATABASE_URL: \$\{\{ secrets\.DATABASE_URL \}\}/);
+  assert.match(migrationWorkflow, /run: npm run db:migrate/);
+  assert.match(migrationCheck, /latestMigration/);
+  assert.match(migrationCheck, /Readiness must require the latest migration/);
 });
 
 test("web layout consumes shared brand CSS variables", async () => {
@@ -1881,6 +2127,70 @@ test("beta feedback, share profile, and health repair paths stay visible", async
   assert.match(webSettings, /mailto:hawigxyz@proton\.me/);
 });
 
+test("changed activity days map to unique ISO week, month, and year score periods", () => {
+  assert.deepEqual(
+    plain(periods.scorePeriodsForDays(["2025-12-31", "2026-01-01"])),
+    ["2025", "2025-12", "2026", "2026-01", "2026-W01"],
+  );
+  assert.deepEqual(plain(periods.scorePeriodsForDays([])), []);
+  assert.throws(
+    () => periods.scorePeriodsForDays(["2026-02-31"]),
+    /valid YYYY-MM-DD/,
+  );
+});
+
+test("incremental score storage dirties only meaningful source changes", async () => {
+  const [schemaSource, migrationSource, scoreCore, scoresSource, mobileSource] =
+    await Promise.all([
+      readFile(new URL("../src/server/db/schema.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../drizzle/0015_incremental_period_scores.sql", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../src/server/data/incremental-scores.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../src/server/data/scores.ts", import.meta.url), "utf8"),
+      readFile(new URL("../src/server/data/mobile.ts", import.meta.url), "utf8"),
+    ]);
+
+  assert.match(schemaSource, /export const periodScores = pgTable/);
+  assert.match(schemaSource, /primaryKey\(\{ columns: \[table\.userId, table\.period\] \}\)/);
+  assert.match(schemaSource, /streakDays: integer\("streak_days"\)/);
+  assert.match(schemaSource, /export const dirtyScorePeriods = pgTable/);
+  assert.match(schemaSource, /revision: integer\("revision"\)\.notNull\(\)\.default\(1\)/);
+
+  assert.match(migrationSource, /CREATE TABLE IF NOT EXISTS period_scores/);
+  assert.match(migrationSource, /CREATE TABLE IF NOT EXISTS dirty_score_periods/);
+  assert.match(migrationSource, /to_char\(affected_day, 'IYYY-"W"IW'\)/);
+  assert.match(migrationSource, /to_char\(affected_day, 'YYYY-MM'\)/);
+  assert.match(migrationSource, /to_char\(affected_day, 'YYYY'\)/);
+  assert.match(migrationSource, /NEW\.commit_count IS NOT DISTINCT FROM OLD\.commit_count/);
+  assert.match(migrationSource, /NEW\.meters IS NOT DISTINCT FROM OLD\.meters/);
+  assert.match(migrationSource, /NEW\.flagged IS NOT DISTINCT FROM OLD\.flagged/);
+  assert.match(migrationSource, /revision = dirty_score_periods\.revision \+ 1/);
+  assert.match(migrationSource, /SELECT user_id, day FROM commit_days/);
+  assert.match(migrationSource, /SELECT user_id, day FROM distance_days/);
+  assert.match(migrationSource, /DROP TABLE IF EXISTS score_snapshots/);
+
+  assert.match(scoreCore, /export async function refreshUserPeriodScores/);
+  assert.match(scoreCore, /eq\(commitDays\.userId, userId\)/);
+  assert.match(scoreCore, /eq\(distanceDays\.userId, userId\)/);
+  assert.match(scoreCore, /\.insert\(periodScores\)/);
+  assert.match(scoreCore, /\.values\(rows\)/);
+  assert.match(scoreCore, /calculateStreakDays\(activeDays\)/);
+  assert.match(scoreCore, /if \(row\.meters > 0\) activeDays\.add\(row\.day\)/);
+  assert.match(scoreCore, /export async function drainDirtyScorePeriods/);
+  assert.match(scoreCore, /export async function refreshDirtyScorePeriodsForUser/);
+  assert.match(scoreCore, /eq\(dirtyScorePeriods\.revision, claim\.revision\)/);
+  assert.match(scoreCore, /refreshed: PeriodScoreRefreshResult\[\]/);
+  assert.doesNotMatch(scoreCore, /\.from\(users\)/);
+
+  assert.match(scoresSource, /setWhere: sql`[\s\S]*commitDays\.commitCount/);
+  assert.match(mobileSource, /setWhere: sql`[\s\S]*distanceDays\.meters/);
+});
+
 async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
   const url = new URL(relativePath, import.meta.url);
   const source = await readFile(url, "utf8");
@@ -1901,6 +2211,7 @@ async function loadTypeScriptModule(relativePath, contextOverrides = {}) {
     module,
     process,
     require,
+    structuredClone,
     URL,
     ...contextOverrides,
   }, {

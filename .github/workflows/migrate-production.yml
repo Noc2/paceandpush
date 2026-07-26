@@ -1,0 +1,43 @@
+name: Migrate production database
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Exact release commit SHA containing the migrations
+        required: true
+        type: string
+
+concurrency:
+  group: production-database-migrations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Verify exact release commit
+        env:
+          RELEASE_REF: ${{ inputs.ref }}
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_REF"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run db:migrations:check
+      - name: Apply production migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:migrate
