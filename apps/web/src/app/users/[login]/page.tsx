@@ -6,12 +6,12 @@ import {
   runningDistanceLabel,
   runningDistanceShortLabel,
 } from "@/lib/distance-units";
-import { getLeaderboard, getPublicProfile, parsePeriod } from "@/server/data/read-model";
+import { getLeaderboard, getPublicProfile } from "@/server/data/read-model";
 import { brandName } from "@paceandpush/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PeriodSelector } from "@/app/PeriodSelector";
-import { formatPeriodLabel } from "@/lib/periods";
+import { formatPeriodLabel, parsePublicPeriod } from "@/lib/periods";
 import { ProfileChartEmbed } from "./ProfileChartEmbed";
 
 type UserPageProps = {
@@ -26,7 +26,9 @@ type UserPageProps = {
 export default async function UserPage({ params, searchParams }: UserPageProps) {
   const { login } = await params;
   const query = searchParams ? await searchParams : {};
-  const period = parsePeriod(query.period ?? null);
+  const period = parsePublicPeriod(query.period ?? null);
+  if (!period) notFound();
+
   const profile = await getPublicProfile(decodeURIComponent(login), period);
   if (!profile) notFound();
 

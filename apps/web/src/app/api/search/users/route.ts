@@ -1,4 +1,4 @@
-import { parsePeriod } from "@/server/data/read-model";
+import { parsePublicPeriod } from "@/lib/periods";
 import { searchCachedPublicUsers } from "@/server/data/public-discovery-cache";
 import { rateLimit } from "@/server/api/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
@@ -12,7 +12,14 @@ export async function GET(request: NextRequest) {
   if (limited) return limited;
 
   const query = request.nextUrl.searchParams.get("q") ?? "";
-  const period = parsePeriod(request.nextUrl.searchParams.get("period"));
+  const period = parsePublicPeriod(request.nextUrl.searchParams.get("period"));
+  if (!period) {
+    return NextResponse.json(
+      { error: "Unsupported period." },
+      { status: 400, headers: { "cache-control": "no-store" } },
+    );
+  }
+
   const limit = parseSearchLimit(request.nextUrl.searchParams.get("limit"));
 
   return NextResponse.json(await searchCachedPublicUsers({ limit, period, query }), {

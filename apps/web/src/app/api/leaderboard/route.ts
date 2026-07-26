@@ -1,4 +1,5 @@
-import { parseBoard, parsePeriod } from "@/server/data/read-model";
+import { parseBoard } from "@/server/data/read-model";
+import { parsePublicPeriod } from "@/lib/periods";
 import { getCachedLeaderboard } from "@/server/data/public-discovery-cache";
 import { rateLimit } from "@/server/api/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
@@ -12,7 +13,14 @@ export async function GET(request: NextRequest) {
   if (limited) return limited;
 
   const board = parseBoard(request.nextUrl.searchParams.get("board"));
-  const period = parsePeriod(request.nextUrl.searchParams.get("period"));
+  const period = parsePublicPeriod(request.nextUrl.searchParams.get("period"));
+  if (!period) {
+    return NextResponse.json(
+      { error: "Unsupported period." },
+      { status: 400, headers: { "cache-control": "no-store" } },
+    );
+  }
+
   return NextResponse.json(await getCachedLeaderboard(board, period), {
     headers: {
       "cache-control": "no-store",

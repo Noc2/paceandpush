@@ -2,7 +2,7 @@ import { AppDownloadActions } from "@/app/AppDownloadActions";
 import { ScoreExplainer } from "@/app/ScoreExplainer";
 import { SiteHeader } from "@/app/SiteHeader";
 import { getSessionUser } from "@/server/auth/session";
-import { getLeaderboard, parsePeriod, searchPublicUsers } from "@/server/data/read-model";
+import { getLeaderboard, searchPublicUsers } from "@/server/data/read-model";
 import type { LeaderboardRow } from "@paceandpush/api-contracts";
 import Link from "next/link";
 import { PeriodSelector } from "@/app/PeriodSelector";
@@ -11,6 +11,8 @@ import {
   runningDistanceShortLabel,
   type UnitPreference,
 } from "@/lib/distance-units";
+import { parsePublicPeriod } from "@/lib/periods";
+import { notFound } from "next/navigation";
 
 type HomePageProps = {
   searchParams?: Promise<{
@@ -27,7 +29,9 @@ type SortDirection = "asc" | "desc";
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = searchParams ? await searchParams : {};
-  const period = parsePeriod(params.period ?? null);
+  const period = parsePublicPeriod(params.period ?? null);
+  if (!period) notFound();
+
   const sort = parseLeaderboardSort(params.sort) ?? parseLeaderboardSort(params.board) ?? "score";
   const direction = parseSortDirection(params.dir, sort);
   const searchQuery = parseSearchQuery(params.q);

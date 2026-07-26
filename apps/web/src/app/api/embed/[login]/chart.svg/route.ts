@@ -1,4 +1,5 @@
-import { getPublicProfile, parsePeriod } from "@/server/data/read-model";
+import { getPublicProfile } from "@/server/data/read-model";
+import { parsePublicPeriod } from "@/lib/periods";
 import { parseProfileChartTheme, renderProfileChartSvg } from "@/server/charts/profile-chart";
 import { parseUnitPreference } from "@/lib/distance-units";
 import { rateLimit } from "@/server/api/rate-limit";
@@ -16,7 +17,14 @@ export async function GET(
   if (limited) return limited;
 
   const { login } = await context.params;
-  const period = parsePeriod(request.nextUrl.searchParams.get("period"));
+  const period = parsePublicPeriod(request.nextUrl.searchParams.get("period"));
+  if (!period) {
+    return new NextResponse("Unsupported period.", {
+      status: 400,
+      headers: { "cache-control": "no-store" },
+    });
+  }
+
   const profile = await getPublicProfile(decodeURIComponent(login), period);
   const units = parseUnitPreference(request.nextUrl.searchParams.get("units"));
   const theme = parseProfileChartTheme(request.nextUrl.searchParams.get("theme"));

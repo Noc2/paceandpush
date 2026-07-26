@@ -1,4 +1,5 @@
 const dayMs = 24 * 60 * 60 * 1000;
+const firstPublicScoreYear = 2026;
 
 export type PeriodKind = "year" | "month" | "week";
 
@@ -62,6 +63,24 @@ export function parsePeriod(value: string | null | undefined): string {
     return value;
   }
   return currentPeriod();
+}
+
+export function parsePublicPeriod(
+  value: string | null | undefined,
+  date = new Date(),
+): string | null {
+  const period = value || currentPeriod(date);
+  if (!isSupportedPeriod(period)) return null;
+
+  const year = Number(period.slice(0, 4));
+  if (year < firstPublicScoreYear) return null;
+
+  const activePeriod = periodForKind(periodKind(period), date);
+  if (periodStartDate(period).getTime() > periodStartDate(activePeriod).getTime()) {
+    return null;
+  }
+
+  return period;
 }
 
 export function periodKind(period: string): PeriodKind {

@@ -791,6 +791,19 @@ test("public snapshot refreshes are limited to current and previous periods", ()
   assert.equal(periods.isCurrentOrPreviousPeriod("2026-W26", now), false);
 });
 
+test("public periods reject probes outside the product lifetime before database access", () => {
+  const now = new Date("2026-07-26T12:00:00.000Z");
+
+  assert.equal(periods.parsePublicPeriod(null, now), "2026-07");
+  assert.equal(periods.parsePublicPeriod("2026-07", now), "2026-07");
+  assert.equal(periods.parsePublicPeriod("2026-W30", now), "2026-W30");
+  assert.equal(periods.parsePublicPeriod("2026", now), "2026");
+  assert.equal(periods.parsePublicPeriod("1738-05", now), null);
+  assert.equal(periods.parsePublicPeriod("1712-W39", now), null);
+  assert.equal(periods.parsePublicPeriod("2027", now), null);
+  assert.equal(periods.parsePublicPeriod("not-a-period", now), null);
+});
+
 test("score periods use complete inclusive calendar lengths", () => {
   assert.equal(periods.periodDayCount("2026-W28"), 7);
   assert.equal(periods.periodDayCount("2026-02"), 28);
@@ -798,6 +811,43 @@ test("score periods use complete inclusive calendar lengths", () => {
   assert.equal(periods.periodDayCount("2026-07"), 31);
   assert.equal(periods.periodDayCount("2025"), 365);
   assert.equal(periods.periodDayCount("2024"), 366);
+});
+
+test("public pages reject implausible periods before database reads", async () => {
+  const [homePage, profilePage] = await Promise.all([
+    readFile(new URL("../src/app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/users/[login]/page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(homePage, /parsePublicPeriod\(params\.period/);
+  assert.match(homePage, /if \(!period\) notFound\(\)/);
+  assert.match(profilePage, /parsePublicPeriod\(query\.period/);
+  assert.match(profilePage, /if \(!period\) notFound\(\)/);
+});
+
+test("public API period probes are rejected before data reads", async () => {
+  const routeUrls = [
+    "../src/app/api/leaderboard/route.ts",
+    "../src/app/api/search/users/route.ts",
+    "../src/app/api/users/[login]/route.ts",
+    "../src/app/api/embed/[login]/chart.svg/route.ts",
+  ];
+
+  for (const routeUrl of routeUrls) {
+    const source = await readFile(new URL(routeUrl, import.meta.url), "utf8");
+    const validationIndex = source.indexOf("if (!period)");
+    const dataReadIndex = Math.min(
+      ...[
+        source.indexOf("getCachedLeaderboard"),
+        source.indexOf("searchCachedPublicUsers"),
+        source.indexOf("getPublicProfile"),
+      ].filter((index) => index > source.indexOf("export async function GET")),
+    );
+
+    assert.ok(validationIndex > 0, `${routeUrl} validates public periods`);
+    assert.ok(dataReadIndex > validationIndex, `${routeUrl} validates before its data read`);
+    assert.match(source, /Unsupported period\./);
+  }
 });
 
 test("streak calculation counts unique consecutive active days", () => {
