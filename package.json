@@ -24,7 +24,16 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },
+  "dependencies": {
+    "next": "16.2.12"
+  },
   "devDependencies": {
     "@playwright/test": "^1.61.1"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "8.5.23",
+      "sharp": "0.35.3"
+    }
   }
 }
