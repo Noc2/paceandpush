@@ -1,9 +1,8 @@
 import { isAccountSettingsPatch } from "@/server/api/payloads";
 import { getSessionUser } from "@/server/auth/session";
-import { getAccountUser, updateAccountSettings } from "@/server/data/accounts";
-import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
-import { refreshScoresAfterLeaderboardVisibilityChange } from "@/server/data/scores";
-import { after, NextRequest, NextResponse } from "next/server";
+import { getAccountUser } from "@/server/data/accounts";
+import { updateAccountSettingsWithPublicProjection } from "@/server/privacy/public-visibility";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(request: NextRequest) {
   const user = await getAccountUser(await getSessionUser());
@@ -25,31 +24,12 @@ export async function PATCH(request: NextRequest) {
   const nextPublicLeaderboard =
     typeof body.publicLeaderboard === "boolean" ? body.publicLeaderboard : undefined;
 
-  const updatedUser = await updateAccountSettings({
-    userId: user.id,
+  const updatedUser = await updateAccountSettingsWithPublicProjection({
+    user,
     publicLeaderboard: nextPublicLeaderboard,
     publicHealthDataConsent: body.publicHealthDataConsent,
     units: body.units === "imperial" || body.units === "metric" ? body.units : undefined,
   });
-
-  if (
-    typeof nextPublicLeaderboard === "boolean" &&
-    (updatedUser.publicLeaderboard !== user.publicLeaderboard ||
-      updatedUser.publicActivityHistory !== user.publicActivityHistory)
-  ) {
-    invalidatePublicDiscoveryCache();
-    after(async () => {
-      try {
-        await refreshScoresAfterLeaderboardVisibilityChange({
-          userId: user.id,
-          login: user.login,
-          publicLeaderboard: updatedUser.publicLeaderboard,
-        });
-      } catch (error) {
-        console.error("[web settings] Post-response score refresh failed", error);
-      }
-    });
-  }
 
   return NextResponse.json({
     login: updatedUser.login,

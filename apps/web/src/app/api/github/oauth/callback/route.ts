@@ -1,8 +1,11 @@
 import { getSessionCookieName, signSession } from "@/server/auth/session";
 import { upsertGitHubAccount } from "@/server/data/accounts";
+import { publishPublicPeriods } from "@/server/data/public-discovery-cache";
 import {
-  recomputeScoreSnapshots,
+  currentPeriod,
+  refreshDirtyScorePeriodsForUser,
   refreshGitHubCommitsForUser,
+  scorePeriodsRequiredForRefresh,
 } from "@/server/data/scores";
 import {
   exchangeGitHubCode,
@@ -36,7 +39,11 @@ export async function GET(request: NextRequest) {
         userId: user.id,
         login: user.login,
       });
-      await recomputeScoreSnapshots();
+      const scoreRefresh = await refreshDirtyScorePeriodsForUser(
+        user.id,
+        scorePeriodsRequiredForRefresh(currentPeriod()),
+      );
+      await publishPublicPeriods(scoreRefresh.periods);
     } catch (error) {
       console.error("[github-oauth] initial score refresh failed", error);
     }

@@ -6,7 +6,7 @@ import {
   runningDistanceLabel,
   runningDistanceShortLabel,
 } from "@/lib/distance-units";
-import { getLeaderboard, getPublicProfile } from "@/server/data/read-model";
+import { getCachedPublicProfile } from "@/server/data/public-discovery-cache";
 import { brandName } from "@paceandpush/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -23,20 +23,18 @@ type UserPageProps = {
   }>;
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function UserPage({ params, searchParams }: UserPageProps) {
   const { login } = await params;
   const query = searchParams ? await searchParams : {};
   const period = parsePublicPeriod(query.period ?? null);
   if (!period) notFound();
 
-  const profile = await getPublicProfile(decodeURIComponent(login), period);
+  const profile = await getCachedPublicProfile(decodeURIComponent(login), period);
   if (!profile) notFound();
 
   const units = "metric";
-  const leaderboard = await getLeaderboard("balanced", period);
-  const row = leaderboard.rows.find(
-    (leader) => leader.login.toLowerCase() === profile.login.toLowerCase(),
-  );
   const lightChartParams = new URLSearchParams({ period: profile.score.period, units, theme: "light" });
   const darkChartParams = new URLSearchParams({ period: profile.score.period, units, theme: "dark" });
   const lightChartPath = `/api/embed/${encodeURIComponent(profile.login)}/chart.svg?${lightChartParams}`;
@@ -69,7 +67,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
             metric="distance"
             value={formatDistance(profile.score.kilometers, units)}
           />
-          <Stat label="Streak" value={`${row?.streakDays ?? 0}d`} />
+          <Stat label="Streak" value={`${profile.streakDays}d`} />
         </div>
         <ScoreExplainer />
 

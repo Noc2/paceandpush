@@ -1,9 +1,8 @@
 import { isAccountSettingsPatch } from "@/server/api/payloads";
-import { updateAccountSettings } from "@/server/data/accounts";
+import { getAccountUser } from "@/server/data/accounts";
 import { verifyDeviceToken } from "@/server/data/mobile";
-import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
-import { refreshScoresAfterLeaderboardVisibilityChange } from "@/server/data/scores";
-import { after, NextRequest, NextResponse } from "next/server";
+import { updateAccountSettingsWithPublicProjection } from "@/server/privacy/public-visibility";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(request: NextRequest) {
   const auth = await verifyDeviceToken(request.headers.get("authorization"));
@@ -24,27 +23,22 @@ export async function PATCH(request: NextRequest) {
   const nextPublicLeaderboard =
     typeof body.publicLeaderboard === "boolean" ? body.publicLeaderboard : undefined;
 
-  const updatedUser = await updateAccountSettings({
-    userId: auth.user.id,
+  const account = await getAccountUser({
+    githubId: auth.user.githubId,
+    login: auth.user.login,
+    displayName: auth.user.displayName,
+    avatarUrl: auth.user.avatarUrl,
+  });
+  if (!account) {
+    return NextResponse.json({ error: "Account does not exist." }, { status: 404 });
+  }
+
+  const updatedUser = await updateAccountSettingsWithPublicProjection({
+    user: account,
     publicLeaderboard: nextPublicLeaderboard,
     publicHealthDataConsent: body.publicHealthDataConsent,
     units: body.units === "imperial" || body.units === "metric" ? body.units : undefined,
   });
-
-  if (typeof nextPublicLeaderboard === "boolean") {
-    invalidatePublicDiscoveryCache();
-    after(async () => {
-      try {
-        await refreshScoresAfterLeaderboardVisibilityChange({
-          userId: auth.user.id,
-          login: auth.user.login,
-          publicLeaderboard: updatedUser.publicLeaderboard,
-        });
-      } catch (error) {
-        console.error("[mobile settings] Post-response score refresh failed", error);
-      }
-    });
-  }
 
   return NextResponse.json({
     login: updatedUser.login,

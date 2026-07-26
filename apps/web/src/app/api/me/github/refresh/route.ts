@@ -1,11 +1,13 @@
 import { getSessionUser } from "@/server/auth/session";
 import { minimumInterval, rateLimit } from "@/server/api/rate-limit";
 import { getAccountUser } from "@/server/data/accounts";
+import { publishPublicPeriods } from "@/server/data/public-discovery-cache";
 import {
-  recomputeScoreSnapshots,
+  refreshDirtyScorePeriodsForUser,
   refreshGitHubCommitsForUser,
+  scorePeriodsRequiredForRefresh,
 } from "@/server/data/scores";
-import { currentPeriod, periodForKind } from "@/lib/periods";
+import { periodForKind } from "@/lib/periods";
 import { NextRequest, NextResponse } from "next/server";
 
 const githubRefreshMinimumIntervalMs = 15 * 60 * 1000;
@@ -32,28 +34,30 @@ export async function POST(request: NextRequest) {
   try {
     const now = new Date();
     const refreshPeriod = periodForKind("year", now);
-    const recomputePeriods = uniquePeriods([
-      refreshPeriod,
-      currentPeriod(now),
-      periodForKind("week", now),
-    ]);
     const github = await refreshGitHubCommitsForUser({
       userId: user.id,
       login: user.login,
       period: refreshPeriod,
     });
-    const scores = [];
-
-    for (const period of recomputePeriods) {
-      scores.push(await recomputeScoreSnapshots(period));
+    const scoreRefresh = await refreshDirtyScorePeriodsForUser(
+      user.id,
+      scorePeriodsRequiredForRefresh(refreshPeriod, now),
+    );
+    const warnings: string[] = [];
+    try {
+      await publishPublicPeriods(scoreRefresh.periods);
+    } catch (error) {
+      warnings.push("public_projection_refresh_failed");
+      console.error("[github-refresh] public projection refresh failed", error);
     }
 
     return NextResponse.json({
       refreshedPeriod: refreshPeriod,
-      recomputedPeriods: recomputePeriods,
+      refreshedPeriods: scoreRefresh.periods,
       github,
-      scores,
+      scoreRefresh,
       refreshedAt: new Date().toISOString(),
+      ...(warnings.length > 0 ? { warnings } : {}),
     });
   } catch (error) {
     return NextResponse.json(
@@ -63,8 +67,4 @@ export async function POST(request: NextRequest) {
       { status: 409 },
     );
   }
-}
-
-function uniquePeriods(periods: string[]): string[] {
-  return [...new Set(periods)];
 }

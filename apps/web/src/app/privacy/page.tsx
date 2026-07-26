@@ -196,6 +196,14 @@ export default function PrivacyPage() {
               </li>
               <li>Neon for Postgres database hosting, backups, and database operations.</li>
               <li>
+                Upstash for the Redis public-read projection used to serve
+                leaderboard, search, public profile, and chart data without
+                repeatedly querying the primary database. It stores only the
+                information users chose to publish plus visibility-suppression
+                markers needed to prevent withdrawn or deleted profiles from
+                reappearing.
+              </li>
+              <li>
                 GitHub for OAuth sign-in and GitHub API data. GitHub also acts
                 independently for your GitHub account and GitHub service data.
               </li>
@@ -218,7 +226,7 @@ export default function PrivacyPage() {
               </li>
             </ul>
             <p>
-              Where Vercel or Neon process personal data on our behalf, we rely
+              Where Vercel, Neon, or Upstash process personal data on our behalf, we rely
               on their applicable data-processing terms, subprocessor controls,
               technical and organizational measures, and cross-border transfer
               mechanisms. For transfers outside the EEA, United Kingdom, or
@@ -235,6 +243,13 @@ export default function PrivacyPage() {
               <li>
                 Account, commit, distance, device, score, and sync data are kept
                 while your account is active or while needed to operate the service.
+              </li>
+              <li>
+                Public profile projections in Redis are refreshed when scores
+                or sharing choices change. Visibility-suppression markers may
+                be retained after withdrawal or deletion for as long as needed
+                to ensure that older public projections cannot make the profile
+                visible again.
               </li>
               <li>
                 Sync-run status records and score history are kept while your

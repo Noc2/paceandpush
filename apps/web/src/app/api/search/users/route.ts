@@ -1,5 +1,6 @@
 import { parsePublicPeriod } from "@/lib/periods";
 import { searchCachedPublicUsers } from "@/server/data/public-discovery-cache";
+import { PublicProjectionUnavailableError } from "@/server/data/public-projection-store";
 import { rateLimit } from "@/server/api/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -22,11 +23,24 @@ export async function GET(request: NextRequest) {
 
   const limit = parseSearchLimit(request.nextUrl.searchParams.get("limit"));
 
-  return NextResponse.json(await searchCachedPublicUsers({ limit, period, query }), {
-    headers: {
-      "cache-control": "no-store",
-    },
-  });
+  try {
+    return NextResponse.json(
+      await searchCachedPublicUsers({ limit, period, query }),
+      {
+        headers: {
+          "cache-control": "no-store",
+        },
+      },
+    );
+  } catch (error) {
+    if (error instanceof PublicProjectionUnavailableError) {
+      return NextResponse.json(
+        { error: "Public activity data is temporarily unavailable." },
+        { status: 503, headers: { "cache-control": "no-store" } },
+      );
+    }
+    throw error;
+  }
 }
 
 function parseSearchLimit(value: string | null): number | undefined {

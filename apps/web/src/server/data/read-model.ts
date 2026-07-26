@@ -12,40 +12,51 @@ import { scoreActivity } from "@paceandpush/api-contracts";
 import type { SessionUser } from "@/server/auth/session";
 import { getAccountUser, getGitHubConnectionSummary } from "@/server/data/accounts";
 import { listMobileDevices } from "@/server/data/mobile";
+import { getDb, isDatabaseConfigured } from "@/server/db/client";
+import {
+  commitDays,
+  distanceDays,
+  periodScores,
+  syncRuns,
+  users,
+} from "@/server/db/schema";
 import {
   currentPeriod,
   periodBounds,
-  recomputeScoreSnapshots,
-  refreshGitHubCommitsForUser,
-} from "@/server/data/scores";
-import { getDb, isDatabaseConfigured } from "@/server/db/client";
-import { commitDays, distanceDays, scoreSnapshots, syncRuns, users } from "@/server/db/schema";
-import { isCurrentOrPreviousPeriod, periodDayCount } from "@/lib/periods";
-import { calculateStreakDays } from "@/lib/streaks";
+  periodDayCount,
+} from "@/lib/periods";
 import { currentPublicHealthDataConsentCondition } from "@/server/privacy/public-health-data-consent";
 import { toPublicScoreSummary } from "@/server/privacy/public-profile";
-import { and, desc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 
-type LeaderboardSnapshotRow = {
-  rank: number | null;
-  login: string;
-  displayName: string;
-  score: string;
+type PublicPeriodScoreRow = {
+  bio: string | null;
   commits: number;
+  displayName: string;
   distanceMeters: number;
+  login: string;
+  publicActivityHistory: boolean;
+  score: string;
+  streakDays: number;
   userId: string;
 };
 
-type AccountScoreUser = {
-  id: string;
-  login: string;
-};
-
-type ScoreSnapshotSummary = {
-  score: string;
-  rank: number | null;
+type PeriodScoreSummary = {
   commits: number;
   distanceMeters: number;
+  score: string;
+  streakDays: number;
 };
 
 type SearchPublicUsersOptions = {
@@ -56,32 +67,102 @@ type SearchPublicUsersOptions = {
 
 const leaderboardRowLimit = 100;
 
+export interface PublicPeriodProjectionSource {
+  boards: Record<Board, LeaderboardRow[]>;
+  profiles: PublicProfileResponse[];
+  searchRows: Array<{
+    row: LeaderboardRow;
+    searchText: string;
+  }>;
+}
+
+export async function buildPublicPeriodProjectionSource(
+  period: string,
+): Promise<PublicPeriodProjectionSource> {
+  if (!isDatabaseConfigured()) {
+    return {
+      boards: { balanced: [], commits: [], distance: [] },
+      profiles: [],
+      searchRows: [],
+    };
+  }
+
+  const rows = await getPublicPeriodScoreRows(period);
+  const balancedRows = rankPublicRows("balanced", rows);
+  const balancedLeaderboardRows = toLeaderboardRows(balancedRows);
+  const rankByUserId = new Map(
+    balancedRows.map((row, index) => [row.userId, index + 1]),
+  );
+  const sourceByLogin = new Map(
+    rows.map((row) => [row.login.toLowerCase(), row]),
+  );
+  const historiesByUserId = await getProfileHistories(
+    rows
+      .filter((row) => row.publicActivityHistory)
+      .map((row) => row.userId),
+    period,
+  );
+  const profiles = rows.map(
+    (row): PublicProfileResponse => ({
+      login: row.login,
+      displayName: row.displayName,
+      bio: row.bio,
+      score: toPublicScoreSummary(
+        toScoreSummary(row, period, rankByUserId.get(row.userId) ?? null),
+      ),
+      streakDays: row.streakDays,
+      history: row.publicActivityHistory
+        ? historiesByUserId.get(row.userId) ?? []
+        : [],
+      historyVisibility: row.publicActivityHistory ? "public" : "private",
+    }),
+  );
+
+  return {
+    boards: {
+      balanced: balancedLeaderboardRows,
+      commits: toLeaderboardRows(rankPublicRows("commits", rows)),
+      distance: toLeaderboardRows(rankPublicRows("distance", rows)),
+    },
+    profiles,
+    searchRows: balancedLeaderboardRows.map((row) => {
+      const source = sourceByLogin.get(row.login.toLowerCase());
+      return {
+        row,
+        searchText: [
+          row.login,
+          row.displayName,
+          source?.bio ?? "",
+        ].join(" ").toLowerCase(),
+      };
+    }),
+  };
+}
+
+export async function getPublicProjectionPeriods(): Promise<string[]> {
+  if (!isDatabaseConfigured()) return [];
+  const rows = await getDb()
+    .selectDistinct({ period: periodScores.period })
+    .from(periodScores)
+    .orderBy(periodScores.period);
+  return rows.map((row) => row.period);
+}
+
 export async function getLeaderboard(
   board: Board = "balanced",
   period = currentPeriod(),
 ): Promise<LeaderboardResponse> {
   if (!isDatabaseConfigured()) {
-    return {
-      period,
-      board,
-      rows: [],
-    };
+    return { period, board, rows: [] };
   }
 
-  let rows = await getLeaderboardSnapshotRows(board, period);
-  if (rows.length === 0 && isCurrentOrPreviousPeriod(period)) {
-    try {
-      await recomputeScoreSnapshots(period);
-      rows = await getLeaderboardSnapshotRows(board, period);
-    } catch (error) {
-      console.error("[scores] leaderboard snapshot refresh failed", error);
-    }
-  }
+  const rows = rankPublicRows(board, await getPublicPeriodScoreRows(period))
+    .slice(0, leaderboardRowLimit);
 
   return {
     period,
     board,
-    rows: await toLeaderboardRows(rows, period),
+    rows: toLeaderboardRows(rows),
   };
 }
 
@@ -91,119 +172,30 @@ export async function searchPublicUsers({
   query,
 }: SearchPublicUsersOptions): Promise<UserSearchResponse> {
   const normalizedQuery = normalizeSearchQuery(query);
-
   if (!isDatabaseConfigured() || normalizedQuery.length < 2) {
-    return {
-      query: normalizedQuery,
-      period,
-      rows: [],
-    };
+    return { query: normalizedQuery, period, rows: [] };
   }
 
-  const rows = await getPublicUserSearchRows(
-    normalizedQuery,
-    period,
-    normalizeSearchLimit(limit),
+  const lowerQuery = normalizedQuery.toLowerCase();
+  const rankedRows = rankPublicRows(
+    "balanced",
+    await getPublicPeriodScoreRows(period),
   );
+  const rows = rankedRows
+    .filter((row) =>
+      [row.login, row.displayName, row.bio ?? ""]
+        .join(" ")
+        .toLowerCase()
+        .includes(lowerQuery),
+    )
+    .sort(searchRowComparator(lowerQuery))
+    .slice(0, normalizeSearchLimit(limit));
 
   return {
     query: normalizedQuery,
     period,
-    rows: await toLeaderboardRows(rows, period),
+    rows: toLeaderboardRows(rows),
   };
-}
-
-async function getLeaderboardSnapshotRows(
-  board: Board,
-  period: string,
-): Promise<LeaderboardSnapshotRow[]> {
-  return getDb()
-    .select({
-      rank: scoreSnapshots.rank,
-      login: users.login,
-      displayName: users.displayName,
-      score: scoreSnapshots.score,
-      commits: scoreSnapshots.commitTotal,
-      distanceMeters: scoreSnapshots.distanceMetersTotal,
-      userId: users.id,
-    })
-    .from(scoreSnapshots)
-    .innerJoin(users, eq(scoreSnapshots.userId, users.id))
-    .where(
-      and(
-        eq(scoreSnapshots.period, period),
-        eq(scoreSnapshots.board, board),
-        currentPublicHealthDataConsentCondition(),
-      ),
-    )
-    .orderBy(scoreSnapshots.rank)
-    .limit(leaderboardRowLimit);
-}
-
-async function getPublicUserSearchRows(
-  query: string,
-  period: string,
-  limit: number,
-): Promise<LeaderboardSnapshotRow[]> {
-  const lowerQuery = query.toLowerCase();
-  const escapedQuery = escapeLikePattern(lowerQuery);
-  const containsPattern = `%${escapedQuery}%`;
-  const prefixPattern = `${escapedQuery}%`;
-  const searchDocument = sql`lower(${users.login} || ' ' || ${users.displayName} || ' ' || coalesce(${users.bio}, ''))`;
-
-  return getDb()
-    .select({
-      rank: scoreSnapshots.rank,
-      login: users.login,
-      displayName: users.displayName,
-      score: scoreSnapshots.score,
-      commits: scoreSnapshots.commitTotal,
-      distanceMeters: scoreSnapshots.distanceMetersTotal,
-      userId: users.id,
-    })
-    .from(scoreSnapshots)
-    .innerJoin(users, eq(scoreSnapshots.userId, users.id))
-    .where(
-      and(
-        eq(scoreSnapshots.period, period),
-        eq(scoreSnapshots.board, "balanced"),
-        currentPublicHealthDataConsentCondition(),
-        sql`${searchDocument} LIKE ${containsPattern} ESCAPE '!'`,
-      ),
-    )
-    .orderBy(
-      sql`
-        CASE
-          WHEN lower(${users.login}) = ${lowerQuery} THEN 0
-          WHEN lower(${users.login}) LIKE ${prefixPattern} ESCAPE '!' THEN 1
-          WHEN lower(${users.displayName}) LIKE ${prefixPattern} ESCAPE '!' THEN 2
-          ELSE 3
-        END
-      `,
-      sql`${scoreSnapshots.rank} ASC NULLS LAST`,
-      users.login,
-    )
-    .limit(limit);
-}
-
-async function toLeaderboardRows(
-  rows: LeaderboardSnapshotRow[],
-  period: string,
-): Promise<LeaderboardRow[]> {
-  const streaksByUserId = await getStreakDaysByUserId(
-    rows.map((row) => row.userId),
-    period,
-  );
-
-  return rows.map((row, index) => ({
-    rank: row.rank ?? index + 1,
-    login: row.login,
-    displayName: row.displayName,
-    score: Number(row.score),
-    commits: row.commits,
-    kilometers: Math.round((row.distanceMeters / 1000) * 10) / 10,
-    streakDays: streaksByUserId.get(row.userId) ?? 0,
-  }));
 }
 
 export async function getPublicProfile(
@@ -226,21 +218,15 @@ export async function getPublicProfile(
 
   if (!user) return null;
 
-  if (!(await hasScoreSnapshot(user.id, period)) && isCurrentOrPreviousPeriod(period)) {
-    try {
-      await recomputeScoreSnapshots(period);
-    } catch (error) {
-      console.error("[scores] public profile snapshot refresh failed", error);
-    }
-  }
-
-  const score = await getScoreSummary(user.id, period);
+  const storedScore = await getPeriodScore(user.id, period);
+  const score = toScoreSummary(storedScore, period, null);
 
   return {
     login: user.login,
     displayName: user.displayName,
     bio: user.bio,
     score: toPublicScoreSummary(score),
+    streakDays: storedScore?.streakDays ?? 0,
     history: user.publicActivityHistory
       ? await getProfileHistory(user.id, period)
       : [],
@@ -261,13 +247,15 @@ export async function getAccountProfile({
   bio: string | null;
   period?: string;
 }): Promise<PublicProfileResponse> {
-  const score = await getFreshAccountScoreSummary({ id: userId, login }, period);
+  const storedScore = await getPeriodScore(userId, period);
+  const rank = await getBalancedRank(userId, period);
 
   return {
     login,
     displayName,
     bio,
-    score: toPublicScoreSummary(score),
+    score: toPublicScoreSummary(toScoreSummary(storedScore, period, rank)),
+    streakDays: storedScore?.streakDays ?? 0,
     history: await getProfileHistory(userId, period),
     historyVisibility: "owner",
   };
@@ -278,40 +266,19 @@ export async function getMe(
   period = currentPeriod(),
 ): Promise<MeResponse> {
   if (!isDatabaseConfigured()) {
-    return {
-      login: sessionUser?.login ?? "guest",
-      displayName: sessionUser?.displayName ?? "Guest",
-      publicLeaderboard: false,
-      publicActivityHistory: false,
-      publicHealthDataConsentVersion: null,
-      publicHealthDataConsentedAt: null,
-      streakDays: 0,
-      units: "metric",
-      score: emptyScore(period),
-      github: emptyGitHubConnection(),
-      devices: [],
-    };
+    return emptyMe(sessionUser, period);
   }
 
   const account = await getAccountUser(sessionUser);
-
   if (!account) {
-    return {
-      login: sessionUser?.login ?? "guest",
-      displayName: sessionUser?.displayName ?? "Guest",
-      publicLeaderboard: false,
-      publicActivityHistory: false,
-      publicHealthDataConsentVersion: null,
-      publicHealthDataConsentedAt: null,
-      streakDays: 0,
-      units: "metric",
-      score: emptyScore(period),
-      github: emptyGitHubConnection(),
-      devices: [],
-    };
+    return emptyMe(sessionUser, period);
   }
 
-  const score = await getFreshAccountScoreSummary(account, period);
+  const storedScore = await getPeriodScore(account.id, period);
+  const [rank, lastSync] = await Promise.all([
+    getBalancedRank(account.id, period),
+    getLastSyncAt(account.id),
+  ]);
 
   return {
     login: account.login,
@@ -321,9 +288,12 @@ export async function getMe(
     publicHealthDataConsentVersion: account.publicHealthDataConsentVersion,
     publicHealthDataConsentedAt:
       account.publicHealthDataConsentedAt?.toISOString() ?? null,
-    streakDays: (await getStreakDaysByUserId([account.id], period)).get(account.id) ?? 0,
+    streakDays: storedScore?.streakDays ?? 0,
     units: account.units,
-    score,
+    score: {
+      ...toScoreSummary(storedScore, period, rank),
+      lastSyncAt: lastSync,
+    },
     github: await getGitHubConnectionSummary(account.id),
     devices: await listMobileDevices(account.id),
   };
@@ -336,47 +306,170 @@ export function parseBoard(value: string | null): Board {
   return "balanced";
 }
 
-function normalizeSearchQuery(query: string): string {
-  return query.trim().replace(/\s+/g, " ");
-}
+export { parsePeriod } from "@/lib/periods";
 
-function normalizeSearchLimit(limit: number): number {
-  if (!Number.isFinite(limit)) return 20;
-  return Math.min(Math.max(Math.trunc(limit), 1), 50);
-}
-
-function escapeLikePattern(value: string): string {
-  return value.replace(/[!%_]/g, (character) => `!${character}`);
-}
-
-export { parsePeriod } from "@/server/data/scores";
-
-async function getScoreSnapshot(
-  userId: string,
+async function getPublicPeriodScoreRows(
   period: string,
-): Promise<ScoreSnapshotSummary | null> {
-  const [snapshot] = await getDb()
+): Promise<PublicPeriodScoreRow[]> {
+  return getDb()
     .select({
-      score: scoreSnapshots.score,
-      rank: scoreSnapshots.rank,
-      commits: scoreSnapshots.commitTotal,
-      distanceMeters: scoreSnapshots.distanceMetersTotal,
+      bio: users.bio,
+      commits: periodScores.commitTotal,
+      displayName: users.displayName,
+      distanceMeters: periodScores.distanceMetersTotal,
+      login: users.login,
+      publicActivityHistory: users.publicActivityHistory,
+      score: periodScores.score,
+      streakDays: periodScores.streakDays,
+      userId: users.id,
     })
-    .from(scoreSnapshots)
+    .from(periodScores)
+    .innerJoin(users, eq(periodScores.userId, users.id))
     .where(
       and(
-        eq(scoreSnapshots.userId, userId),
-        eq(scoreSnapshots.period, period),
-        eq(scoreSnapshots.board, "balanced"),
+        eq(periodScores.period, period),
+        currentPublicHealthDataConsentCondition(),
+      ),
+    );
+}
+
+async function getPeriodScore(
+  userId: string,
+  period: string,
+): Promise<PeriodScoreSummary | null> {
+  const [score] = await getDb()
+    .select({
+      commits: periodScores.commitTotal,
+      distanceMeters: periodScores.distanceMetersTotal,
+      score: periodScores.score,
+      streakDays: periodScores.streakDays,
+    })
+    .from(periodScores)
+    .where(
+      and(
+        eq(periodScores.userId, userId),
+        eq(periodScores.period, period),
       ),
     )
     .limit(1);
 
-  return snapshot ?? null;
+  return score ?? null;
 }
 
-async function getScoreSummary(userId: string, period: string): Promise<ScoreSummary> {
-  const snapshot = await getScoreSnapshot(userId, period);
+async function getBalancedRank(
+  userId: string,
+  period: string,
+): Promise<number | null> {
+  const [target] = await getDb()
+    .select({
+      commits: periodScores.commitTotal,
+      distanceMeters: periodScores.distanceMetersTotal,
+      score: periodScores.score,
+    })
+    .from(periodScores)
+    .innerJoin(users, eq(periodScores.userId, users.id))
+    .where(
+      and(
+        eq(periodScores.userId, userId),
+        eq(periodScores.period, period),
+        currentPublicHealthDataConsentCondition(),
+      ),
+    )
+    .limit(1);
+
+  if (!target) return null;
+
+  const [result] = await getDb()
+    .select({ ahead: sql<number>`count(*)::int` })
+    .from(periodScores)
+    .innerJoin(users, eq(periodScores.userId, users.id))
+    .where(
+      and(
+        eq(periodScores.period, period),
+        currentPublicHealthDataConsentCondition(),
+        or(
+          gt(periodScores.score, target.score),
+          and(
+            eq(periodScores.score, target.score),
+            gt(periodScores.commitTotal, target.commits),
+          ),
+          and(
+            eq(periodScores.score, target.score),
+            eq(periodScores.commitTotal, target.commits),
+            gt(periodScores.distanceMetersTotal, target.distanceMeters),
+          ),
+          and(
+            eq(periodScores.score, target.score),
+            eq(periodScores.commitTotal, target.commits),
+            eq(periodScores.distanceMetersTotal, target.distanceMeters),
+            lt(periodScores.userId, userId),
+          ),
+        ),
+      ),
+    );
+
+  return (result?.ahead ?? 0) + 1;
+}
+
+function rankPublicRows(
+  board: Board,
+  rows: PublicPeriodScoreRow[],
+): PublicPeriodScoreRow[] {
+  return [...rows].sort((left, right) => {
+    const leftScore = Number(left.score);
+    const rightScore = Number(right.score);
+    const primaryDifference = board === "commits"
+      ? right.commits - left.commits
+      : board === "distance"
+        ? right.distanceMeters - left.distanceMeters
+        : rightScore - leftScore;
+    if (primaryDifference !== 0) return primaryDifference;
+
+    const commitDifference = right.commits - left.commits;
+    if (commitDifference !== 0) return commitDifference;
+
+    const distanceDifference = right.distanceMeters - left.distanceMeters;
+    if (distanceDifference !== 0) return distanceDifference;
+
+    return left.userId.localeCompare(right.userId);
+  });
+}
+
+function toLeaderboardRows(rows: PublicPeriodScoreRow[]): LeaderboardRow[] {
+  return rows.map((row, index) => ({
+    rank: index + 1,
+    login: row.login,
+    displayName: row.displayName,
+    score: Number(row.score),
+    commits: row.commits,
+    kilometers: Math.round((row.distanceMeters / 1000) * 10) / 10,
+    streakDays: row.streakDays,
+  }));
+}
+
+function searchRowComparator(query: string) {
+  return (left: PublicPeriodScoreRow, right: PublicPeriodScoreRow): number => {
+    const leftLogin = left.login.toLowerCase();
+    const rightLogin = right.login.toLowerCase();
+    const bucket = (row: PublicPeriodScoreRow) => {
+      const login = row.login.toLowerCase();
+      const name = row.displayName.toLowerCase();
+      return login === query
+        ? 0
+        : login.startsWith(query)
+          ? 1
+          : name.startsWith(query)
+            ? 2
+            : 3;
+    };
+    return (
+      bucket(left) - bucket(right) ||
+      leftLogin.localeCompare(rightLogin)
+    );
+  };
+}
+
+async function getLastSyncAt(userId: string): Promise<string | null> {
   const [lastSync] = await getDb()
     .select({
       finishedAt: syncRuns.finishedAt,
@@ -387,120 +480,56 @@ async function getScoreSummary(userId: string, period: string): Promise<ScoreSum
     .orderBy(desc(syncRuns.startedAt))
     .limit(1);
 
-  if (!snapshot) {
-    return {
-      ...emptyScore(period),
-      lastSyncAt:
-        lastSync?.finishedAt?.toISOString() ?? lastSync?.startedAt?.toISOString() ?? null,
-    };
-  }
+  return (
+    lastSync?.finishedAt?.toISOString() ??
+    lastSync?.startedAt?.toISOString() ??
+    null
+  );
+}
+
+function toScoreSummary(
+  storedScore: PeriodScoreSummary | null,
+  period: string,
+  rank: number | null,
+): ScoreSummary {
+  if (!storedScore) return emptyScore(period);
 
   return {
     period,
-    score: Number(snapshot.score),
-    rank: snapshot.rank,
-    commits: snapshot.commits,
-    kilometers: Math.round((snapshot.distanceMeters / 1000) * 10) / 10,
-    lastSyncAt:
-      lastSync?.finishedAt?.toISOString() ?? lastSync?.startedAt?.toISOString() ?? null,
+    score: Number(storedScore.score),
+    rank,
+    commits: storedScore.commits,
+    kilometers: Math.round((storedScore.distanceMeters / 1000) * 10) / 10,
+    lastSyncAt: null,
   };
-}
-
-async function getFreshAccountScoreSummary(
-  account: AccountScoreUser,
-  period: string,
-): Promise<ScoreSummary> {
-  if (!(await shouldRefreshAccountScoreSnapshot(account.id, period))) {
-    return getScoreSummary(account.id, period);
-  }
-
-  try {
-    await refreshGitHubCommitsForUser({
-      userId: account.id,
-      login: account.login,
-      period,
-    });
-    await recomputeScoreSnapshots(period);
-  } catch (error) {
-    console.error("[scores] authenticated score refresh failed", error);
-  }
-
-  return getScoreSummary(account.id, period);
-}
-
-async function shouldRefreshAccountScoreSnapshot(
-  userId: string,
-  period: string,
-): Promise<boolean> {
-  const snapshot = await getScoreSnapshot(userId, period);
-  if (!snapshot) return true;
-
-  return !(await hasCompleteCommitCoverage(userId, period));
-}
-
-async function hasCompleteCommitCoverage(userId: string, period: string): Promise<boolean> {
-  const { start, end: periodEnd } = periodBounds(period);
-  const end = commitCoverageEnd(periodEnd);
-  const expectedDays = expectedCommitCoverageDays(start, end);
-  if (expectedDays === 0) return true;
-
-  const [coverage] = await getDb()
-    .select({ days: sql<number>`count(*)::int` })
-    .from(commitDays)
-    .where(
-      and(
-        eq(commitDays.userId, userId),
-        gte(commitDays.day, start),
-        lte(commitDays.day, end),
-      ),
-    );
-
-  return Number(coverage?.days ?? 0) >= expectedDays;
-}
-
-function commitCoverageEnd(periodEnd: string): string {
-  const today = new Date().toISOString().slice(0, 10);
-  return periodEnd > today ? today : periodEnd;
-}
-
-function expectedCommitCoverageDays(start: string, end: string): number {
-  if (start > end) return 0;
-  const startDate = new Date(`${start}T00:00:00.000Z`);
-  const endDate = new Date(`${end}T00:00:00.000Z`);
-  return Math.floor((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-}
-
-async function hasScoreSnapshot(userId: string, period: string): Promise<boolean> {
-  const [snapshot] = await getDb()
-    .select({ id: scoreSnapshots.id })
-    .from(scoreSnapshots)
-    .where(
-      and(
-        eq(scoreSnapshots.userId, userId),
-        eq(scoreSnapshots.period, period),
-        eq(scoreSnapshots.board, "balanced"),
-      ),
-    )
-    .limit(1);
-
-  return Boolean(snapshot);
 }
 
 async function getProfileHistory(
   userId: string,
   period: string,
 ): Promise<ProfileHistoryPoint[]> {
+  return (await getProfileHistories([userId], period)).get(userId) ?? [];
+}
+
+async function getProfileHistories(
+  userIds: string[],
+  period: string,
+): Promise<Map<string, ProfileHistoryPoint[]>> {
+  const uniqueUserIds = [...new Set(userIds)];
+  if (uniqueUserIds.length === 0) return new Map();
+
   const { start, end } = periodBounds(period);
   const [commits, distances] = await Promise.all([
     getDb()
       .select({
         day: commitDays.day,
         count: commitDays.commitCount,
+        userId: commitDays.userId,
       })
       .from(commitDays)
       .where(
         and(
-          eq(commitDays.userId, userId),
+          inArray(commitDays.userId, uniqueUserIds),
           gte(commitDays.day, start),
           lte(commitDays.day, end),
         ),
@@ -509,68 +538,8 @@ async function getProfileHistory(
       .select({
         day: distanceDays.day,
         meters: distanceDays.meters,
+        userId: distanceDays.userId,
       })
-      .from(distanceDays)
-      .where(
-        and(
-          eq(distanceDays.userId, userId),
-          gte(distanceDays.day, start),
-          lte(distanceDays.day, end),
-          eq(distanceDays.flagged, false),
-        ),
-      ),
-  ]);
-
-  const commitByDay = new Map(commits.map((row) => [row.day, row.count]));
-  const metersByDay = new Map(distances.map((row) => [row.day, row.meters]));
-  const days = [...new Set([...commitByDay.keys(), ...metersByDay.keys()])].sort();
-  let runningCommits = 0;
-  let runningMeters = 0;
-  const periodDays = periodDayCount(period);
-
-  return days.map((day) => {
-    runningCommits += commitByDay.get(day) ?? 0;
-    runningMeters += metersByDay.get(day) ?? 0;
-
-    const kilometers = runningMeters / 1000;
-    const activityScore = scoreActivity({
-      commits: runningCommits,
-      kilometers,
-      periodDays,
-    });
-
-    return {
-      date: day,
-      commits: runningCommits,
-      kilometers: Math.round(kilometers * 10) / 10,
-      score: Number(activityScore.score.toFixed(6)),
-    };
-  });
-}
-
-async function getStreakDaysByUserId(
-  userIds: string[],
-  period: string,
-): Promise<Map<string, number>> {
-  const uniqueUserIds = [...new Set(userIds)];
-  const streaksByUserId = new Map(uniqueUserIds.map((userId) => [userId, 0]));
-  if (uniqueUserIds.length === 0) return streaksByUserId;
-
-  const { start, end } = periodBounds(period);
-  const [commits, distances] = await Promise.all([
-    getDb()
-      .select({ day: commitDays.day, userId: commitDays.userId })
-      .from(commitDays)
-      .where(
-        and(
-          inArray(commitDays.userId, uniqueUserIds),
-          gte(commitDays.day, start),
-          lte(commitDays.day, end),
-          gt(commitDays.commitCount, 0),
-        ),
-      ),
-    getDb()
-      .select({ day: distanceDays.day, userId: distanceDays.userId })
       .from(distanceDays)
       .where(
         and(
@@ -582,22 +551,80 @@ async function getStreakDaysByUserId(
       ),
   ]);
 
-  const activeDaysByUserId = new Map<string, Set<string>>();
+  const periodDays = periodDayCount(period);
+  const commitsByUserId = groupDailyValues(
+    commits,
+    (row) => row.count,
+  );
+  const metersByUserId = groupDailyValues(
+    distances,
+    (row) => row.meters,
+  );
 
-  for (const row of [...commits, ...distances]) {
-    let activeDays = activeDaysByUserId.get(row.userId);
-    if (!activeDays) {
-      activeDays = new Set();
-      activeDaysByUserId.set(row.userId, activeDays);
+  return new Map(
+    uniqueUserIds.map((userId) => {
+      const commitByDay = commitsByUserId.get(userId) ?? new Map();
+      const metersByDay = metersByUserId.get(userId) ?? new Map();
+      const days = [
+        ...new Set([...commitByDay.keys(), ...metersByDay.keys()]),
+      ].sort();
+      let runningCommits = 0;
+      let runningMeters = 0;
+      const history = days.map((day) => {
+        runningCommits += commitByDay.get(day) ?? 0;
+        runningMeters += metersByDay.get(day) ?? 0;
+        const kilometers = runningMeters / 1000;
+        const activityScore = scoreActivity({
+          commits: runningCommits,
+          kilometers,
+          periodDays,
+        });
+
+        return {
+          date: day,
+          commits: runningCommits,
+          kilometers: Math.round(kilometers * 10) / 10,
+          score: Number(activityScore.score.toFixed(6)),
+        };
+      });
+      return [userId, history];
+    }),
+  );
+}
+
+function groupDailyValues<Row extends { day: string; userId: string }>(
+  rows: Row[],
+  value: (row: Row) => number,
+): Map<string, Map<string, number>> {
+  const result = new Map<string, Map<string, number>>();
+  for (const row of rows) {
+    let days = result.get(row.userId);
+    if (!days) {
+      days = new Map();
+      result.set(row.userId, days);
     }
-    activeDays.add(row.day);
+    days.set(row.day, value(row));
   }
+  return result;
+}
 
-  for (const [userId, activeDays] of activeDaysByUserId) {
-    streaksByUserId.set(userId, calculateStreakDays(activeDays));
-  }
-
-  return streaksByUserId;
+function emptyMe(
+  sessionUser: SessionUser | null,
+  period: string,
+): MeResponse {
+  return {
+    login: sessionUser?.login ?? "guest",
+    displayName: sessionUser?.displayName ?? "Guest",
+    publicLeaderboard: false,
+    publicActivityHistory: false,
+    publicHealthDataConsentVersion: null,
+    publicHealthDataConsentedAt: null,
+    streakDays: 0,
+    units: "metric",
+    score: emptyScore(period),
+    github: emptyGitHubConnection(),
+    devices: [],
+  };
 }
 
 function emptyScore(period: string): ScoreSummary {
@@ -617,4 +644,13 @@ function emptyGitHubConnection() {
     needsReconnect: false,
     updatedAt: null,
   };
+}
+
+function normalizeSearchQuery(query: string): string {
+  return query.trim().replace(/\s+/g, " ");
+}
+
+function normalizeSearchLimit(limit: number): number {
+  if (!Number.isFinite(limit)) return 20;
+  return Math.min(Math.max(Math.trunc(limit), 1), 50);
 }

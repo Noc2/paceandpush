@@ -60,6 +60,7 @@ export interface PublicProfileResponse {
   displayName: string;
   bio: string | null;
   score: PublicScoreSummary;
+  streakDays: number;
   history: ProfileHistoryPoint[];
   historyVisibility: "owner" | "public" | "private";
 }

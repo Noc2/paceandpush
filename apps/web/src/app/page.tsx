@@ -2,7 +2,10 @@ import { AppDownloadActions } from "@/app/AppDownloadActions";
 import { ScoreExplainer } from "@/app/ScoreExplainer";
 import { SiteHeader } from "@/app/SiteHeader";
 import { getSessionUser } from "@/server/auth/session";
-import { getLeaderboard, searchPublicUsers } from "@/server/data/read-model";
+import {
+  getCachedLeaderboard,
+  searchCachedPublicUsers,
+} from "@/server/data/public-discovery-cache";
 import type { LeaderboardRow } from "@paceandpush/api-contracts";
 import Link from "next/link";
 import { PeriodSelector } from "@/app/PeriodSelector";
@@ -41,8 +44,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   try {
     leaderboardResult = searchQuery
-      ? await searchPublicUsers({ period, query: searchQuery })
-      : await getLeaderboard("balanced", period);
+      ? await searchCachedPublicUsers({ period, query: searchQuery })
+      : await getCachedLeaderboard("balanced", period);
   } catch (error) {
     databaseUnavailable = true;
     leaderboardResult = { period, rows: [] };

@@ -1,10 +1,6 @@
-import { deleteAccountData } from "@/server/data/accounts";
+import { getAccountUser } from "@/server/data/accounts";
 import { verifyDeviceToken } from "@/server/data/mobile";
-import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
-import {
-  getScoreSnapshotPeriodsForUser,
-  recomputeScoreSnapshotPeriods,
-} from "@/server/data/scores";
+import { deleteAccountWithPublicProjection } from "@/server/privacy/public-visibility";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(request: NextRequest) {
@@ -13,10 +9,16 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Missing or invalid device token." }, { status: 401 });
   }
 
-  const affectedPeriods = await getScoreSnapshotPeriodsForUser(auth.user.id);
-  await deleteAccountData(auth.user.id);
-  invalidatePublicDiscoveryCache();
-  await recomputeScoreSnapshotPeriods(affectedPeriods);
+  const account = await getAccountUser({
+    githubId: auth.user.githubId,
+    login: auth.user.login,
+    displayName: auth.user.displayName,
+    avatarUrl: auth.user.avatarUrl,
+  });
+  if (!account) {
+    return NextResponse.json({ error: "Account does not exist." }, { status: 404 });
+  }
+  await deleteAccountWithPublicProjection(account);
 
   return NextResponse.json({
     login: auth.user.login,

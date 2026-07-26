@@ -1,9 +1,14 @@
-import { upsertGitHubAccount } from "@/server/data/accounts";
+import { getAccountUser, upsertGitHubAccount } from "@/server/data/accounts";
 import { createMobileAuthExchange } from "@/server/data/mobile";
-import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
 import {
-  recomputeScoreSnapshots,
+  hidePublicLogin,
+  publishPublicPeriods,
+} from "@/server/data/public-discovery-cache";
+import {
+  currentPeriod,
+  refreshDirtyScorePeriodsForUser,
   refreshGitHubCommitsForUser,
+  scorePeriodsRequiredForRefresh,
 } from "@/server/data/scores";
 import {
   exchangeGitHubCode,
@@ -28,13 +33,18 @@ export async function GET(request: NextRequest) {
     const mobileState = verifyMobileAuthState(state);
     fallbackScheme = mobileState.callbackScheme;
     const token = await exchangeGitHubCode(code, { redirectUri });
+    const githubUser = await fetchGitHubUser(token.accessToken);
+    const existingUser = await getAccountUser(githubUser);
+    if (existingUser) {
+      await hidePublicLogin(existingUser.login);
+    }
+    await hidePublicLogin(githubUser.login);
     const user = await upsertGitHubAccount({
-      user: await fetchGitHubUser(token.accessToken),
+      user: githubUser,
       accessToken: token.accessToken,
       scopes: token.scopes,
       publicLeaderboard: false,
     });
-    invalidatePublicDiscoveryCache();
 
     try {
       await refreshGitHubCommitsForUser({
@@ -42,7 +52,11 @@ export async function GET(request: NextRequest) {
         userId: user.id,
         login: user.login,
       });
-      await recomputeScoreSnapshots();
+      const scoreRefresh = await refreshDirtyScorePeriodsForUser(
+        user.id,
+        scorePeriodsRequiredForRefresh(currentPeriod()),
+      );
+      await publishPublicPeriods(scoreRefresh.periods);
     } catch (error) {
       console.error("[mobile-github-oauth] initial score refresh failed", error);
     }

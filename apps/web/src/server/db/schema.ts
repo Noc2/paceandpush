@@ -1,10 +1,12 @@
 import {
   boolean,
+  check,
   date,
   index,
   integer,
   jsonb,
   numeric,
+  primaryKey,
   pgEnum,
   pgTable,
   text,
@@ -16,7 +18,6 @@ import { sql } from "drizzle-orm";
 
 export const platformEnum = pgEnum("platform", ["ios", "android"]);
 export const syncStatusEnum = pgEnum("sync_status", ["success", "warning", "error"]);
-export const boardEnum = pgEnum("board", ["balanced", "commits", "distance"]);
 
 export const users = pgTable(
   "users",
@@ -148,30 +149,65 @@ export const distanceDays = pgTable(
   }),
 );
 
-export const scoreSnapshots = pgTable(
-  "score_snapshots",
+export const periodScores = pgTable(
+  "period_scores",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id").notNull().references(() => users.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     period: text("period").notNull(),
-    board: boardEnum("board").notNull().default("balanced"),
     commitTotal: integer("commit_total").notNull(),
     distanceMetersTotal: integer("distance_meters_total").notNull(),
     commitComponent: numeric("commit_component", { precision: 8, scale: 6 }).notNull(),
     distanceComponent: numeric("distance_component", { precision: 8, scale: 6 }).notNull(),
     score: numeric("score", { precision: 9, scale: 6 }).notNull(),
-    rank: integer("rank"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    streakDays: integer("streak_days").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    periodBoardRankIdx: index("score_snapshots_period_board_rank_idx")
-      .on(table.period, table.board, table.rank)
-      .where(sql`${table.rank} IS NOT NULL`),
-    userPeriodBoardIdx: uniqueIndex("score_snapshots_user_period_board_idx").on(
-      table.userId,
-      table.period,
-      table.board,
+    primaryKey: primaryKey({ columns: [table.userId, table.period] }),
+    commitTotalCheck: check("period_scores_commit_total_check", sql`${table.commitTotal} >= 0`),
+    distanceTotalCheck: check(
+      "period_scores_distance_total_check",
+      sql`${table.distanceMetersTotal} >= 0`,
     ),
+    streakDaysCheck: check("period_scores_streak_days_check", sql`${table.streakDays} >= 0`),
+    balancedOrderIdx: index("period_scores_balanced_order_idx").on(
+      table.period,
+      table.score.desc(),
+      table.commitTotal.desc(),
+      table.distanceMetersTotal.desc(),
+      table.userId,
+    ),
+    commitOrderIdx: index("period_scores_commit_order_idx").on(
+      table.period,
+      table.commitTotal.desc(),
+      table.distanceMetersTotal.desc(),
+      table.userId,
+    ),
+    distanceOrderIdx: index("period_scores_distance_order_idx").on(
+      table.period,
+      table.distanceMetersTotal.desc(),
+      table.commitTotal.desc(),
+      table.userId,
+    ),
+  }),
+);
+
+export const dirtyScorePeriods = pgTable(
+  "dirty_score_periods",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    period: text("period").notNull(),
+    revision: integer("revision").notNull().default(1),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    primaryKey: primaryKey({ columns: [table.userId, table.period] }),
+    revisionCheck: check("dirty_score_periods_revision_check", sql`${table.revision} >= 1`),
+    requestedAtIdx: index("dirty_score_periods_requested_at_idx").on(table.requestedAt),
   }),
 );
 

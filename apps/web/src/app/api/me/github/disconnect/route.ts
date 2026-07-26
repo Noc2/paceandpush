@@ -1,10 +1,12 @@
 import { getSessionUser } from "@/server/auth/session";
 import { disconnectGitHubAccount, getAccountUser } from "@/server/data/accounts";
+import { publishPublicPeriods } from "@/server/data/public-discovery-cache";
 import {
-  getScoreSnapshotPeriodsForUser,
-  recomputeScoreSnapshotPeriods,
+  getScorePeriodsForUser,
+  refreshDirtyScorePeriodsForUser,
+  scorePeriodsRequiredForRefresh,
 } from "@/server/data/scores";
-import { currentPeriod, periodForKind } from "@/lib/periods";
+import { currentPeriod } from "@/lib/periods";
 import { NextResponse } from "next/server";
 
 export async function DELETE() {
@@ -13,15 +15,19 @@ export async function DELETE() {
     return NextResponse.json({ error: "Sign in with GitHub first." }, { status: 401 });
   }
 
-  const now = new Date();
-  const affectedPeriods = await getScoreSnapshotPeriodsForUser(user.id, [
-    periodForKind("year", now),
-    currentPeriod(now),
-    periodForKind("week", now),
+  const affectedPeriods = await getScorePeriodsForUser(user.id, [
+    ...scorePeriodsRequiredForRefresh(currentPeriod()),
   ]);
 
   await disconnectGitHubAccount(user.id);
-  await recomputeScoreSnapshotPeriods(affectedPeriods);
+  const scoreRefresh = await refreshDirtyScorePeriodsForUser(user.id, affectedPeriods);
+  const warnings: string[] = [];
+  try {
+    await publishPublicPeriods(scoreRefresh.periods);
+  } catch (error) {
+    warnings.push("public_projection_refresh_failed");
+    console.error("[github-disconnect] public projection refresh failed", error);
+  }
 
   return NextResponse.json({
     login: user.login,
@@ -30,6 +36,8 @@ export async function DELETE() {
       needsReconnect: false,
       updatedAt: null,
     },
+    refreshedPeriods: scoreRefresh.periods,
     disconnectedAt: new Date().toISOString(),
+    ...(warnings.length > 0 ? { warnings } : {}),
   });
 }

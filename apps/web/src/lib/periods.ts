@@ -95,6 +95,27 @@ export function periodForKind(kind: PeriodKind, date: Date): string {
   return toMonthPeriod(date);
 }
 
+export function scorePeriodsForDays(days: Iterable<string>): string[] {
+  const periods = new Set<string>();
+
+  for (const day of days) {
+    const date = new Date(`${day}T00:00:00.000Z`);
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(day) ||
+      !Number.isFinite(date.valueOf()) ||
+      date.toISOString().slice(0, 10) !== day
+    ) {
+      throw new Error("score activity days must use valid YYYY-MM-DD dates.");
+    }
+
+    periods.add(periodForKind("week", date));
+    periods.add(periodForKind("month", date));
+    periods.add(periodForKind("year", date));
+  }
+
+  return [...periods].sort();
+}
+
 export function periodStartDate(period: string): Date {
   const { start } = periodBounds(period);
   return new Date(`${start}T00:00:00.000Z`);

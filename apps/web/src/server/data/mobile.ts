@@ -9,9 +9,7 @@ import type {
   SyncRunRequest,
   SyncRunResponse,
 } from "@paceandpush/api-contracts";
-import { updateAccountSettings } from "@/server/data/accounts";
-import { invalidatePublicDiscoveryCache } from "@/server/data/public-discovery-cache";
-import { refreshScoresAfterLeaderboardVisibilityChange } from "@/server/data/scores";
+import { getAccountUser, type AccountUser } from "@/server/data/accounts";
 import { getDb } from "@/server/db/client";
 import {
   distanceDays,
@@ -29,6 +27,7 @@ import {
   isPKCECodeVerifier,
   normalizeDeviceLabel,
 } from "@/server/mobile/tokens";
+import { updateAccountSettingsWithPublicProjection } from "@/server/privacy/public-visibility";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
 
 const manualPairingCodeTtlMs = 10 * 60 * 1000;
@@ -158,6 +157,8 @@ export async function exchangeMobileAuthCode({
     .select({
       githubId: users.githubId,
       login: users.login,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
       publicLeaderboard: users.publicLeaderboard,
       publicActivityHistory: users.publicActivityHistory,
       publicHealthDataConsentVersion: users.publicHealthDataConsentVersion,
@@ -186,9 +187,8 @@ export async function exchangeMobileAuthCode({
   const updatedUser = await applyMobileLeaderboardPreference({
     publicLeaderboard,
     publicHealthDataConsent,
-    userId: exchange.userId,
+    user,
   });
-  await refreshMobileVisibilityScores(updatedUser);
   return withAuthoritativePublicConsent(deviceExchange, updatedUser);
 }
 
@@ -228,6 +228,8 @@ export async function exchangeMobilePairingCode({
     .select({
       githubId: users.githubId,
       login: users.login,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
       publicLeaderboard: users.publicLeaderboard,
       publicActivityHistory: users.publicActivityHistory,
       publicHealthDataConsentVersion: users.publicHealthDataConsentVersion,
@@ -260,15 +262,14 @@ export async function exchangeMobilePairingCode({
   const updatedUser = await applyMobileLeaderboardPreference({
     publicLeaderboard: nextPublicLeaderboard,
     publicHealthDataConsent,
-    userId: exchange.userId,
+    user,
   });
-  await refreshMobileVisibilityScores(updatedUser);
   return withAuthoritativePublicConsent(deviceExchange, updatedUser);
 }
 
 function withAuthoritativePublicConsent(
   deviceExchange: DeviceExchangeResponse,
-  user: Awaited<ReturnType<typeof updateAccountSettings>>,
+  user: AccountUser,
 ): DeviceExchangeResponse {
   return {
     ...deviceExchange,
@@ -283,33 +284,26 @@ function withAuthoritativePublicConsent(
 async function applyMobileLeaderboardPreference({
   publicLeaderboard,
   publicHealthDataConsent,
-  userId,
+  user,
 }: {
   publicLeaderboard: boolean;
   publicHealthDataConsent?: DeviceExchangeRequest["publicHealthDataConsent"];
-  userId: string;
+  user: {
+    avatarUrl: string | null;
+    displayName: string;
+    githubId: string;
+    login: string;
+  };
 }) {
-  const updatedUser = await updateAccountSettings({
-    userId,
+  const account = await getAccountUser(user);
+  if (!account) {
+    throw new Error("Mobile auth user does not exist.");
+  }
+  return updateAccountSettingsWithPublicProjection({
+    user: account,
     publicLeaderboard,
     publicHealthDataConsent,
   });
-  invalidatePublicDiscoveryCache();
-  return updatedUser;
-}
-
-async function refreshMobileVisibilityScores(
-  user: Awaited<ReturnType<typeof updateAccountSettings>>,
-): Promise<void> {
-  try {
-    await refreshScoresAfterLeaderboardVisibilityChange({
-      userId: user.id,
-      login: user.login,
-      publicLeaderboard: user.publicLeaderboard,
-    });
-  } catch (error) {
-    console.error("[mobile-auth] score refresh after privacy choice failed", error);
-  }
 }
 
 export async function getStoredDeviceByToken({
@@ -427,6 +421,13 @@ export async function upsertDistanceDays({
         flagged: sql`excluded.flagged`,
         updatedAt: now,
       },
+      setWhere: sql`
+        ${distanceDays.meters} IS DISTINCT FROM excluded.meters
+        OR ${distanceDays.deviceId} IS DISTINCT FROM excluded.device_id
+        OR ${distanceDays.sourcePlatform} IS DISTINCT FROM excluded.source_platform
+        OR ${distanceDays.sourceHash} IS DISTINCT FROM excluded.source_hash
+        OR ${distanceDays.flagged} IS DISTINCT FROM excluded.flagged
+      `,
     });
 
   await touchDevice(auth.device.id);

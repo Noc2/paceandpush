@@ -19,6 +19,10 @@ The public privacy policy now lives in the web app at
 - Private-first sync state; versioned consent and timestamps for the public
   exact-summary bundle; withdrawal state; and a separate default-off dated
   activity-history preference.
+- A Redis public-read projection containing only opted-in public profile,
+  leaderboard, search, and optional dated-history fields, plus
+  visibility-suppression markers that prevent withdrawn or deleted profiles
+  from reappearing.
 - Data export and deletion controls.
 - Website analytics through Simple Analytics, including aggregate page paths,
   referrers/UTM sources, country, language, device/browser information,
@@ -36,10 +40,10 @@ The public privacy policy now lives in the web app at
 
 - Privacy/legal contact: `hawigxyz@proton.me`.
 - Processor position: Vercel hosts and executes the web application; Neon hosts
-  the Postgres database. Where they process personal data on behalf of Pace &
-  Push, the production position is to rely on their applicable data-processing
-  terms, subprocessor controls, technical and organizational measures, and
-  cross-border transfer mechanisms.
+  the Postgres database; Upstash hosts the Redis public-read projection. Where
+  they process personal data on behalf of Pace & Push, the production position
+  is to rely on their applicable data-processing terms, subprocessor controls,
+  technical and organizational measures, and cross-border transfer mechanisms.
 - Platform-recipient position: GitHub provides OAuth and API data and also acts
   independently for GitHub account/service data. Apple and Google provide app
   distribution and native health-permission surfaces; HealthKit and Health
@@ -52,4 +56,6 @@ The public privacy policy now lives in the web app at
 - Retention position: account, commit, distance, device, score, and sync records
   are kept while the account is active and are deleted from the application
   database on account deletion, subject to limited provider backup/log retention
-  cycles.
+  cycles. Public projections are refreshed or removed when sharing changes.
+  Minimal visibility-suppression markers may remain as long as necessary to
+  prevent stale public data from reappearing.

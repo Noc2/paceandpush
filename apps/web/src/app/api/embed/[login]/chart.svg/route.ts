@@ -1,4 +1,5 @@
-import { getPublicProfile } from "@/server/data/read-model";
+import { getCachedPublicProfile } from "@/server/data/public-discovery-cache";
+import { PublicProjectionUnavailableError } from "@/server/data/public-projection-store";
 import { parsePublicPeriod } from "@/lib/periods";
 import { parseProfileChartTheme, renderProfileChartSvg } from "@/server/charts/profile-chart";
 import { parseUnitPreference } from "@/lib/distance-units";
@@ -25,7 +26,18 @@ export async function GET(
     });
   }
 
-  const profile = await getPublicProfile(decodeURIComponent(login), period);
+  let profile;
+  try {
+    profile = await getCachedPublicProfile(decodeURIComponent(login), period);
+  } catch (error) {
+    if (error instanceof PublicProjectionUnavailableError) {
+      return new NextResponse("Public activity data is temporarily unavailable.", {
+        status: 503,
+        headers: { "cache-control": "no-store" },
+      });
+    }
+    throw error;
+  }
   const units = parseUnitPreference(request.nextUrl.searchParams.get("units"));
   const theme = parseProfileChartTheme(request.nextUrl.searchParams.get("theme"));
 

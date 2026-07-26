@@ -1,10 +1,12 @@
 import { disconnectGitHubAccount } from "@/server/data/accounts";
 import { revokeMobileDevice, verifyDeviceToken } from "@/server/data/mobile";
+import { publishPublicPeriods } from "@/server/data/public-discovery-cache";
 import {
-  getScoreSnapshotPeriodsForUser,
-  recomputeScoreSnapshotPeriods,
+  getScorePeriodsForUser,
+  refreshDirtyScorePeriodsForUser,
+  scorePeriodsRequiredForRefresh,
 } from "@/server/data/scores";
-import { currentPeriod, periodForKind } from "@/lib/periods";
+import { currentPeriod } from "@/lib/periods";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(request: NextRequest) {
@@ -13,19 +15,34 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Missing or invalid device token." }, { status: 401 });
   }
 
-  const now = new Date();
-  const affectedPeriods = await getScoreSnapshotPeriodsForUser(auth.user.id, [
-    periodForKind("year", now),
-    currentPeriod(now),
-    periodForKind("week", now),
+  const affectedPeriods = await getScorePeriodsForUser(auth.user.id, [
+    ...scorePeriodsRequiredForRefresh(currentPeriod()),
   ]);
 
   await disconnectGitHubAccount(auth.user.id);
   const device = await revokeMobileDevice({ id: auth.device.id, userId: auth.user.id });
+  let refreshedPeriods: string[] = [];
+  const warnings: string[] = [];
   try {
-    await recomputeScoreSnapshotPeriods(affectedPeriods);
+    const scoreRefresh = await refreshDirtyScorePeriodsForUser(
+      auth.user.id,
+      affectedPeriods,
+    );
+    refreshedPeriods = scoreRefresh.periods;
   } catch (error) {
-    console.error("[mobile-github-disconnect] score recompute failed", error);
+    warnings.push("score_refresh_failed");
+    console.error("[mobile-github-disconnect] score refresh failed", error);
+  }
+  if (refreshedPeriods.length > 0) {
+    try {
+      await publishPublicPeriods(refreshedPeriods);
+    } catch (error) {
+      warnings.push("public_projection_refresh_failed");
+      console.error(
+        "[mobile-github-disconnect] public projection refresh failed",
+        error,
+      );
+    }
   }
 
   return NextResponse.json({
@@ -36,6 +53,8 @@ export async function DELETE(request: NextRequest) {
       updatedAt: null,
     },
     device: device ?? { ...auth.device, revoked: true },
+    refreshedPeriods,
     disconnectedAt: new Date().toISOString(),
+    ...(warnings.length > 0 ? { warnings } : {}),
   });
 }

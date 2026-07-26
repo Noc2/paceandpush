@@ -50,6 +50,7 @@ test("public profile scores omit private sync timestamps", () => {
   assert.ok(!jsonSchemas.publicScoreSummary.required.includes("lastSyncAt"));
   assert.ok(!("lastSyncAt" in jsonSchemas.publicScoreSummary.properties));
   assert.ok(!("lastSyncAt" in seedProfile.score));
+  assert.equal(seedProfile.streakDays, 11);
 });
 
 test("OpenAPI documents period selection for mobile profile history", () => {

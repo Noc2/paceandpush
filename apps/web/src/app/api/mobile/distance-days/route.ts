@@ -1,6 +1,6 @@
 import { upsertDistanceDays, verifyDeviceToken } from "@/server/data/mobile";
-import { recomputeScoreSnapshots } from "@/server/data/scores";
-import { periodForKind } from "@/lib/periods";
+import { publishPublicPeriods } from "@/server/data/public-discovery-cache";
+import { refreshDirtyScorePeriodsForUser } from "@/server/data/scores";
 import { rateLimit } from "@/server/api/rate-limit";
 import { isDistanceDayInput, isPlainObject } from "@/server/api/payloads";
 import type { DistanceDayInput } from "@paceandpush/api-contracts";
@@ -44,28 +44,32 @@ export async function POST(request: NextRequest) {
   const canonicalDays = canonicalDistanceDays(accepted);
 
   await upsertDistanceDays({ auth, days: canonicalDays });
-  const scorePeriods = scorePeriodsForDistanceDays(canonicalDays);
-  const recomputeResults = await Promise.allSettled(
-    scorePeriods.map((period) => recomputeScoreSnapshots(period)),
-  );
-  const failedPeriods = scorePeriods.filter(
-    (_, index) => recomputeResults[index]?.status === "rejected",
-  );
+  let refreshedPeriods: string[] = [];
+  const warnings: string[] = [];
 
-  if (failedPeriods.length > 0) {
-    console.error("[mobile] distance score recompute failed", {
-      periods: failedPeriods,
-      errors: recomputeResults
-        .filter((result) => result.status === "rejected")
-        .map((result) => result.reason),
-    });
+  try {
+    const scoreRefresh = await refreshDirtyScorePeriodsForUser(auth.user.id);
+    refreshedPeriods = scoreRefresh.periods;
+  } catch (error) {
+    warnings.push("score_refresh_failed");
+    console.error("[mobile] distance score refresh failed", error);
+  }
+
+  if (refreshedPeriods.length > 0) {
+    try {
+      await publishPublicPeriods(refreshedPeriods);
+    } catch (error) {
+      warnings.push("public_projection_refresh_failed");
+      console.error("[mobile] distance public projection refresh failed", error);
+    }
   }
 
   return NextResponse.json({
     accepted: canonicalDays.length,
     flagged:
       days.length - accepted.length + canonicalDays.filter((day) => day.flagged).length,
-    ...(failedPeriods.length > 0 ? { warnings: ["score_recompute_failed"] } : {}),
+    refreshedPeriods,
+    ...(warnings.length > 0 ? { warnings } : {}),
   });
 }
 
@@ -83,19 +87,4 @@ function canonicalDistanceDays(
   }
 
   return [...daysByDate.values()];
-}
-
-function scorePeriodsForDistanceDays(
-  days: Array<DistanceDayInput & { flagged: boolean }>,
-): string[] {
-  const periods = new Set<string>();
-
-  for (const day of days) {
-    const date = new Date(`${day.date}T00:00:00.000Z`);
-    periods.add(periodForKind("week", date));
-    periods.add(periodForKind("month", date));
-    periods.add(periodForKind("year", date));
-  }
-
-  return [...periods].sort();
 }

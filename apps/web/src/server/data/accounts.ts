@@ -8,7 +8,7 @@ import {
   githubAccounts,
   mobileAuthExchanges,
   mobileDevices,
-  scoreSnapshots,
+  periodScores,
   syncRuns,
   users,
 } from "@/server/db/schema";
@@ -293,7 +293,6 @@ export async function disconnectGitHubAccount(userId: string): Promise<void> {
     })
     .where(eq(githubAccounts.userId, userId));
   await db.delete(commitDays).where(eq(commitDays.userId, userId));
-  await db.delete(scoreSnapshots).where(eq(scoreSnapshots.userId, userId));
 }
 
 export async function exportAccountData(userId: string) {
@@ -343,7 +342,7 @@ export async function exportAccountData(userId: string) {
       })
       .from(distanceDays)
       .where(eq(distanceDays.userId, userId)),
-    db.select().from(scoreSnapshots).where(eq(scoreSnapshots.userId, userId)),
+    db.select().from(periodScores).where(eq(periodScores.userId, userId)),
     db.select().from(syncRuns).where(eq(syncRuns.userId, userId)),
   ]);
 
@@ -353,7 +352,7 @@ export async function exportAccountData(userId: string) {
     devices,
     commitDays: commits,
     distanceDays: distances,
-    scoreSnapshots: scores,
+    periodScores: scores,
     syncRuns: runs,
   };
 }
@@ -363,7 +362,6 @@ export async function deleteAccountData(userId: string): Promise<void> {
   await db.delete(syncRuns).where(eq(syncRuns.userId, userId));
   await db.delete(distanceDays).where(eq(distanceDays.userId, userId));
   await db.delete(commitDays).where(eq(commitDays.userId, userId));
-  await db.delete(scoreSnapshots).where(eq(scoreSnapshots.userId, userId));
   await db.delete(mobileDevices).where(eq(mobileDevices.userId, userId));
   await db.delete(mobileAuthExchanges).where(eq(mobileAuthExchanges.userId, userId));
   await db.delete(githubAccounts).where(eq(githubAccounts.userId, userId));
